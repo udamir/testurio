@@ -1,0 +1,223 @@
+/**
+ * Message Matcher Tests
+ */
+
+import { describe, expect, it } from "vitest";
+import type { Hook, Message, PayloadMatcher } from "testurio";
+import {
+	calculateHookScore,
+	matchHook,
+	matchMessageType,
+	matchPayload,
+	matchHttpPath,
+} from "testurio";
+
+// Helper to create a minimal hook for testing
+function createHook(
+	messageTypes: string | string[],
+	matcher?: PayloadMatcher,
+): Hook {
+	return {
+		id: "test-hook",
+		componentName: "test",
+		phase: "test",
+		messageTypes,
+		matcher,
+		handlers: [],
+		persistent: false,
+	};
+}
+
+describe("MessageMatcher", () => {
+	describe("matchMessageType", () => {
+		it("should match single message type", () => {
+			expect(matchMessageType("Order", "Order")).toBe(true);
+		});
+
+		it("should not match different message type", () => {
+			expect(matchMessageType("Order", "Trade")).toBe(false);
+		});
+
+		it("should match when message type is in array", () => {
+			expect(matchMessageType(["Order", "Trade"], "Order")).toBe(true);
+			expect(matchMessageType(["Order", "Trade"], "Trade")).toBe(true);
+		});
+
+		it("should not match when message type is not in array", () => {
+			expect(matchMessageType(["Order", "Trade"], "Quote")).toBe(false);
+		});
+	});
+
+	describe("matchPayload", () => {
+		it("should match by traceId", () => {
+			const matcher: PayloadMatcher = { type: "traceId", value: "trace-123" };
+			const message: Message = {
+				type: "Order",
+				payload: {},
+				traceId: "trace-123",
+			};
+
+			expect(matchPayload(matcher, message)).toBe(true);
+		});
+
+		it("should not match wrong traceId", () => {
+			const matcher: PayloadMatcher = { type: "traceId", value: "trace-123" };
+			const message: Message = {
+				type: "Order",
+				payload: {},
+				traceId: "trace-456",
+			};
+
+			expect(matchPayload(matcher, message)).toBe(false);
+		});
+
+		it("should match by function", () => {
+			const matcher: PayloadMatcher = {
+				type: "function",
+				fn: (payload) => (payload as { amount: number }).amount > 100,
+			};
+			const message: Message = { type: "Order", payload: { amount: 200 } };
+
+			expect(matchPayload(matcher, message)).toBe(true);
+		});
+
+		it("should not match when function returns false", () => {
+			const matcher: PayloadMatcher = {
+				type: "function",
+				fn: (payload) => (payload as { amount: number }).amount > 100,
+			};
+			const message: Message = { type: "Order", payload: { amount: 50 } };
+
+			expect(matchPayload(matcher, message)).toBe(false);
+		});
+
+		it("should handle function matcher errors", () => {
+			const matcher: PayloadMatcher = {
+				type: "function",
+				fn: () => {
+					throw new Error("Test error");
+				},
+			};
+			const message: Message = { type: "Order", payload: {} };
+
+			expect(matchPayload(matcher, message)).toBe(false);
+		});
+
+		it("should match by requestId", () => {
+			const matcher: PayloadMatcher = { type: "requestId", value: "req-123" };
+			const message: Message = {
+				type: "request",
+				payload: {},
+				metadata: { requestId: "req-123" },
+			};
+
+			expect(matchPayload(matcher, message)).toBe(true);
+		});
+	});
+
+	describe("matchHook", () => {
+		it("should match when message type matches and no payload matcher", () => {
+			const hook = createHook("Order");
+			const message: Message = { type: "Order", payload: {} };
+
+			expect(matchHook(hook, message)).toBe(true);
+		});
+
+		it("should not match when message type does not match", () => {
+			const hook = createHook("Order");
+			const message: Message = { type: "Trade", payload: {} };
+
+			expect(matchHook(hook, message)).toBe(false);
+		});
+
+		it("should match when message type and payload matcher both match", () => {
+			const hook = createHook("Order", { type: "traceId", value: "trace-123" });
+			const message: Message = {
+				type: "Order",
+				payload: {},
+				traceId: "trace-123",
+			};
+
+			expect(matchHook(hook, message)).toBe(true);
+		});
+
+		it("should not match when message type matches but payload matcher does not", () => {
+			const hook = createHook("Order", { type: "traceId", value: "trace-123" });
+			const message: Message = {
+				type: "Order",
+				payload: {},
+				traceId: "trace-456",
+			};
+
+			expect(matchHook(hook, message)).toBe(false);
+		});
+
+		it("should match with array of message types", () => {
+			const hook = createHook(["Order", "Trade"]);
+			const message: Message = { type: "Trade", payload: {} };
+
+			expect(matchHook(hook, message)).toBe(true);
+		});
+	});
+
+	describe("matchHttpPath (from http-adapter)", () => {
+		it("should match exact paths", () => {
+			expect(matchHttpPath("/api/users", "/api/users")).toBe(true);
+		});
+
+		it("should not match different paths", () => {
+			expect(matchHttpPath("/api/users", "/api/orders")).toBe(false);
+		});
+
+		it("should match path with single parameter", () => {
+			expect(matchHttpPath("/api/users/123", "/api/users/{id}")).toBe(true);
+		});
+
+		it("should match path with multiple parameters", () => {
+			expect(
+				matchHttpPath(
+					"/api/users/123/orders/456",
+					"/api/users/{userId}/orders/{orderId}",
+				),
+			).toBe(true);
+		});
+
+		it("should not match if segment count differs", () => {
+			expect(matchHttpPath("/api/users", "/api/users/{id}")).toBe(false);
+			expect(matchHttpPath("/api/users/123/orders", "/api/users/{id}")).toBe(false);
+		});
+
+		it("should match complex paths", () => {
+			expect(
+				matchHttpPath("/api/v1/users/123/posts", "/api/v1/users/{id}/posts"),
+			).toBe(true);
+		});
+	});
+
+	describe("calculateHookScore", () => {
+		it("should give base score for hook without matcher", () => {
+			const hook = createHook("Order");
+			expect(calculateHookScore(hook)).toBe(20);
+		});
+
+		it("should give lower base score to array of message types", () => {
+			const hook = createHook(["Order", "Trade"]);
+			expect(calculateHookScore(hook)).toBe(10);
+		});
+
+		it("should add traceId matcher score", () => {
+			const hook = createHook("Order", { type: "traceId", value: "trace-123" });
+			expect(calculateHookScore(hook)).toBe(120); // 20 + 100
+		});
+
+		it("should add requestId matcher score", () => {
+			const hook = createHook("Order", { type: "requestId", value: "req-123" });
+			expect(calculateHookScore(hook)).toBe(120); // 20 + 100
+		});
+
+		it("should add function matcher score", () => {
+			const hook = createHook("Order", { type: "function", fn: () => true });
+			expect(calculateHookScore(hook)).toBe(40); // 20 + 20
+		});
+	});
+});

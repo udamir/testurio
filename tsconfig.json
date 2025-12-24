@@ -1,0 +1,40 @@
+{
+  "compilerOptions": {
+    "moduleResolution": "node",
+    "target": "es2019",
+    "module": "CommonJS",
+    "outDir": "dist",
+    "rootDir": ".",
+    "noEmit": true,
+    "allowJs": true,
+    "removeComments": false,
+
+    "strict": true,
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "types": ["node"],
+    "typeRoots": ["node_modules/@types", "types"],
+
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "allowImportingTsExtensions": true,
+    "baseUrl": ".",
+    "skipLibCheck": true,
+    "paths": {
+      "testurio": ["./packages/core/src"],
+      "@testurio/adapter-grpc": ["./packages/adapter-grpc/src"],
+      "@testurio/adapter-ws": ["./packages/adapter-ws/src"],
+      "@testurio/adapter-tcp": ["./packages/adapter-tcp/src"],
+      "@testurio/reporter-allure": ["./packages/reporter-allure/src"]
+    }
+  },
+  "include": ["src/**/*", "tests/**/*", "packages/**/*"],
+  "exclude": ["node_modules", "dist", "examples"]
+}

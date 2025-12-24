@@ -1,0 +1,31 @@
+# Source files (dist is published)
+src/
+tests/
+
+# Config files
+tsconfig.json
+vitest.config.ts
+biome.json
+.editorconfig
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test artifacts
+coverage/
+*.log
+
+# Development
+node_modules/
+.env
+.env.*
+
+# Build artifacts (keep dist/)
+*.tsbuildinfo

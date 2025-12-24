@@ -1,0 +1,14 @@
+# Default ignored files
+.idea/
+.windsurf/
+
+reports/*
+!reports/.gitkeep
+
+node_modules
+test-server/node_modules
+yarn-error.log
+dist
+temp
+bin
+poc

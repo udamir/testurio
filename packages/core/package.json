@@ -1,0 +1,55 @@
+{
+  "name": "testurio",
+  "version": "0.1.0",
+  "description": "Declarative E2E/integration testing framework for distributed systems with multi-protocol support (HTTP, gRPC, WebSocket, TCP)",
+  "keywords": [
+    "testing",
+    "e2e",
+    "integration",
+    "http",
+    "grpc",
+    "websocket",
+    "tcp",
+    "mock",
+    "proxy",
+    "declarative",
+    "typescript",
+    "distributed-systems"
+  ],
+  "author": "Damir Yusipov",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/udamir/testurio.git",
+    "directory": "packages/core"
+  },
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "test": "vitest run",
+    "lint": "biome check src"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/node": "^24.10.0",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^1.6.0"
+  }
+}

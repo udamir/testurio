@@ -1,0 +1,154 @@
+syntax = "proto3";
+
+package test.v1;
+
+// User messages
+message GetUserRequest {
+  int32 user_id = 1;
+}
+
+message GetUserResponse {
+  int32 user_id = 1;
+  string name = 2;
+  string email = 3;
+}
+
+// Order messages
+message CreateOrderRequest {
+  string customer_id = 1;
+  repeated OrderItem items = 2;
+  ShippingAddress shipping_address = 3;
+}
+
+message OrderItem {
+  string product_id = 1;
+  int32 quantity = 2;
+  double price = 3;
+}
+
+message ShippingAddress {
+  string street = 1;
+  string city = 2;
+  string zip = 3;
+}
+
+message CreateOrderResponse {
+  string order_id = 1;
+  string status = 2;
+  double total = 3;
+}
+
+// Generic messages
+message GenericRequest {
+  string key = 1;
+  string data = 2;
+}
+
+message GenericResponse {
+  int32 status = 1;
+  string value = 2;
+  string error = 3;
+  bool from_cache = 4;
+  string code = 5;
+  string key = 6;
+}
+
+// List users
+message ListUsersRequest {
+  int32 limit = 1;
+}
+
+message ListUsersResponse {
+  repeated UserInfo users = 1;
+  int32 total = 2;
+}
+
+message UserInfo {
+  int32 id = 1;
+  string name = 2;
+}
+
+// Delete user
+message DeleteUserRequest {
+  int32 user_id = 1;
+}
+
+message DeleteUserResponse {
+  bool deleted = 1;
+}
+
+// Streaming messages
+message StreamRequest {
+  string request_id = 1;
+  oneof payload {
+    PingRequest ping = 2;
+    SubscribeRequest subscribe = 3;
+    DataRequest data = 4;
+  }
+}
+
+message PingRequest {
+  int64 timestamp = 1;
+}
+
+message SubscribeRequest {
+  string channel = 1;
+  repeated string topics = 2;
+}
+
+message DataRequest {
+  string key = 1;
+  bytes value = 2;
+}
+
+message StreamResponse {
+  string request_id = 1;
+  oneof payload {
+    PongResponse pong = 2;
+    SubscribeResponse subscribe = 3;
+    DataResponse data = 4;
+    ErrorResponse error = 5;
+  }
+}
+
+message PongResponse {
+  int64 timestamp = 1;
+}
+
+message SubscribeResponse {
+  string channel = 1;
+  bool success = 2;
+}
+
+message DataResponse {
+  string key = 1;
+  bytes value = 2;
+  string status = 3;
+}
+
+message ErrorResponse {
+  int32 code = 1;
+  string message = 2;
+}
+
+// Test service with unary and streaming methods
+service TestService {
+  // Unary calls
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+  rpc CreateOrder(CreateOrderRequest) returns (CreateOrderResponse);
+  rpc GetCachedData(GenericRequest) returns (GenericResponse);
+  rpc GetNotFound(GenericRequest) returns (GenericResponse);
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+  rpc GetData(GenericRequest) returns (GenericResponse);
+  rpc GetSecretData(GenericRequest) returns (GenericResponse);
+  
+  // Bidirectional streaming
+  rpc Stream(stream StreamRequest) returns (stream StreamResponse);
+}
+
+// Streaming test service
+service StreamTestService {
+  // Bidirectional streaming for testing
+  rpc DeliveryMessage(stream StreamRequest) returns (stream StreamResponse);
+}

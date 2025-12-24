@@ -1,0 +1,56 @@
+{
+  "name": "@testurio/adapter-ws",
+  "version": "0.1.0",
+  "description": "WebSocket adapter for testurio",
+  "keywords": [
+    "testurio",
+    "websocket",
+    "ws",
+    "testing",
+    "adapter"
+  ],
+  "author": "Damir Yusipov",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/udamir/testurio.git",
+    "directory": "packages/adapter-ws"
+  },
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "test": "vitest run",
+    "lint": "biome check src"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  },
+  "peerDependencies": {
+    "testurio": "^0.1.0"
+  },
+  "devDependencies": {
+    "testurio": "workspace:*",
+    "@biomejs/biome": "^1.9.4",
+    "@types/node": "^24.10.0",
+    "@types/ws": "^8.18.1",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^1.6.0"
+  }
+}
