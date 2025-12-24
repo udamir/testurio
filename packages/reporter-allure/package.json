@@ -36,7 +36,8 @@
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts --clean",
     "test": "vitest run",
-    "lint": "biome check src"
+    "lint": "biome check src",
+    "prepublish": "pnpm run lint && pnpm run test && pnpm run build"
   },
   "dependencies": {
     "allure-js-commons": "^3.0.0"

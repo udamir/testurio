@@ -22,7 +22,9 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "lint": "pnpm -r lint",
-    "lint:fix": "biome check --write packages/*/src"
+    "lint:fix": "biome check --write packages/*/src",
+    "prepublish": "pnpm run lint && pnpm run test:run && pnpm run build",
+    "publish:all": "pnpm run prepublish && pnpm -r publish --access public"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
