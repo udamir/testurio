@@ -84,13 +84,15 @@ describe("Dynamic Component Creation", () => {
 
 	describe("addComponent in init()", () => {
 		it("should add and start component in init handler", async () => {
+			const dynamicServer = createServer("dynamic-mock", 9001);
+
 			const scenario = new TestScenario({
 				name: "Dynamic Init Test",
 				components: [],
 			});
 
 			scenario.init((test) => {
-				test.addComponent(createServer("dynamic-mock", 9001));
+				test.use(dynamicServer);
 			});
 
 			const tc = testCase("Use dynamic component", (test) => {
@@ -103,21 +105,24 @@ describe("Dynamic Component Creation", () => {
 		});
 
 		it("should allow using dynamically added component in test case", async () => {
+			const backendServer = createServer("backend", 9002);
+			const apiClient = createClient("api", 9002);
+
 			const scenario = new TestScenario({
 				name: "Dynamic Init Usage Test",
 				components: [],
 			});
 
 			scenario.init((test) => {
-				test.addComponent(createServer("backend", 9002));
-				test.addComponent(createClient("api", 9002));
+				test.use(backendServer);
+				test.use(apiClient);
 			});
 
 			let clientUsed = false;
 
 			const tc = testCase("Use dynamic components", (test) => {
-				const api = test.client("api");
-				const backend = test.server("backend");
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
 
 				// This should work because components were added in init
 				api.request("getTest", { method: "GET", path: "/test" });
@@ -139,13 +144,16 @@ describe("Dynamic Component Creation", () => {
 		});
 
 		it("should start dynamic components after initial components", async () => {
+			const initialServer = createServer("initial-mock", 9003);
+			const dynamicServer = createServer("dynamic-mock", 9004);
+
 			const scenario = new TestScenario({
 				name: "Component Order Test",
-				components: [createServer("initial-mock", 9003)],
+				components: [initialServer],
 			});
 
 			scenario.init((test) => {
-				test.addComponent(createServer("dynamic-mock", 9004));
+				test.use(dynamicServer);
 			});
 
 			const tc = testCase("Test", (test) => {
@@ -169,7 +177,7 @@ describe("Dynamic Component Creation", () => {
 			});
 
 			const tc = testCase("Create component in test", (test) => {
-				test.addComponent(createServer("test-mock", 9010));
+				test.use(createServer("test-mock", 9010));
 				test.wait(10);
 			});
 
@@ -185,8 +193,8 @@ describe("Dynamic Component Creation", () => {
 			});
 
 			const tc = testCase("Create and use component", (test) => {
-				test.addComponent(createServer("backend", 9011));
-				test.addComponent(createClient("api", 9011));
+				test.use(createServer("backend", 9011));
+				test.use(createClient("api", 9011));
 				// Just verify components were added and can be accessed
 				test.wait(10);
 			});
@@ -206,7 +214,8 @@ describe("Dynamic Component Creation", () => {
 			});
 
 			const tc = testCase("Create scoped component", (test) => {
-				test.addComponent(createServer("scoped-mock", 9012), { scope: "testCase" });
+				// test.use() auto-registers with testCase scope
+				test.use(createServer("scoped-mock", 9012));
 				test.wait(10);
 			});
 
@@ -218,17 +227,23 @@ describe("Dynamic Component Creation", () => {
 		});
 
 		it("should keep scenario-scoped components after test", async () => {
+			const persistentServer = createServer("persistent-mock", 9013);
+
 			const scenario = new TestScenario({
 				name: "Scenario Scope Test",
 				components: [],
 			});
 
-			const tc1 = testCase("Create scenario-scoped component", (test) => {
-				test.addComponent(createServer("persistent-mock", 9013), { scope: "scenario" });
+			// Add in init for scenario scope
+			scenario.init((test) => {
+				test.use(persistentServer);
+			});
+
+			const tc1 = testCase("Use persistent component", (test) => {
 				test.wait(10);
 			});
 
-			const tc2 = testCase("Use persistent component", (test) => {
+			const tc2 = testCase("Use persistent component again", (test) => {
 				// Component should still exist
 				test.wait(10);
 			});
@@ -244,26 +259,28 @@ describe("Dynamic Component Creation", () => {
 			expect(stopCount).toBe(1);
 		});
 
-		it("should default to scenario scope", async () => {
+		it("should default to testCase scope for test.use()", async () => {
 			const scenario = new TestScenario({
 				name: "Default Scope Test",
 				components: [],
 			});
 
-			const tc1 = testCase("Create component without scope option", (test) => {
-				test.addComponent(createServer("default-scope-mock", 9014));
+			const tc1 = testCase("Create component with test.use()", (test) => {
+				// test.use() defaults to testCase scope (auto-cleanup)
+				test.use(createServer("default-scope-mock", 9014));
 				test.wait(10);
 			});
 
-			const tc2 = testCase("Component should persist", (test) => {
+			const tc2 = testCase("Component should be cleaned up", (test) => {
 				test.wait(10);
 			});
 
 			await scenario.run([tc1, tc2]);
 
-			// Should only start once (not stopped between tests)
+			// Should start once and be stopped after tc1
 			const startCount = componentLifecycle.filter(e => e === "server-start:9014").length;
 			expect(startCount).toBe(1);
+			expect(componentLifecycle).toContain("server-stop:server-9014");
 		});
 	});
 
@@ -278,32 +295,34 @@ describe("Dynamic Component Creation", () => {
 			})).toThrow("already exists");
 		});
 
-		it("should throw when adding duplicate component in init", async () => {
+		it("should handle duplicate component in init", async () => {
+			const existingServer = createServer("existing", 9022);
+
 			const scenario = new TestScenario({
 				name: "Duplicate Component Test",
-				components: [createServer("existing", 9022)],
+				components: [existingServer],
 			});
 
 			scenario.init((test) => {
-				test.addComponent(createServer("existing", 9023));
+				// Using same component instance is fine
+				test.use(existingServer);
 			});
 
 			const tc = testCase("Test", (test) => {
 				test.wait(10);
 			});
 
-			// The error is caught and results in a failed scenario
 			const result = await scenario.run(tc);
-			// Init failure causes no test cases to run
-			expect(result.testCases.length).toBe(0);
+			expect(result.passed).toBe(true);
 		});
 
-		it("should throw when addComponent called without registry", () => {
+		it("should handle test.use() with auto-registration", () => {
 			const builder = new TestCaseBuilder(new Map(), {});
+			const server = createServer("test", 9030);
 
-			expect(() => {
-				builder.addComponent(createServer("test", 9030));
-			}).toThrow("Component registry not available");
+			// test.use() should work and auto-register the component
+			const stepBuilder = builder.use(server);
+			expect(stepBuilder).toBeDefined();
 		});
 	});
 
@@ -315,13 +334,14 @@ describe("Dynamic Component Creation", () => {
 			});
 
 			const tc1 = testCase("First test with scoped component", (test) => {
-				test.addComponent(createServer("isolated-1", 9040), { scope: "testCase" });
+				// test.use() auto-registers with testCase scope
+				test.use(createServer("isolated-1", 9040));
 				test.wait(10);
 			});
 
 			const tc2 = testCase("Second test with same name", (test) => {
 				// Should be able to add component with same name since first was cleaned up
-				test.addComponent(createServer("isolated-1", 9041), { scope: "testCase" });
+				test.use(createServer("isolated-1", 9041));
 				test.wait(10);
 			});
 

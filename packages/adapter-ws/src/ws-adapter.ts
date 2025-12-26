@@ -21,6 +21,7 @@ import type {
 } from "testurio";
 import { BaseAsyncAdapter, generateHandleId } from "testurio";
 import { WebSocket, WebSocketServer } from "ws";
+import type { WsAdapterTypes, WsProtocolDefinition } from "./types";
 
 /**
  * Pending message resolver
@@ -72,8 +73,33 @@ export interface WebSocketAdapterOptions {
  *
  * Provides WebSocket client and server functionality for testing.
  * Uses real WebSocket servers and connections for actual network communication.
+ *
+ * @template M - Message types map for type-safe messaging
+ *
+ * @example
+ * ```typescript
+ * type MyMessages = {
+ *   Ping: { seq: number };
+ *   Pong: { seq: number };
+ * };
+ *
+ * const adapter = new WebSocketAdapter<MyMessages>();
+ * const client = new AsyncClient("ws", { adapter, ... });
+ * // client.sendMessage("Ping", { seq: 1 }) is now type-safe
+ * ```
  */
-export class WebSocketAdapter extends BaseAsyncAdapter implements AsyncAdapter {
+export class WebSocketAdapter<
+		P extends WsProtocolDefinition = WsProtocolDefinition,
+	>
+	extends BaseAsyncAdapter
+	implements AsyncAdapter
+{
+	/**
+	 * Phantom type property for type inference.
+	 * Used by components to infer message types.
+	 */
+	declare readonly __types: WsAdapterTypes<P>;
+
 	readonly type = "websocket";
 
 	readonly characteristics: ProtocolCharacteristics = {

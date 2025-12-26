@@ -5,14 +5,14 @@
  * Supports metadata for integration with test reporters (e.g., Allure).
  */
 
-import type { TestCaseBuilder } from "../builders";
+import type { TestCaseBuilder } from "./test-case-builder";
 import type {
 	Severity,
 	TestCaseMetadata,
 	TestCaseResult,
 	TestStep,
 	TestStepResult,
-} from "../types";
+} from "./execution.types";
 import {
 	executeSteps,
 	filterStepsByPhase,

@@ -16,17 +16,22 @@ import * as grpc from "@grpc/grpc-js";
 import * as protoLoader from "@grpc/proto-loader";
 import type {
 	AdapterClientConfig,
-	AdapterClientHandle,
+	AdapterClient,
 	AdapterServerConfig,
-	AdapterServerHandle,
+	AdapterServer,
 	AsyncAdapter,
-	GrpcMessageMetadata,
 	Message,
 	ProtocolCharacteristics,
 	SchemaDefinition,
 	SyncAdapter,
 } from "testurio";
+import type { GrpcMessageMetadata } from "./types";
 import { BaseAsyncAdapter, BaseSyncAdapter, generateHandleId } from "testurio";
+import type {
+	GrpcStreamServiceDefinition,
+	GrpcStreamAdapterTypes,
+	GrpcUnaryAdapterTypes,
+} from "./types";
 
 /**
  * Pending message resolver for streaming
@@ -51,7 +56,7 @@ interface LoadedSchema {
 /**
  * gRPC-specific server handle
  */
-interface GrpcServerHandle extends AdapterServerHandle {
+interface GrpcServerHandle extends AdapterServer {
 	_internal: {
 		server: grpc.Server;
 		isProxy: boolean;
@@ -65,7 +70,7 @@ interface GrpcServerHandle extends AdapterServerHandle {
 /**
  * gRPC-specific client handle for unary calls
  */
-interface GrpcUnaryClientHandle extends AdapterClientHandle {
+interface GrpcUnaryClientHandle extends AdapterClient {
 	_internal: {
 		client: grpc.Client;
 		schema?: LoadedSchema;
@@ -76,7 +81,7 @@ interface GrpcUnaryClientHandle extends AdapterClientHandle {
 /**
  * gRPC-specific client handle for streaming
  */
-interface GrpcStreamClientHandle extends AdapterClientHandle {
+interface GrpcStreamClientHandle extends AdapterClient {
 	_internal: {
 		client: grpc.Client;
 		call?: grpc.ClientDuplexStream<unknown, unknown>;
@@ -104,8 +109,16 @@ export interface GrpcUnaryAdapterOptions {
  * gRPC Unary Adapter (sync request/response)
  *
  * Uses @grpc/grpc-js for proper gRPC unary calls.
+ * @template S - gRPC service definition (method name -> { request, response, metadata? })
  */
-export class GrpcUnaryAdapter extends BaseSyncAdapter implements SyncAdapter {
+// biome-ignore lint/suspicious/noExplicitAny: Required for interface compatibility without index signatures
+export class GrpcUnaryAdapter<S = any> extends BaseSyncAdapter implements SyncAdapter {
+	/**
+	 * Phantom type property for type inference.
+	 * Used by components to infer request/response types.
+	 */
+	declare readonly __types: GrpcUnaryAdapterTypes<S>;
+
 	readonly type = "grpc-unary";
 
 	readonly characteristics: ProtocolCharacteristics = {
@@ -385,7 +398,7 @@ export class GrpcUnaryAdapter extends BaseSyncAdapter implements SyncAdapter {
 
 			const message: Message = {
 				type: methodName,
-				payload: { method: methodName, payload: request },
+				payload: request,
 				metadata: {
 					method: methodName,
 					path: methodName,
@@ -399,7 +412,10 @@ export class GrpcUnaryAdapter extends BaseSyncAdapter implements SyncAdapter {
 					const result = await onRequestCallback(message);
 
 					if (result === null) {
-						callback({ code: grpc.status.CANCELLED, message: "Request dropped" });
+						callback({
+							code: grpc.status.CANCELLED,
+							message: "Request dropped",
+						});
 						return;
 					}
 
@@ -542,7 +558,7 @@ export class GrpcUnaryAdapter extends BaseSyncAdapter implements SyncAdapter {
 	/**
 	 * Stop a gRPC server
 	 */
-	async stopServer(server: AdapterServerHandle): Promise<void> {
+	async stopServer(server: AdapterServer): Promise<void> {
 		const handle = this.servers.get(server.id) as GrpcServerHandle | undefined;
 		if (!handle) {
 			throw new Error(`Server ${server.id} not found`);
@@ -627,7 +643,7 @@ export class GrpcUnaryAdapter extends BaseSyncAdapter implements SyncAdapter {
 	/**
 	 * Close a gRPC client
 	 */
-	async closeClient(client: AdapterClientHandle): Promise<void> {
+	async closeClient(client: AdapterClient): Promise<void> {
 		const handle = this.clients.get(client.id) as
 			| GrpcUnaryClientHandle
 			| undefined;
@@ -647,9 +663,13 @@ export class GrpcUnaryAdapter extends BaseSyncAdapter implements SyncAdapter {
 	 * @param options - Request options (payload, metadata)
 	 */
 	async request<TReq = unknown, TRes = unknown>(
-		client: AdapterClientHandle,
+		client: AdapterClient,
 		messageType: string,
-		options?: { payload?: unknown; metadata?: Record<string, string>; timeout?: number },
+		options?: {
+			payload?: unknown;
+			metadata?: Record<string, string>;
+			timeout?: number;
+		},
 	): Promise<TRes> {
 		const handle = this.clients.get(client.id) as
 			| GrpcUnaryClientHandle
@@ -684,20 +704,24 @@ export class GrpcUnaryAdapter extends BaseSyncAdapter implements SyncAdapter {
 		}
 
 		return new Promise((resolve, reject) => {
-			grpcClient[messageType](options?.payload as TReq, grpcMetadata, (err, response) => {
-				if (err) {
-					// Preserve gRPC error details
-					const error = new Error(err.message) as Error & {
-						code?: number;
-						details?: string;
-					};
-					error.code = err.code;
-					error.details = err.details;
-					reject(error);
-				} else {
-					resolve(response);
-				}
-			});
+			grpcClient[messageType](
+				options?.payload as TReq,
+				grpcMetadata,
+				(err, response) => {
+					if (err) {
+						// Preserve gRPC error details
+						const error = new Error(err.message) as Error & {
+							code?: number;
+							details?: string;
+						};
+						error.code = err.code;
+						error.details = err.details;
+						reject(error);
+					} else {
+						resolve(response);
+					}
+				},
+			);
 		});
 	}
 }
@@ -720,8 +744,33 @@ export interface GrpcStreamAdapterOptions {
  * gRPC Stream Adapter (async bidirectional streaming)
  *
  * Uses @grpc/grpc-js for proper gRPC streaming.
+ *
+ * @template M - Message types map for type-safe messaging
+ *
+ * @example
+ * ```typescript
+ * type MyMessages = {
+ *   StreamRequest: { data: string };
+ *   StreamResponse: { result: string };
+ * };
+ *
+ * const adapter = new GrpcStreamAdapter<MyMessages>({ schema: "path/to/proto" });
+ * const client = new AsyncClient("grpc", { adapter, ... });
+ * // client.sendMessage("StreamRequest", { data: "test" }) is now type-safe
+ * ```
  */
-export class GrpcStreamAdapter extends BaseAsyncAdapter implements AsyncAdapter {
+export class GrpcStreamAdapter<
+		S extends GrpcStreamServiceDefinition = GrpcStreamServiceDefinition,
+	>
+	extends BaseAsyncAdapter
+	implements AsyncAdapter
+{
+	/**
+	 * Phantom type property for type inference.
+	 * Used by components to infer message types.
+	 */
+	declare readonly __types: GrpcStreamAdapterTypes<S>;
+
 	readonly type = "grpc-stream";
 
 	readonly characteristics: ProtocolCharacteristics = {
@@ -741,7 +790,16 @@ export class GrpcStreamAdapter extends BaseAsyncAdapter implements AsyncAdapter 
 	private schema?: LoadedSchema;
 
 	/** Request handlers for unary/streaming calls (hybrid adapter needs both) */
-	private requestHandlers = new Map<string, Map<string, (request: unknown, metadata: GrpcMessageMetadata) => unknown | Promise<unknown>>>();
+	private requestHandlers = new Map<
+		string,
+		Map<
+			string,
+			(
+				request: unknown,
+				metadata: GrpcMessageMetadata,
+			) => unknown | Promise<unknown>
+		>
+	>();
 
 	constructor(options: GrpcStreamAdapterOptions = {}) {
 		super();
@@ -754,7 +812,12 @@ export class GrpcStreamAdapter extends BaseAsyncAdapter implements AsyncAdapter 
 	protected getRequestHandler(
 		serverId: string,
 		methodName: string,
-	): ((request: unknown, metadata: GrpcMessageMetadata) => unknown | Promise<unknown>) | undefined {
+	):
+		| ((
+				request: unknown,
+				metadata: GrpcMessageMetadata,
+		  ) => unknown | Promise<unknown>)
+		| undefined {
 		const serverHandlers = this.requestHandlers.get(serverId);
 		if (!serverHandlers) return undefined;
 		return serverHandlers.get(methodName);
@@ -1273,7 +1336,7 @@ export class GrpcStreamAdapter extends BaseAsyncAdapter implements AsyncAdapter 
 	/**
 	 * Stop a gRPC streaming server
 	 */
-	async stopServer(server: AdapterServerHandle): Promise<void> {
+	async stopServer(server: AdapterServer): Promise<void> {
 		const handle = this.servers.get(server.id) as GrpcServerHandle | undefined;
 		if (!handle) {
 			throw new Error(`Server ${server.id} not found`);
@@ -1457,7 +1520,7 @@ export class GrpcStreamAdapter extends BaseAsyncAdapter implements AsyncAdapter 
 	/**
 	 * Close a gRPC streaming client
 	 */
-	async closeClient(client: AdapterClientHandle): Promise<void> {
+	async closeClient(client: AdapterClient): Promise<void> {
 		const handle = this.clients.get(client.id) as
 			| GrpcStreamClientHandle
 			| undefined;
@@ -1488,7 +1551,7 @@ export class GrpcStreamAdapter extends BaseAsyncAdapter implements AsyncAdapter 
 	 * Send message on stream
 	 */
 	async sendMessage<T = unknown>(
-		client: AdapterClientHandle,
+		client: AdapterClient,
 		_messageType: string,
 		payload: T,
 		_metadata?: Partial<GrpcMessageMetadata>,
@@ -1515,7 +1578,7 @@ export class GrpcStreamAdapter extends BaseAsyncAdapter implements AsyncAdapter 
 	 * Wait for message on stream
 	 */
 	async waitForMessage<T = unknown>(
-		client: AdapterClientHandle,
+		client: AdapterClient,
 		messageType: string | string[],
 		matcher?: string | ((payload: T) => boolean),
 		timeout = 30000,

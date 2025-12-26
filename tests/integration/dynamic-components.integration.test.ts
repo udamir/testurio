@@ -8,30 +8,69 @@
 import { describe, expect, it } from "vitest";
 import { TestScenario, testCase, Server, Client, HttpAdapter } from "testurio";
 
+// Type-safe HTTP service definition
+interface HttpServiceDef {
+	getDynamic: {
+		request: { method: string; path: string; body?: never };
+		responses: { 200: { body: { created: string } } };
+	};
+	getFirst: {
+		request: { method: string; path: string; body?: never };
+		responses: { 200: { body: { request: number } } };
+	};
+	getSecond: {
+		request: { method: string; path: string; body?: never };
+		responses: { 200: { body: { request: number } } };
+	};
+	postData: {
+		request: { method: string; path: string; body?: never };
+		responses: { 201: { body: { id: number; status: string } } };
+	};
+	getTest1: {
+		request: { method: string; path: string; body?: never };
+		responses: { 200: { body: { test: number } } };
+	};
+	getTest2: {
+		request: { method: string; path: string; body?: never };
+		responses: { 200: { body: { test: number } } };
+	};
+	getMixed: {
+		request: { method: string; path: string; body?: never };
+		responses: { 200: { body: { static: boolean; dynamic: boolean } } };
+	};
+	[key: string]: {
+		request: { method: string; path: string; body?: unknown };
+		responses: Record<number, { body?: unknown }>;
+	};
+}
+
 describe("Dynamic Component Creation Integration", () => {
 	describe("addComponent in init()", () => {
 		it("should create HTTP mock and client in init and use them in test", async () => {
+			const backendServer = new Server("backend", {
+				adapter: new HttpAdapter<HttpServiceDef>(),
+				listenAddress: { host: "127.0.0.1", port: 7001 },
+			});
+			const apiClient = new Client("api", {
+				adapter: new HttpAdapter<HttpServiceDef>(),
+				targetAddress: { host: "127.0.0.1", port: 7001 },
+			});
+
 			const scenario = new TestScenario({
 				name: "Dynamic HTTP Components Test",
 				components: [],
 			});
 
 			scenario.init((test) => {
-				test.addComponent(new Server("backend", {
-					adapter: new HttpAdapter(),
-					listenAddress: { host: "127.0.0.1", port: 7001 },
-				}));
-				test.addComponent(new Client("api", {
-					adapter: new HttpAdapter(),
-					targetAddress: { host: "127.0.0.1", port: 7001 },
-				}));
+				test.use(backendServer);
+				test.use(apiClient);
 			});
 
-			let responseData!: { created: string };
+			let responseData: { created: string } | undefined;
 
 			const tc = testCase("Use dynamically created components", (test) => {
-				const api = test.client("api");
-				const backend = test.server("backend");
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
 
 				api.request("getDynamic", { method: "GET", path: "/dynamic" });
 				backend.onRequest("getDynamic", { method: "GET", path: "/dynamic" }).mockResponse(() => ({
@@ -39,7 +78,7 @@ describe("Dynamic Component Creation Integration", () => {
 					headers: {},
 					body: { created: "dynamically" },
 				}));
-				api.onResponse<{ created: string }>("getDynamic").assert((res) => {
+				api.onResponse("getDynamic").assert((res) => {
 					responseData = res;
 					return true;
 				});
@@ -52,27 +91,25 @@ describe("Dynamic Component Creation Integration", () => {
 		});
 
 		it("should allow init components to be used across multiple test cases", async () => {
+			const backendServer = new Server("shared-backend", {
+				adapter: new HttpAdapter<HttpServiceDef>(),
+				listenAddress: { host: "127.0.0.1", port: 7002 },
+			});
+			const apiClient = new Client("shared-api", {
+				adapter: new HttpAdapter<HttpServiceDef>(),
+				targetAddress: { host: "127.0.0.1", port: 7002 },
+			});
+
 			const scenario = new TestScenario({
 				name: "Shared Dynamic Components Test",
 				components: [],
 			});
 
-			scenario.init((test) => {
-				test.addComponent(new Server("shared-backend", {
-					adapter: new HttpAdapter(),
-					listenAddress: { host: "127.0.0.1", port: 7002 },
-				}));
-				test.addComponent(new Client("shared-api", {
-					adapter: new HttpAdapter(),
-					targetAddress: { host: "127.0.0.1", port: 7002 },
-				}));
-			});
-
 			const responses: Array<{ request: number }> = [];
 
 			const tc1 = testCase("First request", (test) => {
-				const api = test.client("shared-api");
-				const backend = test.server("shared-backend");
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
 
 				api.request("getFirst", { method: "GET", path: "/first" });
 				backend.onRequest("getFirst", { method: "GET", path: "/first" }).mockResponse(() => ({
@@ -80,15 +117,15 @@ describe("Dynamic Component Creation Integration", () => {
 					headers: {},
 					body: { request: 1 },
 				}));
-				api.onResponse<{ request: number }>("getFirst").assert((res) => {
+				api.onResponse("getFirst").assert((res) => {
 					responses.push(res);
 					return true;
 				});
 			});
 
 			const tc2 = testCase("Second request", (test) => {
-				const api = test.client("shared-api");
-				const backend = test.server("shared-backend");
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
 
 				api.request("getSecond", { method: "GET", path: "/second" });
 				backend.onRequest("getSecond", { method: "GET", path: "/second" }).mockResponse(() => ({
@@ -96,7 +133,7 @@ describe("Dynamic Component Creation Integration", () => {
 					headers: {},
 					body: { request: 2 },
 				}));
-				api.onResponse<{ request: number }>("getSecond").assert((res) => {
+				api.onResponse("getSecond").assert((res) => {
 					responses.push(res);
 					return true;
 				});
@@ -118,20 +155,23 @@ describe("Dynamic Component Creation Integration", () => {
 				components: [],
 			});
 
-			let responseData!: { id: number; status: string };
+			let responseData: { id: number; status: string } | undefined;
 
 			const tc = testCase("Create and use components in test", (test) => {
-				test.addComponent(new Server("test-backend", {
-					adapter: new HttpAdapter(),
+				const backendServer = new Server("test-backend", {
+					adapter: new HttpAdapter<HttpServiceDef>(),
 					listenAddress: { host: "127.0.0.1", port: 7003 },
-				}));
-				test.addComponent(new Client("test-api", {
-					adapter: new HttpAdapter(),
+				});
+				const apiClient = new Client("test-api", {
+					adapter: new HttpAdapter<HttpServiceDef>(),
 					targetAddress: { host: "127.0.0.1", port: 7003 },
-				}));
+				});
 
-				const api = test.client("test-api");
-				const backend = test.server("test-backend");
+				test.use(backendServer);
+				test.use(apiClient);
+
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
 
 				api.request("postData", { method: "POST", path: "/data" });
 				backend.onRequest("postData", { method: "POST", path: "/data" }).mockResponse(() => ({
@@ -139,7 +179,7 @@ describe("Dynamic Component Creation Integration", () => {
 					headers: {},
 					body: { id: 123, status: "created" },
 				}));
-				api.onResponse<{ id: number; status: string }>("postData").assert((res) => {
+				api.onResponse("postData").assert((res) => {
 					responseData = res;
 					return true;
 				});
@@ -160,17 +200,20 @@ describe("Dynamic Component Creation Integration", () => {
 			const responses: Array<{ test: number }> = [];
 
 			const tc1 = testCase("First test with scoped component", (test) => {
-				test.addComponent(new Server("temp-backend", {
-					adapter: new HttpAdapter(),
+				const backendServer = new Server("temp-backend", {
+					adapter: new HttpAdapter<HttpServiceDef>(),
 					listenAddress: { host: "127.0.0.1", port: 7004 },
-				}), { scope: "testCase" });
-				test.addComponent(new Client("temp-api", {
-					adapter: new HttpAdapter(),
+				});
+				const apiClient = new Client("temp-api", {
+					adapter: new HttpAdapter<HttpServiceDef>(),
 					targetAddress: { host: "127.0.0.1", port: 7004 },
-				}), { scope: "testCase" });
+				});
 
-				const api = test.client("temp-api");
-				const backend = test.server("temp-backend");
+				test.use(backendServer);
+				test.use(apiClient);
+
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
 
 				api.request("getTest1", { method: "GET", path: "/test1" });
 				backend.onRequest("getTest1", { method: "GET", path: "/test1" }).mockResponse(() => ({
@@ -178,25 +221,27 @@ describe("Dynamic Component Creation Integration", () => {
 					headers: {},
 					body: { test: 1 },
 				}));
-				api.onResponse<{ test: number }>("getTest1").assert((res) => {
+				api.onResponse("getTest1").assert((res) => {
 					responses.push(res);
 					return true;
 				});
 			});
 
 			const tc2 = testCase("Second test reusing component names", (test) => {
-				// Can reuse same names because previous components were cleaned up
-				test.addComponent(new Server("temp-backend", {
-					adapter: new HttpAdapter(),
+				const backendServer = new Server("temp-backend", {
+					adapter: new HttpAdapter<HttpServiceDef>(),
 					listenAddress: { host: "127.0.0.1", port: 7005 },
-				}), { scope: "testCase" });
-				test.addComponent(new Client("temp-api", {
-					adapter: new HttpAdapter(),
+				});
+				const apiClient = new Client("temp-api", {
+					adapter: new HttpAdapter<HttpServiceDef>(),
 					targetAddress: { host: "127.0.0.1", port: 7005 },
-				}), { scope: "testCase" });
+				});
 
-				const api = test.client("temp-api");
-				const backend = test.server("temp-backend");
+				test.use(backendServer);
+				test.use(apiClient);
+
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
 
 				api.request("getTest2", { method: "GET", path: "/test2" });
 				backend.onRequest("getTest2", { method: "GET", path: "/test2" }).mockResponse(() => ({
@@ -204,7 +249,7 @@ describe("Dynamic Component Creation Integration", () => {
 					headers: {},
 					body: { test: 2 },
 				}));
-				api.onResponse<{ test: number }>("getTest2").assert((res) => {
+				api.onResponse("getTest2").assert((res) => {
 					responses.push(res);
 					return true;
 				});
@@ -221,27 +266,30 @@ describe("Dynamic Component Creation Integration", () => {
 
 	describe("mixed static and dynamic components", () => {
 		it("should work with both static and dynamic components", async () => {
+			const backendServer = new Server("static-backend", {
+				adapter: new HttpAdapter<HttpServiceDef>(),
+				listenAddress: { host: "127.0.0.1", port: 7006 },
+			});
+			const apiClient = new Client("dynamic-api", {
+				adapter: new HttpAdapter<HttpServiceDef>(),
+				targetAddress: { host: "127.0.0.1", port: 7006 },
+			});
+
 			const scenario = new TestScenario({
 				name: "Mixed Components Test",
 				components: [],
 			});
 
 			scenario.init((test) => {
-				test.addComponent(new Server("static-backend", {
-					adapter: new HttpAdapter(),
-					listenAddress: { host: "127.0.0.1", port: 7006 },
-				}));
-				test.addComponent(new Client("dynamic-api", {
-					adapter: new HttpAdapter(),
-					targetAddress: { host: "127.0.0.1", port: 7006 },
-				}));
+				test.use(backendServer);
+				test.use(apiClient);
 			});
 
-			let responseData!: { static: boolean; dynamic: boolean };
+			let responseData: { static: boolean; dynamic: boolean } | undefined;
 
 			const tc = testCase("Use static mock with dynamic client", (test) => {
-				const api = test.client("dynamic-api");
-				const backend = test.server("static-backend");
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
 
 				api.request("getMixed", { method: "GET", path: "/mixed" });
 				backend.onRequest("getMixed", { method: "GET", path: "/mixed" }).mockResponse(() => ({
@@ -249,7 +297,7 @@ describe("Dynamic Component Creation Integration", () => {
 					headers: {},
 					body: { static: true, dynamic: true },
 				}));
-				api.onResponse<{ static: boolean; dynamic: boolean }>("getMixed").assert((res) => {
+				api.onResponse("getMixed").assert((res) => {
 					responseData = res;
 					return true;
 				});

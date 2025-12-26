@@ -8,7 +8,7 @@ import type {
 	StepExecutionContext,
 	StepExecutionResult,
 	TestStep,
-} from "../types";
+} from "./execution.types";
 
 /**
  * Default step timeout (30 seconds)

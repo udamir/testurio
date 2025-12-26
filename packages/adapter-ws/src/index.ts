@@ -21,3 +21,6 @@
  */
 
 export { WebSocketAdapter } from "./ws-adapter";
+
+// Export WebSocket-specific types
+export type { WsProtocolDefinition, WsAdapterTypes } from "./types";

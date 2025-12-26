@@ -21,3 +21,6 @@
  */
 
 export { TcpAdapter } from "./tcp-adapter";
+
+// Export TCP-specific types
+export type { TcpProtocolDefinition, TcpAdapterTypes } from "./types";

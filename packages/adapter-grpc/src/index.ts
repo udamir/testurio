@@ -29,5 +29,15 @@ export {
 	type GrpcStreamAdapterOptions,
 } from "./grpc-adapter";
 
-// Re-export protocol config classes if they exist in the adapter
-// These will need to be created or moved from core config
+// Export gRPC-specific types
+export type {
+	GrpcMethod,
+	GrpcServiceDefinition,
+	GrpcStreamMethod,
+	GrpcStreamServiceDefinition,
+	GrpcRequest,
+	GrpcResponse,
+	GrpcRequestOptions,
+	GrpcUnaryAdapterTypes,
+	GrpcStreamAdapterTypes,
+} from "./types";

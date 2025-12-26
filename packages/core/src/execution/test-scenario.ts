@@ -5,20 +5,19 @@
  * Component management is inlined for simplicity.
  */
 
-import { TestCaseBuilder } from "../builders";
-import { Client, Server, AsyncClient, AsyncServer } from "../components";
-import type { Component } from "../components/component";
+import { TestCaseBuilder } from "./test-case-builder";
+import { AsyncClient, AsyncServer, Client, Server } from "../components";
+import type { BaseComponent } from "../base-component";
 import {
 	ConsoleReporter,
 	InteractionRecorder,
-	type TestReporter,
 } from "../recording";
 import type {
-	Interaction,
 	TestCaseResult,
 	TestResult,
 	TestStepResult,
-} from "../types";
+} from "./execution.types";
+import type { Interaction, TestReporter } from "../recording";
 import type { TestCase } from "./test-case";
 
 /**
@@ -27,7 +26,7 @@ import type { TestCase } from "./test-case";
 export interface TestScenarioConfig {
 	name: string;
 	description?: string;
-	components: Component[];
+	components: BaseComponent[];
 	timeout?: number;
 	recording?: boolean;
 	metadata?: Record<string, unknown>;
@@ -42,7 +41,7 @@ export class TestScenario<
 	// ========== Instance Members ==========
 
 	private config: TestScenarioConfig;
-	private components = new Map<string, Component>();
+	private components = new Map<string, BaseComponent>();
 	private context: TContext;
 	private initHandler?: (test: TestCaseBuilder<TContext>) => void;
 	private stopHandler?: (test: TestCaseBuilder<TContext>) => void;
@@ -72,7 +71,7 @@ export class TestScenario<
 	/**
 	 * Register a component
 	 */
-	private registerComponent(component: Component): void {
+	private registerComponent(component: BaseComponent): void {
 		if (this.components.has(component.name)) {
 			throw new Error(`Component ${component.name} already exists`);
 		}
@@ -87,8 +86,12 @@ export class TestScenario<
 		const all = Array.from(this.components.values());
 
 		// Include both sync and async server/client types
-		const servers = all.filter((c) => c instanceof Server || c instanceof AsyncServer);
-		const clients = all.filter((c) => c instanceof Client || c instanceof AsyncClient);
+		const servers = all.filter(
+			(c) => c instanceof Server || c instanceof AsyncServer,
+		);
+		const clients = all.filter(
+			(c) => c instanceof Client || c instanceof AsyncClient,
+		);
 
 		await Promise.all(servers.map((c) => c.start()));
 		await Promise.all(clients.map((c) => c.start()));
@@ -102,8 +105,12 @@ export class TestScenario<
 		const all = Array.from(this.components.values());
 
 		// Include both sync and async server/client types
-		const clients = all.filter((c) => c instanceof Client || c instanceof AsyncClient);
-		const servers = all.filter((c) => c instanceof Server || c instanceof AsyncServer);
+		const clients = all.filter(
+			(c) => c instanceof Client || c instanceof AsyncClient,
+		);
+		const servers = all.filter(
+			(c) => c instanceof Server || c instanceof AsyncServer,
+		);
 
 		await Promise.all(clients.map((c) => c.stop().catch(() => {})));
 		await Promise.all(servers.map((c) => c.stop().catch(() => {})));
@@ -229,9 +236,9 @@ export class TestScenario<
 	 */
 	private async processPendingComponents(
 		builder: TestCaseBuilder<TContext>,
-	): Promise<Component[]> {
+	): Promise<BaseComponent[]> {
 		const pending = builder.getPendingComponents();
-		const testCaseComponents: Component[] = [];
+		const testCaseComponents: BaseComponent[] = [];
 
 		for (const { component, options } of pending) {
 			// Start the component
@@ -251,7 +258,7 @@ export class TestScenario<
 	 * Stop and remove test-case-scoped components
 	 */
 	private async cleanupTestCaseComponents(
-		components: Component[],
+		components: BaseComponent[],
 	): Promise<void> {
 		for (const component of components) {
 			try {
@@ -350,7 +357,7 @@ export class TestScenario<
 		}
 
 		const builder = this.createBuilder();
-		let testCaseComponents: Component[] = [];
+		let testCaseComponents: BaseComponent[] = [];
 
 		const result = await testCase.execute(builder, {
 			failFast: true,

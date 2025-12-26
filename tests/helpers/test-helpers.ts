@@ -26,6 +26,7 @@ export const createServerAdapter = (overrides?: Partial<SyncAdapter>): SyncAdapt
 		requiresConnection: false,
 		bidirectional: false,
 	},
+	resolveMessageType: (messageType: string) => messageType,
 	startServer: vi.fn().mockResolvedValue({
 		id: "server-1",
 		type: "http",
@@ -42,7 +43,6 @@ export const createServerAdapter = (overrides?: Partial<SyncAdapter>): SyncAdapt
 	closeClient: vi.fn().mockResolvedValue(undefined),
 	dispose: vi.fn().mockResolvedValue(undefined),
 	setHookRegistry: vi.fn(),
-	onRequest: vi.fn(),
 	request: vi.fn().mockResolvedValue({ data: "response" }),
 	...overrides,
 });

@@ -115,16 +115,16 @@ type WsMessages = {
 	[key: string]: unknown;
 };
 
-// Helper functions for creating WebSocket components
+// Helper functions for creating WebSocket components with typed adapters
 const createMockServer = (name: string, port: number) =>
 	new AsyncServer(name, {
-		adapter: new WebSocketAdapter(),
+		adapter: new WebSocketAdapter<WsMessages>(),
 		listenAddress: { host: "127.0.0.1", port },
 	});
 
 const createClient = (name: string, port: number) =>
 	new AsyncClient(name, {
-		adapter: new WebSocketAdapter(),
+		adapter: new WebSocketAdapter<WsMessages>(),
 		targetAddress: { host: "127.0.0.1", port },
 	});
 
@@ -134,19 +134,25 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 	// ============================================================
 	describe("5.1 Basic Message Flow", () => {
 		it("should route message to mock and receive response", async () => {
+			const backendServer = createMockServer("backend", 6102);
+			const apiClient = createClient("api", 6102);
+
 			const scenario = new TestScenario({
 				name: "Basic WebSocket Chain Test",
-				components: [createMockServer("backend", 6102), createClient("api", 6102)],
+				components: [backendServer, apiClient],
 			});
 
 			const tc = testCase("Send WebSocket message and receive response", (test) => {
-				test.asyncClient<WsMessages>("api").sendMessage("GetUserRequest", { userId: 42 });
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
 
-				test.asyncServer<WsMessages>("backend").onMessage("GetUserRequest").mockEvent("GetUserRequestResponse", (payload) => {
+				api.sendMessage("GetUserRequest", { userId: 42 });
+
+				backend.onMessage("GetUserRequest").mockEvent("GetUserRequestResponse", (payload) => {
 					return { userId: payload.userId, name: "John Doe", email: "john@example.com" };
 				});
 
-				test.asyncClient<WsMessages>("api").onEvent("GetUserRequestResponse").assert((payload) => {
+				api.onEvent("GetUserRequestResponse").assert((payload) => {
 					return payload.userId === 42 && payload.name === "John Doe";
 				});
 			});
@@ -156,23 +162,28 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 		});
 
 		it("should handle fire-and-forget messages", async () => {
+			const backendServer = createMockServer("backend", 6112);
+			const apiClient = createClient("api", 6112);
+
 			const scenario = new TestScenario({
 				name: "Fire-and-Forget WebSocket Test",
-				components: [createMockServer("backend", 6112), createClient("api", 6112)],
+				components: [backendServer, apiClient],
 			});
 
 			let receivedPayload: LogEvent | undefined;
 
 			const tc = testCase("Send fire-and-forget WebSocket message", (test) => {
-				test.asyncClient<WsMessages>("api").sendMessage("LogEvent", {
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
+
+				api.sendMessage("LogEvent", {
 					level: "info",
 					message: "User logged in",
 					timestamp: Date.now(),
 				});
 
-				test.asyncServer<WsMessages>("backend").waitMessage("LogEvent", { timeout: 1000 }).assert((payload) => {
-					receivedPayload = payload;
-					// Verify payload structure instead of always returning true
+				backend.waitMessage("LogEvent", { timeout: 1000 }).assert((payload) => {
+					receivedPayload = payload as LogEvent;
 					return payload.level === "info" && 
 						payload.message === "User logged in" && 
 						typeof payload.timestamp === "number";
@@ -193,21 +204,27 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 	// ============================================================
 	describe("5.2 Bidirectional Communication", () => {
 		it("should handle subscribe request and receive confirmation", async () => {
+			const backendServer = createMockServer("backend", 6120);
+			const apiClient = createClient("api", 6120);
+
 			const scenario = new TestScenario({
 				name: "Bidirectional WebSocket Test",
-				components: [createMockServer("backend", 6120), createClient("api", 6120)],
+				components: [backendServer, apiClient],
 			});
 
 			const tc = testCase("Subscribe and receive confirmation", (test) => {
-				test.asyncClient<WsMessages>("api").sendMessage("Subscribe", { channel: "prices" });
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
 
-				test.asyncServer<WsMessages>("backend").onMessage("Subscribe").mockEvent("SubscribeResponse", (payload) => ({
+				api.sendMessage("Subscribe", { channel: "prices" });
+
+				backend.onMessage("Subscribe").mockEvent("SubscribeResponse", (payload) => ({
 					subscriptionId: "sub-123",
 					channel: payload.channel,
 					status: "active",
 				}));
 
-				test.asyncClient<WsMessages>("api").onEvent("SubscribeResponse").assert((payload) => {
+				api.onEvent("SubscribeResponse").assert((payload) => {
 					return payload.subscriptionId === "sub-123" && payload.channel === "prices" && payload.status === "active";
 				});
 			});
@@ -217,20 +234,26 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 		});
 
 		it("should handle multiple message exchanges", async () => {
+			const backendServer = createMockServer("backend", 6125);
+			const apiClient = createClient("api", 6125);
+
 			const scenario = new TestScenario({
 				name: "Multiple Exchange WebSocket Test",
-				components: [createMockServer("backend", 6125), createClient("api", 6125)],
+				components: [backendServer, apiClient],
 			});
 
 			const tc = testCase("Multiple message exchanges", (test) => {
-				test.asyncClient<WsMessages>("api").sendMessage("Ping", { seq: 1 });
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
 
-				test.asyncServer<WsMessages>("backend").onMessage("Ping").mockEvent("PingResponse", (payload) => ({
+				api.sendMessage("Ping", { seq: 1 });
+
+				backend.onMessage("Ping").mockEvent("PingResponse", (payload) => ({
 					seq: payload.seq,
 					pong: true,
 				}));
 
-				test.asyncClient<WsMessages>("api").onEvent("PingResponse").assert((payload) => {
+				api.onEvent("PingResponse").assert((payload) => {
 					return payload.seq === 1 && payload.pong === true;
 				});
 			});
@@ -245,15 +268,21 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 	// ============================================================
 	describe("5.3 Complex Payloads", () => {
 		it("should handle complex nested payloads", async () => {
+			const backendServer = createMockServer("backend", 6130);
+			const apiClient = createClient("api", 6130);
+
 			const scenario = new TestScenario({
 				name: "Complex Payload WebSocket Test",
-				components: [createMockServer("backend", 6130), createClient("api", 6130)],
+				components: [backendServer, apiClient],
 			});
 
 			let receivedPayload: CreateOrderRequest | undefined;
 
 			const tc = testCase("Send complex nested payload", (test) => {
-				test.asyncClient<WsMessages>("api").sendMessage("CreateOrder", {
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
+
+				api.sendMessage("CreateOrder", {
 					customerId: "CUST-001",
 					items: [
 						{ productId: "PROD-1", quantity: 2, price: 29.99 },
@@ -266,8 +295,8 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 					},
 				});
 
-				test.asyncServer<WsMessages>("backend").waitMessage("CreateOrder", { timeout: 1000 }).assert((payload) => {
-					receivedPayload = payload;
+				backend.waitMessage("CreateOrder", { timeout: 1000 }).assert((payload) => {
+					receivedPayload = payload as CreateOrderRequest;
 					return payload.customerId === "CUST-001" && payload.items.length === 2;
 				});
 			});
@@ -286,21 +315,27 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 	// ============================================================
 	describe("5.4 Multiple Message Types", () => {
 		it("should handle different message types correctly", async () => {
+			const backendServer = createMockServer("backend", 6140);
+			const apiClient = createClient("api", 6140);
+
 			const scenario = new TestScenario({
 				name: "Multiple Message Types WebSocket Test",
-				components: [createMockServer("backend", 6140), createClient("api", 6140)],
+				components: [backendServer, apiClient],
 			});
 
 			const tc = testCase("Send account request", (test) => {
-				test.asyncClient<WsMessages>("api").sendMessage("GetAccount", { accountId: "ACC-001" });
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
 
-				test.asyncServer<WsMessages>("backend").onMessage("GetAccount").mockEvent("GetAccountResponse", () => ({
+				api.sendMessage("GetAccount", { accountId: "ACC-001" });
+
+				backend.onMessage("GetAccount").mockEvent("GetAccountResponse", () => ({
 					accountId: "ACC-001",
 					balance: 10000,
 					currency: "USD",
 				}));
 
-				test.asyncClient<WsMessages>("api").onEvent("GetAccountResponse").assert((payload) => {
+				api.onEvent("GetAccountResponse").assert((payload) => {
 					return payload.accountId === "ACC-001" && payload.balance === 10000 && payload.currency === "USD";
 				});
 			});
@@ -315,18 +350,24 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 	// ============================================================
 	describe("5.5 Init/Stop Lifecycle", () => {
 		it("should execute init handler before test cases", async () => {
+			const backendServer = createMockServer("backend", 6150);
+			const apiClient = createClient("api", 6150);
+
 			const scenario = new TestScenario({
 				name: "WebSocket Init Lifecycle Test",
-				components: [createMockServer("backend", 6150), createClient("api", 6150)],
+				components: [backendServer, apiClient],
 			});
 
 			scenario.init((test) => {
-				test.asyncServer<WsMessages>("backend").onMessage("InitTest").mockEvent("InitTestResponse", () => ({ initialized: true }));
+				const backend = test.use(backendServer);
+				backend.onMessage("InitTest").mockEvent("InitTestResponse", () => ({ initialized: true }));
 			});
 
 			const tc = testCase("Verify init ran", (test) => {
-				test.asyncClient<WsMessages>("api").sendMessage("InitTest", {});
-				test.asyncClient<WsMessages>("api").onEvent("InitTestResponse").assert((payload) => {
+				const api = test.use(apiClient);
+
+				api.sendMessage("InitTest", {});
+				api.onEvent("InitTestResponse").assert((payload) => {
 					return payload.initialized === true;
 				});
 			});
@@ -341,18 +382,24 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 	// ============================================================
 	describe("5.6 Error Handling", () => {
 		it("should handle message validation", async () => {
+			const backendServer = createMockServer("backend", 6160);
+			const apiClient = createClient("api", 6160);
+
 			const scenario = new TestScenario({
 				name: "WebSocket Error Handling Test",
-				components: [createMockServer("backend", 6160), createClient("api", 6160)],
+				components: [backendServer, apiClient],
 			});
 
 			let handlerCalled = false;
 			let receivedData: string | undefined;
 
 			const tc = testCase("Send request and validate", (test) => {
-				test.asyncClient<WsMessages>("api").sendMessage("ValidateRequest", { data: "test" });
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
 
-				test.asyncServer<WsMessages>("backend").waitMessage("ValidateRequest", { timeout: 1000 }).assert((payload) => {
+				api.sendMessage("ValidateRequest", { data: "test" });
+
+				backend.waitMessage("ValidateRequest", { timeout: 1000 }).assert((payload) => {
 					handlerCalled = true;
 					receivedData = payload.data;
 					return payload.data === "test";
@@ -371,21 +418,27 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 	// ============================================================
 	describe("5.7 Real-time Updates", () => {
 		it("should handle real-time price updates", async () => {
+			const backendServer = createMockServer("backend", 6170);
+			const apiClient = createClient("api", 6170);
+
 			const scenario = new TestScenario({
 				name: "Real-time Updates WebSocket Test",
-				components: [createMockServer("backend", 6170), createClient("api", 6170)],
+				components: [backendServer, apiClient],
 			});
 
 			const tc = testCase("Subscribe to price updates", (test) => {
-				test.asyncClient<WsMessages>("api").sendMessage("SubscribePrices", { symbols: ["EURUSD", "GBPUSD"] });
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
 
-				test.asyncServer<WsMessages>("backend").onMessage("SubscribePrices").mockEvent("SubscribePricesResponse", (payload) => ({
+				api.sendMessage("SubscribePrices", { symbols: ["EURUSD", "GBPUSD"] });
+
+				backend.onMessage("SubscribePrices").mockEvent("SubscribePricesResponse", (payload) => ({
 					subscriptionId: "price-sub-001",
 					symbols: payload.symbols,
 					status: "subscribed",
 				}));
 
-				test.asyncClient<WsMessages>("api").onEvent("SubscribePricesResponse").assert((payload) => {
+				api.onEvent("SubscribePricesResponse").assert((payload) => {
 					return payload.subscriptionId === "price-sub-001" && payload.symbols.length === 2;
 				});
 			});

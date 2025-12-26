@@ -4,14 +4,14 @@
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { TestCaseBuilder } from "testurio";
-import type { Component } from "testurio";
+import type { BaseComponent } from "testurio";
 
 describe("TestCaseBuilder", () => {
-	let components: Map<string, Component>;
+	let components: Map<string, BaseComponent>;
 	let builder: TestCaseBuilder;
 
 	beforeEach(() => {
-		components = new Map<string, Component>();
+		components = new Map<string, BaseComponent>();
 		builder = new TestCaseBuilder(components, {});
 	});
 
@@ -53,18 +53,6 @@ describe("TestCaseBuilder", () => {
 			const steps = builder.getSteps();
 			expect(steps).toHaveLength(1);
 			expect(steps[0].type).toBe("waitUntil");
-		});
-	});
-
-	describe("client (sync)", () => {
-		it("should throw for non-existent client", () => {
-			expect(() => builder.client("non-existent")).toThrow("not found");
-		});
-	});
-
-	describe("asyncClient", () => {
-		it("should throw for non-existent client", () => {
-			expect(() => builder.asyncClient("non-existent")).toThrow("not found");
 		});
 	});
 

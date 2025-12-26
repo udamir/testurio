@@ -4,7 +4,7 @@
  * Records all interactions (requests/responses) during test execution.
  */
 
-import type { Interaction, InteractionFilter, ProtocolType } from "../types";
+import type { Interaction, InteractionFilter } from "./recording.types";
 
 /**
  * Generate unique interaction ID
@@ -57,7 +57,7 @@ export class InteractionRecorder {
 	startInteraction(params: {
 		serviceName: string;
 		direction: "downstream" | "upstream";
-		protocol: ProtocolType;
+		protocol: string;
 		messageType: string;
 		traceId?: string;
 		requestPayload?: unknown;

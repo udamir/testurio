@@ -40,11 +40,15 @@
  * ```
  */
 
-// Re-export all from submodules
-export * from "./types";
-export * from "./components";
-export * from "./adapters";
-export * from "./hooks";
-export * from "./builders";
+// Base adapter (Message, Address, ProtocolCharacteristics, etc.)
+export * from "./base-adapter";
+// Base component (Hook, HookHandler, errors, etc.)
+export * from "./base-component";
+// Execution (TestStep, TestCaseResult, TestScenario, testCase, etc.)
 export * from "./execution";
+// Recording (Interaction, InteractionRecorder, etc.)
 export * from "./recording";
+// Components (Client, Server, AsyncClient, AsyncServer)
+export * from "./components";
+// HTTP adapter
+export * from "./adapters/http";

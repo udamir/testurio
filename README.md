@@ -10,7 +10,7 @@ A declarative E2E/integration testing framework for distributed systems with mul
 - **Multi-Protocol Support** - HTTP, gRPC (Unary & Streaming), WebSocket, TCP
 - **Declarative API** - Write tests in execution order with clear, readable syntax
 - **Component-Based** - Define clients, mocks, and proxies as reusable components
-- **Type-Safe** - Full TypeScript support with protocol-specific generics
+- **Type-Safe** - Full TypeScript support with automatic type inference via `test.use(component)`
 - **Flow Testing** - Test complete request flows through your distributed system
 - **Flexible Mocking** - Mock responses, add delays, drop messages, or proxy through
 
@@ -22,43 +22,42 @@ npm install testurio --save-dev
 
 ## Quick Start
 
-### HTTP Example
+### HTTP Example (Type-Safe)
 
 ```typescript
-import { TestScenario, testCase, MockConfig, ClientConfig, Http } from 'testurio';
+import { TestScenario, testCase, Client, Server, HttpAdapter } from 'testurio';
 
-// Define your test scenario with components
-const scenario = new TestScenario({
-  name: 'User API Test',
-  components: [
-    new MockConfig({
-      name: 'backend',
-      listenAddress: { host: 'localhost', port: 3000 },
-      protocol: new Http(),
-    }),
-    new ClientConfig({
-      name: 'api',
-      targetAddress: { host: 'localhost', port: 3000 },
-      protocol: new Http(),
-    }),
-  ],
+// Define components with adapters - types are automatically inferred
+const httpClient = Client.create('api', {
+  adapter: new HttpAdapter(),
+  targetAddress: { host: 'localhost', port: 3000 },
 });
 
-// Write test cases in declarative, sequential order
+const httpServer = Server.create('backend', {
+  adapter: new HttpAdapter(),
+  listenAddress: { host: 'localhost', port: 3000 },
+});
+
+// Create scenario with components
+const scenario = new TestScenario({
+  name: 'User API Test',
+  components: [httpServer, httpClient],
+});
+
+// Write test cases with full type safety via test.use()
 const tc = testCase('Get user by ID', (test) => {
-  const api = test.client('api');
-  const backend = test.mock('backend');
+  const api = test.use(httpClient);      // Fully typed step builder!
+  const backend = test.use(httpServer);  // Fully typed step builder!
 
-  // Step 1: Client sends request
-  api.request('getUser', { method: 'GET', path: '/users/1' });
-
-  // Step 2: Mock handles request and returns response
+  // Step 1: Mock handles request (register handler first)
   backend.onRequest('getUser', { method: 'GET', path: '/users/1' })
     .mockResponse(() => ({
       status: 200,
-      headers: {},
       body: { id: 1, name: 'Alice', email: 'alice@example.com' },
     }));
+
+  // Step 2: Client sends request
+  api.request('getUser', { method: 'GET', path: '/users/1' });
 
   // Step 3: Client receives and validates response
   api.onResponse('getUser').assert((res) => res.id === 1);
@@ -72,37 +71,37 @@ console.log(result.passed); // true
 ### gRPC Example
 
 ```typescript
-import { TestScenario, testCase, MockConfig, ClientConfig, GrpcUnary } from 'testurio';
+import { TestScenario, testCase, Client, Server } from 'testurio';
+import { GrpcUnaryAdapter } from '@testurio/adapter-grpc';
+
+// Define gRPC components
+const grpcClient = Client.create('api', {
+  adapter: new GrpcUnaryAdapter({ schema: 'user.proto', serviceName: 'UserService' }),
+  targetAddress: { host: 'localhost', port: 5000 },
+});
+
+const grpcServer = Server.create('backend', {
+  adapter: new GrpcUnaryAdapter({ schema: 'user.proto' }),
+  listenAddress: { host: 'localhost', port: 5000 },
+});
 
 const scenario = new TestScenario({
   name: 'gRPC User Service Test',
-  components: [
-    new MockConfig({
-      name: 'backend',
-      listenAddress: { host: 'localhost', port: 5000 },
-      protocol: new GrpcUnary({ schema: 'user.proto' }),
-    }),
-    new ClientConfig({
-      name: 'api',
-      targetAddress: { host: 'localhost', port: 5000 },
-      protocol: new GrpcUnary({ schema: 'user.proto', serviceName: 'UserService' }),
-    }),
-  ],
+  components: [grpcServer, grpcClient],
 });
 
 const tc = testCase('GetUser RPC', (test) => {
-  const api = test.client('api');
-  const backend = test.mock('backend');
+  const api = test.use(grpcClient);
+  const backend = test.use(grpcServer);
 
-  // Step 1: Send gRPC request
-  api.request('GetUser', { payload: { user_id: 42 } });
-
-  // Step 2: Mock handles
+  // Step 1: Mock handles request
   backend.onRequest('GetUser').mockResponse((req) => ({
     status: 200,
-    headers: {},
     body: { user_id: req.payload.user_id, name: 'John Doe' },
   }));
+
+  // Step 2: Send gRPC request
+  api.request('GetUser', { payload: { user_id: 42 } });
 
   // Step 3: Handle response
   api.onResponse('GetUser').assert((res) => res.name === 'John Doe');
@@ -112,32 +111,28 @@ const tc = testCase('GetUser RPC', (test) => {
 ### WebSocket/Async Example
 
 ```typescript
-import { TestScenario, testCase, MockConfig, ClientConfig, TcpProto } from 'testurio';
+import { TestScenario, testCase, AsyncClient, AsyncServer } from 'testurio';
+import { WebSocketAdapter } from '@testurio/adapter-ws';
 
-interface Messages {
-  Ping: { seq: number };
-  Pong: { seq: number; timestamp: number };
-}
+// Define WebSocket components
+const wsClient = AsyncClient.create('client', {
+  adapter: new WebSocketAdapter(),
+  targetAddress: { host: 'localhost', port: 4000 },
+});
+
+const wsServer = AsyncServer.create('server', {
+  adapter: new WebSocketAdapter(),
+  listenAddress: { host: 'localhost', port: 4000 },
+});
 
 const scenario = new TestScenario({
   name: 'WebSocket Echo Test',
-  components: [
-    new MockConfig({
-      name: 'server',
-      listenAddress: { host: 'localhost', port: 4000 },
-      protocol: new TcpProto({ schema: '' }),
-    }),
-    new ClientConfig({
-      name: 'client',
-      targetAddress: { host: 'localhost', port: 4000 },
-      protocol: new TcpProto({ schema: '' }),
-    }),
-  ],
+  components: [wsServer, wsClient],
 });
 
 const tc = testCase('Ping-Pong', (test) => {
-  const client = test.asyncClient<Messages>('client');
-  const server = test.asyncMock<Messages>('server');
+  const client = test.use(wsClient);
+  const server = test.use(wsServer);
 
   // Step 1: Client sends ping
   client.sendMessage('Ping', { seq: 1 });
@@ -215,15 +210,17 @@ const results = await scenario.runAll([testCase1, testCase2]);
 
 ```typescript
 const tc = testCase('Test name', (test) => {
-  // Sync components
-  const client = test.client('name');
-  const mock = test.mock('name');
-  const proxy = test.proxy('name');
+  // Type-safe component access (recommended)
+  const api = test.use(httpClient);       // Returns typed SyncClientStepBuilder
+  const backend = test.use(httpServer);   // Returns typed SyncServerStepBuilder
+  const wsClient = test.use(asyncClient); // Returns typed AsyncClientStepBuilder
+  const wsServer = test.use(asyncServer); // Returns typed AsyncServerStepBuilder
 
-  // Async components
+  // Legacy methods (deprecated - no type inference)
+  const client = test.client('name');
+  const server = test.server('name');
   const asyncClient = test.asyncClient<Messages>('name');
-  const asyncMock = test.asyncMock<Messages>('name');
-  const asyncProxy = test.asyncProxy<Messages>('name');
+  const asyncServer = test.asyncServer<Messages>('name');
 
   // Utilities
   test.wait(ms);

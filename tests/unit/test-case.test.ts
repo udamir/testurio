@@ -4,14 +4,14 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TestCaseBuilder, TestCase, testCase } from "testurio";
-import type { Component } from "testurio";
+import type { BaseComponent } from "testurio";
 
 describe("TestCase", () => {
-	let components: Map<string, Component>;
+	let components: Map<string, BaseComponent>;
 	let builder: TestCaseBuilder;
 
 	beforeEach(() => {
-		components = new Map<string, Component>();
+		components = new Map<string, BaseComponent>();
 		builder = new TestCaseBuilder(components, {});
 	});
 

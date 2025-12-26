@@ -51,28 +51,56 @@ interface TestContext extends Record<string, unknown> {
 	results?: unknown[];
 }
 
-// Helper functions for creating components
+// Type-safe HTTP service definition
+interface HttpServiceDef {
+	getUser: {
+		request: { method: string; path: string; body?: never };
+		responses: { 200: { body: { id: number; name: string } } };
+	};
+	getData: {
+		request: { method: string; path: string; body?: never };
+		responses: { 200: { body: { value: number } } };
+	};
+	getProfile: {
+		request: { method: string; path: string; body?: never };
+		responses: { 200: { body: { id: number; name: string; email: string } } };
+	};
+	getUser1: {
+		request: { method: string; path: string; body?: never };
+		responses: { 200: { body: { id: number; name: string; orders: number[] } } };
+	};
+	getUser2: {
+		request: { method: string; path: string; body?: never };
+		responses: { 200: { body: { id: number; name: string; orders: number[] } } };
+	};
+	[key: string]: {
+		request: { method: string; path: string; body?: unknown };
+		responses: Record<number, { body?: unknown }>;
+	};
+}
+
+// Helper functions for creating components with typed adapters
 const createHttpMock = (name: string, port: number) =>
 	new Server(name, {
-		adapter: new HttpAdapter(),
+		adapter: new HttpAdapter<HttpServiceDef>(),
 		listenAddress: { host: "localhost", port },
 	});
 
 const createHttpClient = (name: string, port: number) =>
 	new Client(name, {
-		adapter: new HttpAdapter(),
+		adapter: new HttpAdapter<HttpServiceDef>(),
 		targetAddress: { host: "localhost", port },
 	});
 
 const createTcpMock = (name: string, port: number) =>
 	new AsyncServer(name, {
-		adapter: new TcpAdapter(),
+		adapter: new TcpAdapter<ContextMessages>(),
 		listenAddress: { host: "localhost", port },
 	});
 
 const createTcpClient = (name: string, port: number) =>
 	new AsyncClient(name, {
-		adapter: new TcpAdapter(),
+		adapter: new TcpAdapter<ContextMessages>(),
 		targetAddress: { host: "localhost", port },
 	});
 
@@ -82,14 +110,17 @@ describe("Suite 4: Context and State Management", () => {
 	// ============================================================================
 	describe("4.1 Shared Context Between Test Cases", () => {
 		it("should persist context across test cases", async () => {
+			const backendServer = createHttpMock("backend", 6201);
+			const apiClient = createHttpClient("api", 6201);
+
 			const scenario = new TestScenario<TestContext>({
 				name: "Context Persistence Test",
-				components: [createHttpMock("backend", 6201), createHttpClient("api", 6201)],
+				components: [backendServer, apiClient],
 			});
 
 			const tc1 = testCase<TestContext>("Store userId in context", (test) => {
-				const api = test.client("api");
-				const backend = test.server("backend");
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
 
 				api.request("getUser", { method: "GET", path: "/user" });
 				backend.onRequest("getUser", { method: "GET", path: "/user" }).mockResponse(() => ({
@@ -97,7 +128,7 @@ describe("Suite 4: Context and State Management", () => {
 					headers: {},
 					body: { id: 123, name: "TestUser" },
 				}));
-				api.onResponse<{ id: number }>("getUser").assert((response) => {
+				api.onResponse("getUser").assert((response) => {
 					test.context.userId = response.id;
 					return true;
 				});
@@ -114,9 +145,12 @@ describe("Suite 4: Context and State Management", () => {
 		});
 
 		it("should accumulate data across multiple test cases", async () => {
+			const backendServer = createHttpMock("backend", 6202);
+			const apiClient = createHttpClient("api", 6202);
+
 			const scenario = new TestScenario<TestContext>({
 				name: "Context Accumulation Test",
-				components: [createHttpMock("backend", 6202), createHttpClient("api", 6202)],
+				components: [backendServer, apiClient],
 			});
 
 			scenario.init((test) => {
@@ -126,8 +160,8 @@ describe("Suite 4: Context and State Management", () => {
 
 			const testCases = [1, 2, 3].map((i) =>
 				testCase<TestContext>(`Make request ${i}`, (test) => {
-					const api = test.client("api");
-					const backend = test.server("backend");
+					const api = test.use(apiClient);
+					const backend = test.use(backendServer);
 
 					api.request("getData", { method: "GET", path: "/data" });
 					backend.onRequest("getData", { method: "GET", path: "/data" }).mockResponse(() => ({
@@ -158,9 +192,12 @@ describe("Suite 4: Context and State Management", () => {
 	// ============================================================================
 	describe("4.2 Context in Handlers", () => {
 		it("should allow response handlers to read context", async () => {
+			const backendServer = createTcpMock("backend", 6203);
+			const apiClient = createTcpClient("api", 6203);
+
 			const scenario = new TestScenario<TestContext>({
 				name: "Handler Context Read Test",
-				components: [createTcpMock("backend", 6203), createTcpClient("api", 6203)],
+				components: [backendServer, apiClient],
 			});
 
 			let contextTokenInHandler: string | undefined;
@@ -170,13 +207,16 @@ describe("Suite 4: Context and State Management", () => {
 			});
 
 			const tc = testCase<TestContext>("Read context in response handler", (test) => {
-				test.asyncClient<ContextMessages>("api").sendMessage("AuthRequest", { action: "login" });
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
 
-				test.asyncServer<ContextMessages>("backend").onMessage("AuthRequest").mockEvent("AuthRequestResponse", () => ({
+				api.sendMessage("AuthRequest", { action: "login" });
+
+				backend.onMessage("AuthRequest").mockEvent("AuthRequestResponse", () => ({
 					success: true,
 				}));
 
-				test.asyncClient<ContextMessages>("api").waitEvent("AuthRequestResponse", { timeout: 1000 })
+				api.waitEvent("AuthRequestResponse", { timeout: 1000 })
 					.assert((payload) => {
 						contextTokenInHandler = test.context.authToken;
 						return payload.success === true;
@@ -190,9 +230,12 @@ describe("Suite 4: Context and State Management", () => {
 		});
 
 		it("should allow response handlers to write to context", async () => {
+			const backendServer = createTcpMock("backend", 6204);
+			const apiClient = createTcpClient("api", 6204);
+
 			const scenario = new TestScenario<TestContext>({
 				name: "Handler Context Write Test",
-				components: [createTcpMock("backend", 6204), createTcpClient("api", 6204)],
+				components: [backendServer, apiClient],
 			});
 
 			scenario.init((test) => {
@@ -200,13 +243,16 @@ describe("Suite 4: Context and State Management", () => {
 			});
 
 			const tc = testCase<TestContext>("Write to context in response handler", (test) => {
-				test.asyncClient<ContextMessages>("api").sendMessage("CountRequest", { index: 0 });
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
 
-				test.asyncServer<ContextMessages>("backend").onMessage("CountRequest").mockEvent("CountRequestResponse", () => ({
+				api.sendMessage("CountRequest", { index: 0 });
+
+				backend.onMessage("CountRequest").mockEvent("CountRequestResponse", () => ({
 					counted: true,
 				}));
 
-				test.asyncClient<ContextMessages>("api").waitEvent("CountRequestResponse", { timeout: 1000 })
+				api.waitEvent("CountRequestResponse", { timeout: 1000 })
 					.assert((payload) => {
 						test.context.requestCount = (test.context.requestCount || 0) + 1;
 						return payload.counted === true;
@@ -225,14 +271,17 @@ describe("Suite 4: Context and State Management", () => {
 	// ============================================================================
 	describe("4.3 Response Storage", () => {
 		it("should store response in context for later assertions", async () => {
+			const backendServer = createHttpMock("backend", 6205);
+			const apiClient = createHttpClient("api", 6205);
+
 			const scenario = new TestScenario<TestContext>({
 				name: "Response Storage Test",
-				components: [createHttpMock("backend", 6205), createHttpClient("api", 6205)],
+				components: [backendServer, apiClient],
 			});
 
 			const tc1 = testCase<TestContext>("Fetch profile", (test) => {
-				const api = test.client("api");
-				const backend = test.server("backend");
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
 
 				api.request("getProfile", { method: "GET", path: "/profile" });
 				backend.onRequest("getProfile", { method: "GET", path: "/profile" }).mockResponse(() => ({
@@ -275,9 +324,12 @@ describe("Suite 4: Context and State Management", () => {
 				stats: { total: number; success: number; failed: number };
 			}
 
+			const backendServer = createHttpMock("backend", 6206);
+			const apiClient = createHttpClient("api", 6206);
+
 			const scenario = new TestScenario<ComplexContext>({
 				name: "Complex Context Test",
-				components: [createHttpMock("backend", 6206), createHttpClient("api", 6206)],
+				components: [backendServer, apiClient],
 			});
 
 			scenario.init((test) => {
@@ -285,15 +337,9 @@ describe("Suite 4: Context and State Management", () => {
 				test.context.stats = { total: 0, success: 0, failed: 0 };
 			});
 
-			interface UserResponse {
-				id: number;
-				name: string;
-				orders: number[];
-			}
-
 			const tc1 = testCase<ComplexContext>("Fetch user 1", (test) => {
-				const api = test.client("api");
-				const backend = test.server("backend");
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
 
 				api.request("getUser1", { method: "GET", path: "/users/1" });
 				backend.onRequest("getUser1", { method: "GET", path: "/users/1" }).mockResponse(() => ({
@@ -301,7 +347,7 @@ describe("Suite 4: Context and State Management", () => {
 					headers: {},
 					body: { id: 1, name: "Alice", orders: [101, 102] },
 				}));
-				api.onResponse<UserResponse>("getUser1").assert((response) => {
+				api.onResponse("getUser1").assert((response) => {
 					test.context.users.set(response.id, {
 						name: response.name,
 						orders: response.orders,
@@ -313,8 +359,8 @@ describe("Suite 4: Context and State Management", () => {
 			});
 
 			const tc2 = testCase<ComplexContext>("Fetch user 2", (test) => {
-				const api = test.client("api");
-				const backend = test.server("backend");
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
 
 				api.request("getUser2", { method: "GET", path: "/users/2" });
 				backend.onRequest("getUser2", { method: "GET", path: "/users/2" }).mockResponse(() => ({
@@ -322,7 +368,7 @@ describe("Suite 4: Context and State Management", () => {
 					headers: {},
 					body: { id: 2, name: "Bob", orders: [103] },
 				}));
-				api.onResponse<UserResponse>("getUser2").assert((response) => {
+				api.onResponse("getUser2").assert((response) => {
 					test.context.users.set(response.id, {
 						name: response.name,
 						orders: response.orders,

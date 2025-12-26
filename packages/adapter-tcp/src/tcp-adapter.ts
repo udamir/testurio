@@ -21,6 +21,7 @@ import type {
 	SchemaDefinition,
 } from "testurio";
 import { BaseAsyncAdapter, generateHandleId } from "testurio";
+import type { TcpAdapterTypes, TcpProtocolDefinition } from "./types";
 
 /**
  * Pending message resolver
@@ -73,8 +74,33 @@ export interface TcpAdapterOptions {
  *
  * Provides TCP client and server functionality for testing.
  * Uses real TCP servers and sockets for actual network communication.
+ *
+ * @template M - Message types map for type-safe messaging
+ *
+ * @example
+ * ```typescript
+ * type MyMessages = {
+ *   Request: { data: string };
+ *   Response: { result: string };
+ * };
+ *
+ * const adapter = new TcpAdapter<MyMessages>();
+ * const client = new AsyncClient("tcp", { adapter, ... });
+ * // client.sendMessage("Request", { data: "test" }) is now type-safe
+ * ```
  */
-export class TcpAdapter extends BaseAsyncAdapter implements AsyncAdapter {
+export class TcpAdapter<
+		P extends TcpProtocolDefinition = TcpProtocolDefinition,
+	>
+	extends BaseAsyncAdapter
+	implements AsyncAdapter
+{
+	/**
+	 * Phantom type property for type inference.
+	 * Used by components to infer message types.
+	 */
+	declare readonly __types: TcpAdapterTypes<P>;
+
 	readonly type = "tcp-proto";
 
 	readonly characteristics: ProtocolCharacteristics = {

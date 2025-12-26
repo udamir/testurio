@@ -4,12 +4,12 @@
  * Interface and implementations for reporting test results.
  */
 
+import type { Interaction } from "./recording.types";
 import type {
-	Interaction,
 	TestCaseResult,
 	TestResult,
 	TestStepResult,
-} from "../types";
+} from "../execution/execution.types";
 
 /**
  * Test Reporter Interface

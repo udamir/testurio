@@ -4,7 +4,7 @@
  * Collects and tracks assertions during test execution.
  */
 
-import type { AssertionResult } from "../types";
+import type { AssertionResult } from "../execution/execution.types";
 
 /**
  * Assertion Collector

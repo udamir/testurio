@@ -210,8 +210,7 @@ describe("GrpcUnaryAdapter", () => {
 			await expect(adapter.request(
 				{ id: "unknown", type: "grpc-unary", address: { host: "127.0.0.1", port }, isConnected: true },
 				"GetUser",
-				"/users",
-				{ id: 1 },
+				{ payload: { id: 1 } },
 			)).rejects.toThrow("Client unknown not found");
 		});
 
@@ -228,7 +227,7 @@ describe("GrpcUnaryAdapter", () => {
 			});
 			await adapter.closeClient(handle);
 
-			await expect(adapter.request(handle, "DeliveryMessage", "/", {}))
+			await expect(adapter.request(handle, "DeliveryMessage", { payload: {} }))
 				.rejects.toThrow("not found");
 		});
 	});
