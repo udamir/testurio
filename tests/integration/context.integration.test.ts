@@ -82,7 +82,7 @@ interface HttpServiceDef {
 // Helper functions for creating components with typed adapters
 const createHttpMock = (name: string, port: number) =>
 	new Server(name, {
-		adapter: new HttpAdapter<HttpServiceDef>(),
+		protocol: new HttpAdapter<HttpServiceDef>(),
 		listenAddress: { host: "localhost", port },
 	});
 

@@ -6,11 +6,12 @@
  * Implements the declarative sequential pattern.
  */
 
-import { generateHookId } from "../../base-component";
+import { generateHookId } from "../base";
 import { SyncHookBuilderImpl } from "./sync-server.hook-builder";
-import type { Hook } from "../../base-component";
+import type { Hook } from "../base";
 import type { ExtractServerRequest, ExtractServerResponse } from "./sync-server.types";
 import type { Server } from "./sync-server.component";
+import type { TestPhase } from "../../execution";
 
 /**
  * Server request options - adapter-specific configuration
@@ -32,9 +33,9 @@ export interface ServerRequestOptions {
  * @template S - Service definition (operation/method -> { request, response/responses })
  */
 export class SyncServerStepBuilder<
-	S extends Record<string, unknown> = Record<string, unknown>,
+	S extends Record<string, unknown> = Record<string, unknown>, O extends ServerRequestOptions = Record<string, unknown>
 > {
-	constructor(private server: Server) {}
+	constructor(private server: Server, private testPhase: TestPhase) {}
 
 	/**
 	 * Register request handler
@@ -47,26 +48,21 @@ export class SyncServerStepBuilder<
 	 */
 	onRequest<K extends keyof S & string>(
 		messageType: K,
-		options?: ServerRequestOptions,
+		options?: O,
 	): SyncHookBuilderImpl<ExtractServerRequest<S, K>> {
-		// Delegate message type resolution to the adapter
-		// This removes protocol-specific knowledge from the builder
-		const adapter = this.server.getAdapter();
-		const hookMessageType = adapter.resolveMessageType(messageType, options);
-
 		const hook: Hook = {
 			id: generateHookId(),
 			componentName: this.server.name,
-			phase: "test",
-			messageTypes: hookMessageType,
+			phase: this.testPhase,
+			messageTypes: messageType,
+			options,
 			handlers: [],
 			persistent: false,
 			metadata: this.server.isProxy ? { direction: "downstream" } : undefined,
 		};
 
 		// Register hook first, then pass to builder
-		const hookRegistry = this.server.getHookRegistry();
-		hookRegistry.registerHook(hook);
+		this.server.registerHook(hook);
 
 		return new SyncHookBuilderImpl<ExtractServerRequest<S, K>>(hook);
 	}
@@ -82,7 +78,7 @@ export class SyncServerStepBuilder<
 	 */
 	onResponse<K extends keyof S & string>(
 		messageType: K,
-		options?: ServerRequestOptions,
+		options?: O,
 	): SyncHookBuilderImpl<ExtractServerResponse<S, K>> {
 		if (!this.server.isProxy) {
 			throw new Error(
@@ -90,15 +86,12 @@ export class SyncServerStepBuilder<
 			);
 		}
 
-		// Delegate message type resolution to the adapter
-		const adapter = this.server.getAdapter();
-		const hookMessageType = adapter.resolveMessageType(messageType, options);
-
 		const hook: Hook = {
 			id: generateHookId(),
 			componentName: this.server.name,
-			phase: "test",
-			messageTypes: hookMessageType,
+			phase: this.testPhase,
+			messageTypes: messageType,
+			options,
 			handlers: [],
 			persistent: false,
 			metadata: {
@@ -107,8 +100,7 @@ export class SyncServerStepBuilder<
 		};
 
 		// Register hook first, then pass to builder
-		const hookRegistry = this.server.getHookRegistry();
-		hookRegistry.registerHook(hook);
+		this.server.registerHook(hook);
 
 		return new SyncHookBuilderImpl<ExtractServerResponse<S, K>>(hook);
 	}

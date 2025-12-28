@@ -4,10 +4,10 @@
  * Base class for all test components (Client, Mock, Proxy).
  */
 
-import type { ITestCaseBuilder } from "../execution/execution.types";
-import type { BaseAdapter } from "../base-adapter";
-import { HookRegistry } from "./hook-registry";
-import type { Message } from "../base-adapter";
+import type { BaseProtocol } from "../../protocols/base";
+import type { ITestCaseBuilder } from "../../execution";
+import { HookRegistry } from "./base.hooks";
+import type { Hook } from "./base.types";
 
 /**
  * Component state
@@ -34,11 +34,11 @@ export interface ComponentLifecycleEvents {
  *
  * Each component owns its own HookRegistry for isolation.
  *
- * @typeParam A - Adapter type
+ * @typeParam P - Protocol type
  * @typeParam TStepBuilder - Step builder type returned by createStepBuilder
  */
 export abstract class BaseComponent<
-	A extends BaseAdapter = BaseAdapter,
+	P extends BaseProtocol = BaseProtocol,
 	TStepBuilder = unknown,
 > {
 	protected state: ComponentState = "created";
@@ -47,12 +47,12 @@ export abstract class BaseComponent<
 
 	/** Component name */
 	readonly name: string;
-	/** Adapter instance */
-	readonly adapter: A;
+	/** Protocol instance */
+	readonly protocol: P;
 
-	constructor(name: string, adapter: A) {
+	constructor(name: string, protocol: P) {
 		this.name = name;
-		this.adapter = adapter;
+		this.protocol = protocol;
 		this.hookRegistry = new HookRegistry();
 	}
 
@@ -92,10 +92,10 @@ export abstract class BaseComponent<
 	}
 
 	/**
-	 * Get hook registry (for builders to access)
+	 * Register a hook
 	 */
-	getHookRegistry(): HookRegistry {
-		return this.hookRegistry;
+	registerHook(hook: Hook): void {
+		this.hookRegistry.registerHook(hook);
 	}
 
 	/**
@@ -144,13 +144,6 @@ export abstract class BaseComponent<
 			this.error = error as Error;
 			throw error;
 		}
-	}
-
-	/**
-	 * Process incoming message through hook chain
-	 */
-	protected async processMessage(message: Message): Promise<Message | null> {
-		return this.hookRegistry.executeHooks(message);
 	}
 
 	/**

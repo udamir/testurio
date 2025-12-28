@@ -8,20 +8,20 @@
 
 import type {
 	AdapterMessages,
-	AdapterClient,
-	AsyncAdapter,
+	ClientAdapter,
+	IAsyncProtocol,
 	Address,
 	Message,
 	TlsConfig,
-} from "../../base-adapter";
+} from "../../protocols/base";
 import type { ITestCaseBuilder } from "../../execution/execution.types";
 import { AsyncClientStepBuilder } from "./async-client.step-builder";
-import { BaseComponent } from "../../base-component";
+import { BaseComponent } from "../base";
 
 /**
  * Async client component options
  */
-export interface AsyncClientOptions<A extends AsyncAdapter = AsyncAdapter> {
+export interface AsyncClientOptions<A extends IAsyncProtocol = IAsyncProtocol> {
 	/** Adapter instance (contains all protocol configuration) */
 	adapter: A;
 	/** Target address to connect to */
@@ -49,7 +49,7 @@ export interface AsyncClientOptions<A extends AsyncAdapter = AsyncAdapter> {
  * ```
  */
 export class AsyncClient<
-	A extends AsyncAdapter = AsyncAdapter,
+	A extends IAsyncProtocol = IAsyncProtocol,
 > extends BaseComponent<A, AsyncClientStepBuilder<AdapterMessages<A>, Record<string, unknown>>> {
 	/**
 	 * Phantom type property for type inference.
@@ -60,7 +60,7 @@ export class AsyncClient<
 		messages: AdapterMessages<A>;
 	};
 
-	private handle?: AdapterClient;
+	private handle?: ClientAdapter;
 	private readonly _targetAddress: Address;
 	private readonly _tls?: TlsConfig;
 
@@ -73,7 +73,7 @@ export class AsyncClient<
 	/**
 	 * Static factory method to create an AsyncClient instance
 	 */
-	static create<A extends AsyncAdapter>(
+	static create<A extends IAsyncProtocol>(
 		name: string,
 		options: AsyncClientOptions<A>,
 	): AsyncClient<A> {
@@ -102,7 +102,7 @@ export class AsyncClient<
 	/**
 	 * Get client handle
 	 */
-	getHandle(): AdapterClient | undefined {
+	getHandle(): ClientAdapter | undefined {
 		return this.handle;
 	}
 
@@ -114,15 +114,15 @@ export class AsyncClient<
 			throw new Error(`AsyncClient ${this.name} is not started`);
 		}
 
-		if (!this.adapter || !this.handle) {
+		if (!this.protocol || !this.handle) {
 			throw new Error(`AsyncClient ${this.name} has no adapter`);
 		}
 
 		// Process message through hooks
 		const processedMessage = await this.processMessage(message);
 
-		if (processedMessage && this.adapter.sendMessage) {
-			await this.adapter.sendMessage(
+		if (processedMessage && this.protocol.sendMessage) {
+			await this.protocol.sendMessage(
 				this.handle,
 				processedMessage.type,
 				processedMessage.payload,
@@ -143,17 +143,17 @@ export class AsyncClient<
 			throw new Error(`AsyncClient ${this.name} is not started`);
 		}
 
-		if (!this.adapter || !this.handle) {
+		if (!this.protocol || !this.handle) {
 			throw new Error(`AsyncClient ${this.name} has no adapter`);
 		}
 
-		if (!this.adapter.waitForMessage) {
+		if (!this.protocol.waitForMessage) {
 			throw new Error(
 				`Adapter for ${this.name} does not support waitForMessage`,
 			);
 		}
 
-		return this.adapter.waitForMessage(
+		return this.protocol.waitForMessage(
 			this.handle,
 			messageType,
 			matcher,
@@ -166,10 +166,10 @@ export class AsyncClient<
 	 */
 	protected async doStart(): Promise<void> {
 		// Register hook registry with adapter for component-based message handling
-		this.adapter.setHookRegistry(this.hookRegistry);
+		this.protocol.setHookRegistry(this.hookRegistry);
 
 		// Create client connection
-		this.handle = await this.adapter.createClient({
+		this.handle = await this.protocol.createClient({
 			targetAddress: this._targetAddress,
 			tls: this._tls,
 		});
@@ -180,10 +180,10 @@ export class AsyncClient<
 	 */
 	protected async doStop(): Promise<void> {
 		if (this.handle) {
-			await this.adapter.closeClient(this.handle);
+			await this.protocol.closeClient(this.handle);
 			this.handle = undefined;
 		}
-		await this.adapter.dispose();
+		await this.protocol.dispose();
 		this.hookRegistry.clear();
 	}
 }

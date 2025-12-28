@@ -41,9 +41,9 @@
  */
 
 // Base adapter (Message, Address, ProtocolCharacteristics, etc.)
-export * from "./base-adapter";
+export * from "./protocols/base";
 // Base component (Hook, HookHandler, errors, etc.)
-export * from "./base-component";
+export * from "./components/base";
 // Execution (TestStep, TestCaseResult, TestScenario, testCase, etc.)
 export * from "./execution";
 // Recording (Interaction, InteractionRecorder, etc.)
@@ -51,4 +51,4 @@ export * from "./recording";
 // Components (Client, Server, AsyncClient, AsyncServer)
 export * from "./components";
 // HTTP adapter
-export * from "./adapters/http";
+export * from "./protocols/http";

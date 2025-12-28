@@ -26,7 +26,7 @@ describe("Component Types Integration", () => {
 			});
 
 			const httpServer = Server.create("backend", {
-				adapter: new HttpAdapter(),
+				protocol: new HttpAdapter(),
 				listenAddress: { host: "localhost", port: 3100 },
 			});
 
@@ -73,7 +73,7 @@ describe("Component Types Integration", () => {
 			});
 
 			const httpServer = Server.create("factory-backend", {
-				adapter: new HttpAdapter(),
+				protocol: new HttpAdapter(),
 				listenAddress: { host: "localhost", port: 3150 },
 			});
 
@@ -168,7 +168,7 @@ describe("Component Types Integration", () => {
 			});
 
 			const httpServer = Server.create("http-backend", {
-				adapter: new HttpAdapter(),
+				protocol: new HttpAdapter(),
 				listenAddress: { host: "localhost", port: 3102 },
 			});
 
@@ -240,7 +240,7 @@ describe("Component Types Integration", () => {
 			});
 
 			const httpServer = Server.create("named-backend", {
-				adapter: new HttpAdapter(),
+				protocol: new HttpAdapter(),
 				listenAddress: { host: "localhost", port: 3103 },
 			});
 

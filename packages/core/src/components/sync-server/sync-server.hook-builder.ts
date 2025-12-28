@@ -5,13 +5,13 @@
  * Receives an already-registered hook and adds handlers to it.
  */
 
-import type { Message, SyncResponse } from "../../base-adapter";
+import type { Message, SyncResponse } from "../../protocols/base";
 import type {
 	Hook,
 	HookHandler,
 	SyncHookBuilder,
-} from "../../base-component/base-component.types";
-import { DropMessageError } from "../../base-component/base-component.types";
+} from "../base/base.types";
+import { DropMessageError } from "../base/base.types";
 
 /**
  * Sync Hook Builder Implementation

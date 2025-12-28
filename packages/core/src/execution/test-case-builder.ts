@@ -6,9 +6,9 @@
  * and relies on the component's createStepBuilder method for type inference.
  */
 
-import type { BaseComponent } from "../base-component/component";
-import type { CreateComponentOptions } from "../base-component/base-component.types";
-import type { AnyAdapter } from "../base-adapter";
+import type { BaseComponent } from "../components/base/base.component";
+import type { CreateComponentOptions } from "../components/base/base.types";
+import type { AnyAdapter } from "../protocols/base";
 import type { TestPhase, TestStep } from "./execution.types";
 
 /**
@@ -63,6 +63,10 @@ export class TestCaseBuilder<
 	 */
 	setPhase(phase: TestPhase): void {
 		this.currentPhase = phase;
+	}
+
+	get phase(): TestPhase {
+		return this.currentPhase;
 	}
 
 	/**

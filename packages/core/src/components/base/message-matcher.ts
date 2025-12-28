@@ -8,8 +8,8 @@
  * 2. Payload matcher - hook level, filters by traceId, requestId, or custom function
  */
 
-import type { Message, PayloadMatcher } from "../base-adapter";
-import type { Hook } from "./base-component.types";
+import type { Message } from "../../protocols/base";
+import type { Hook, PayloadMatcher } from "./base.types";
 
 /**
  * Check if a message matches a hook's message types

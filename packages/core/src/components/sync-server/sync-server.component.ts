@@ -11,34 +11,28 @@
  */
 
 import type {
-	AdapterClient,
-	AdapterServer,
-	SyncAdapter,
+	ISyncProtocol,
 	AdapterService,
 	Address,
 	Message,
 	TlsConfig,
-} from "../../base-adapter";
+} from "../../protocols/base";
 import type { ITestCaseBuilder } from "../../execution/execution.types";
 import { SyncServerStepBuilder } from "./sync-server.step-builder";
-import { BaseComponent } from "../../base-component";
+import { BaseComponent } from "../base";
 
 /**
  * Server component options
  */
-export interface ServerOptions<A extends SyncAdapter = SyncAdapter> {
+export interface ServerOptions<P extends ISyncProtocol = ISyncProtocol> {
 	/** Adapter instance (contains all protocol configuration) */
-	adapter: A;
+	protocol: P;
 	/** Address to listen on */
 	listenAddress: Address;
 	/** Target address to forward to (if present, enables proxy mode) */
 	targetAddress?: Address;
 	/** TLS configuration */
 	tls?: TlsConfig;
-	/** Default behavior when no handler matches (mock mode only) */
-	defaultBehavior?: "error" | "forward" | "handler";
-	/** Default handler function (mock mode only) */
-	defaultHandler?: (request: unknown) => unknown | Promise<unknown>;
 }
 
 /**
@@ -63,22 +57,16 @@ export interface ServerOptions<A extends SyncAdapter = SyncAdapter> {
  * });
  * ```
  */
-export class Server<A extends SyncAdapter = SyncAdapter> extends BaseComponent<A, SyncServerStepBuilder<AdapterService<A>>> {
-	private serverHandle?: AdapterServer;
-	private clientHandle?: AdapterClient;
+export class Server<A extends ISyncProtocol = ISyncProtocol> extends BaseComponent<A, SyncServerStepBuilder<AdapterService<A>>> {
 	private readonly _listenAddress: Address;
 	private readonly _targetAddress?: Address;
 	private readonly _tls?: TlsConfig;
-	private readonly _defaultBehavior?: "error" | "forward" | "handler";
-	private readonly _defaultHandler?: (request: unknown) => unknown | Promise<unknown>;
 
 	constructor(name: string, options: ServerOptions<A>) {
-		super(name, options.adapter);
+		super(name, options.protocol);
 		this._listenAddress = options.listenAddress;
 		this._targetAddress = options.targetAddress;
 		this._tls = options.tls;
-		this._defaultBehavior = options.defaultBehavior;
-		this._defaultHandler = options.defaultHandler;
 	}
 
 	/**
@@ -101,15 +89,15 @@ export class Server<A extends SyncAdapter = SyncAdapter> extends BaseComponent<A
  * });
  * ```
  */
-	static create<A extends SyncAdapter>(name: string, options: ServerOptions<A>): Server<A> {
+	static create<A extends ISyncProtocol>(name: string, options: ServerOptions<A>): Server<A> {
 		return new Server<A>(name, options);
 	}
 
 	/**
 	 * Create a step builder for this server component
 	 */
-	createStepBuilder(_builder: ITestCaseBuilder): SyncServerStepBuilder<AdapterService<A>> {
-		return new SyncServerStepBuilder<AdapterService<A>>(this);
+	createStepBuilder(builder: ITestCaseBuilder): SyncServerStepBuilder<AdapterService<A>> {
+		return new SyncServerStepBuilder<AdapterService<A>>(this, builder.phase);
 	}
 
 	/**
@@ -120,65 +108,17 @@ export class Server<A extends SyncAdapter = SyncAdapter> extends BaseComponent<A
 	}
 
 	/**
-	 * Get the adapter instance
-	 */
-	getAdapter(): SyncAdapter {
-		return this.adapter;
-	}
-
-	/**
-	 * Get listen address
-	 */
-	get listenAddress(): Address {
-		return this._listenAddress;
-	}
-
-	/**
-	 * Get target address (proxy mode only)
-	 */
-	get targetAddress(): Address | undefined {
-		return this._targetAddress;
-	}
-
-	/**
-	 * Get server handle
-	 */
-	getHandle(): AdapterServer | undefined {
-		return this.serverHandle;
-	}
-
-	/**
-	 * Get server handle (alias for compatibility)
-	 */
-	getServerHandle(): AdapterServer | undefined {
-		return this.serverHandle;
-	}
-
-	/**
-	 * Get client handle (proxy mode only)
-	 */
-	getClientHandle(): AdapterClient | undefined {
-		return this.clientHandle;
-	}
-
-	/**
 	 * Start the server (and client connection if proxy mode)
 	 */
 	protected async doStart(): Promise<void> {
 		// Start server with onRequest callback to delegate request handling to this component
-		this.serverHandle = await this.adapter.startServer({
-			listenAddress: this._listenAddress,
-			targetAddress: this._targetAddress,
-			tls: this._tls,
-			onRequest: (message) => this.handleIncomingRequest(message),
-		});
+		await this.protocol.startServer({ listenAddress: this._listenAddress, tls: this._tls });
+
+		this.protocol.onRequest((message) => this.handleIncomingRequest(message));
 
 		// If proxy mode, create client connection to target
 		if (this._targetAddress) {
-			this.clientHandle = await this.adapter.createClient({
-				targetAddress: this._targetAddress,
-				tls: this._tls,
-			});
+			await this.protocol.createClient({ targetAddress: this._targetAddress, tls: this._tls });
 		}
 	}
 
@@ -187,19 +127,15 @@ export class Server<A extends SyncAdapter = SyncAdapter> extends BaseComponent<A
 	 */
 	protected async doStop(): Promise<void> {
 		// Stop server
-		if (this.serverHandle) {
-			await this.adapter.stopServer(this.serverHandle);
-			this.serverHandle = undefined;
-		}
+		await this.protocol.stopServer();
 
 		// Disconnect client (proxy mode)
-		if (this.clientHandle) {
-			await this.adapter.closeClient(this.clientHandle);
-			this.clientHandle = undefined;
+		if (this._targetAddress) {
+			await this.protocol.closeClient();
 		}
 
 		// Dispose adapter to release all resources
-		await this.adapter.dispose();
+		await this.protocol.dispose();
 
 		// Clear hooks
 		this.hookRegistry.clear();
@@ -211,25 +147,7 @@ export class Server<A extends SyncAdapter = SyncAdapter> extends BaseComponent<A
 	 */
 	async handleIncomingRequest(message: Message): Promise<Message> {
 		// Process through hooks (includes mock response generation)
-		const processedMessage = await this.processMessage(message);
-
-		if (!processedMessage) {
-			// If request dropped, use default behavior
-			if (
-				this._defaultBehavior === "handler" &&
-				this._defaultHandler
-			) {
-				const response = await this._defaultHandler(message.payload);
-				return {
-					type: "response",
-					payload: response,
-					traceId: message.traceId,
-				};
-			}
-
-			// Default to error
-			throw new Error(`No handler for request: ${message.type}`);
-		}
+		const processedMessage = await this.hookRegistry.executeHooks(message);
 
 		return processedMessage;
 	}
@@ -247,18 +165,17 @@ export class Server<A extends SyncAdapter = SyncAdapter> extends BaseComponent<A
 			throw new Error(`Server ${this.name} is not in proxy mode`);
 		}
 
-		if (!this.adapter || !this.clientHandle) {
+		if (!this.protocol) {
 			throw new Error(`Server ${this.name} is not started`);
 		}
 
-		if (!this.adapter.request) {
+		if (!this.protocol.request) {
 			throw new Error(
 				`Server ${this.name} adapter does not support request operation`,
 			);
 		}
 
-		return this.adapter.request<TRes>(
-			this.clientHandle,
+		return this.protocol.request<TRes>(
 			messageType,
 			options,
 		);

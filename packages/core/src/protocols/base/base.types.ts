@@ -111,27 +111,15 @@ export interface IHookRegistry {
 // =============================================================================
 
 /**
- * Message metadata
- */
-export interface MessageMetadata {
-	timestamp?: number;
-	direction?: "inbound" | "outbound";
-	componentName?: string;
-	[key: string]: unknown;
-}
-
-/**
  * Generic message type for async protocols
  */
-export interface Message {
+export interface Message<T = unknown> {
 	/** Message type/name */
 	type: string;
 	/** Message payload */
-	payload: unknown;
+	payload: T;
 	/** Optional trace ID for correlation */
 	traceId?: string;
-	/** Message metadata */
-	metadata?: MessageMetadata;
 }
 
 /**
@@ -146,102 +134,52 @@ export interface SyncResponse<TBody = unknown> {
 }
 
 // =============================================================================
-// Payload Matchers
-// =============================================================================
-
-/**
- * Match by request ID (for correlating request/response)
- */
-export interface RequestIdPayloadMatcher {
-	type: "requestId";
-	value: string;
-}
-
-/**
- * Match by trace ID in payload
- */
-export interface TraceIdPayloadMatcher {
-	type: "traceId";
-	value: string;
-}
-
-/**
- * Match by custom function
- */
-export interface FunctionPayloadMatcher {
-	type: "function";
-	fn: (payload: unknown) => boolean;
-}
-
-/**
- * Payload matcher - matches by traceId, requestId, or custom function
- */
-export type PayloadMatcher =
-	| TraceIdPayloadMatcher
-	| RequestIdPayloadMatcher
-	| FunctionPayloadMatcher;
-
-// =============================================================================
 // Adapter Handles
 // =============================================================================
 
 /**
  * Server handle for managing server lifecycle
  */
-export interface AdapterServer {
-	id: string; // Unique server ID
-	type: string; // Protocol type
-	address: Address; // Listen address
+export interface ServerAdapter<T = unknown> {
 	isRunning: boolean; // Whether the server is running
-	_internal?: unknown; // Internal server instance (protocol-specific)
+	ref?: T; // Internal server instance (protocol-specific)
 }
 
 /**
  * Client handle for managing client lifecycle
  */
-export interface AdapterClient {
-	id: string; // Unique client ID
-	type: string; // Protocol type
-	address: Address; // Target address
+export interface ClientAdapter<T = unknown> {
 	isConnected: boolean; // Whether the client is connected
-	_internal?: unknown; // Internal client instance (protocol-specific)
+	ref?: T; // Internal client instance (protocol-specific)
 }
 
 /**
  * Request handler callback for sync adapters
  * Called by adapter when a request is received, delegates to component
  */
-export type SyncRequestCallback = (message: Message) => Promise<Message | null>;
+export type SyncRequestCallback<TReq = unknown, TRes = unknown> = (message: Message<TReq>) => Promise<Message<TRes> | null>;
 
 /**
  * Adapter-level server configuration for starting a server/proxy
  */
-export interface AdapterServerConfig {
+export type ServerAdapterConfig<T = unknown> = {
 	listenAddress: Address; // Address to listen on
-	targetAddress?: Address; // Target address for proxy mode (absent for mock)
-	schema?: SchemaDefinition; // Schema definition
-	options?: Record<string, unknown>; // Protocol-specific options
 	tls?: TlsConfig; // TLS configuration
-	/** Request handler callback - adapter calls this to delegate request handling to component */
-	onRequest?: SyncRequestCallback;
-}
+} & T;
 
 /**
  * Adapter-level client configuration for creating a client connection
  */
-export interface AdapterClientConfig {
+export type ClientAdapterConfig<T = unknown> = {
 	targetAddress: Address; // Target address to connect to
-	schema?: SchemaDefinition; // Schema definition
-	options?: Record<string, unknown>; // Protocol-specific options
 	tls?: TlsConfig; // TLS configuration
-}
+} & T;
 
 /**
  * Message handler for server/proxy
  */
 export type MessageHandler<T = unknown> = (
 	payload: T,
-	metadata: MessageMetadata,
 ) => T | Promise<T> | null | Promise<null>;
 
 /**
@@ -249,24 +187,21 @@ export type MessageHandler<T = unknown> = (
  */
 export type RequestHandler<TReq = unknown, TRes = unknown> = (
 	request: TReq,
-	metadata: MessageMetadata,
 ) => TRes | Promise<TRes>;
 
 /**
  * Base adapter type - union of sync and async adapters
  */
-export type BaseAdapter = SyncAdapter | AsyncAdapter;
+export type BaseProtocol = ISyncProtocol | IAsyncProtocol;
 
 /**
  * Base sync request options - common fields for all sync adapters
  * Adapters can extend this with protocol-specific options.
  */
-export interface BaseSyncRequestOptions {
-	/** Request payload/body */
-	payload?: unknown;
+export type SyncRequestOptions<TReq = unknown> = {
 	/** Request timeout in milliseconds */
 	timeout?: number;
-}
+} & TReq;
 
 /**
  * Sync adapter for request/response protocols (HTTP, gRPC Unary)
@@ -274,62 +209,60 @@ export interface BaseSyncRequestOptions {
  * Sync adapters handle protocols where each request gets exactly one response.
  * @template TOptions - Adapter-specific request options type
  */
-export interface SyncAdapter<
-	TOptions extends BaseSyncRequestOptions = BaseSyncRequestOptions,
-> {
+export interface ISyncProtocol<TOptions extends SyncRequestOptions = SyncRequestOptions> {
 	readonly type: string;
 	readonly characteristics: ProtocolCharacteristics;
+
 	loadSchema?(schemaPath: string | string[]): Promise<SchemaDefinition>;
 	setHookRegistry(registry: IHookRegistry): void;
-	dispose(): Promise<void>;
+
+	client: ClientAdapter;
+	server: ServerAdapter;
 
 	/**
-	 * Resolve message type from operationId and adapter-specific options.
-	 * This allows adapters to define their own message type format.
-	 *
-	 * @param messageType - Operation identifier (e.g., "createUser", "getUsers")
-	 * @param options - Adapter-specific options (e.g., method/path for HTTP)
-	 * @returns Resolved message type for hook matching (e.g., "POST /users" for HTTP)
-	 *
-	 * @example HTTP adapter:
-	 *   resolveMessageType("createUser", { method: "POST", path: "/users" }) => "POST /users"
-	 *
-	 * @example gRPC adapter:
-	 *   resolveMessageType("CreateUser", {}) => "CreateUser"
+	 * Dispose of the adapter
 	 */
-	resolveMessageType(messageType: string, options?: TOptions): string;
+	dispose(): Promise<void>;
 
 	/**
 	 * Start a server (for mocks) or proxy listener
 	 */
-	startServer(config: AdapterServerConfig): Promise<AdapterServer>;
+	startServer(config: ServerAdapterConfig): Promise<void>;
 
 	/**
 	 * Stop a server/proxy
 	 */
-	stopServer(server: AdapterServer): Promise<void>;
+	stopServer(): Promise<void>;
 
 	/**
 	 * Create a client connection
 	 */
-	createClient(config: AdapterClientConfig): Promise<AdapterClient>;
+	createClient(config: ClientAdapterConfig): Promise<void>;
 
 	/**
 	 * Close a client connection
 	 */
-	closeClient(client: AdapterClient): Promise<void>;
+	closeClient(): Promise<void>;
 
 	/**
 	 * Make request from client
-	 * @param client - Client handle
 	 * @param messageType - Message type identifier (operationId)
 	 * @param options - Adapter-specific request options
 	 */
-	request<TRes = unknown>(
-		client: AdapterClient,
-		messageType: string,
-		options?: TOptions,
-	): Promise<TRes>;
+	request<TRes = unknown>(messageType: string, options?: TOptions): Promise<SyncResponse<TRes>>;
+
+	/**
+	 * Register request handler for server/proxy
+	 */
+	setRequestHandler(callback: SyncRequestCallback): void;
+
+	/**
+	 * Respond to a request from server
+	 * @param traceId - Trace ID of the request
+	 * @param params - Response parameters (status, headers, body)
+	 */
+	respond(traceId: string, params: { code?: number, headers?: Record<string, string>, body?: unknown }): void;
+
 }
 
 /**
@@ -337,7 +270,7 @@ export interface SyncAdapter<
  *
  * Async adapters handle protocols with bidirectional message streams.
  */
-export interface AsyncAdapter {
+export interface IAsyncProtocol {
 	readonly type: string;
 	readonly characteristics: ProtocolCharacteristics;
 	loadSchema?(schemaPath: string | string[]): Promise<SchemaDefinition>;
@@ -347,28 +280,28 @@ export interface AsyncAdapter {
 	/**
 	 * Start a server (for mocks) or proxy listener
 	 */
-	startServer(config: AdapterServerConfig): Promise<AdapterServer>;
+	startServer(config: ServerAdapterConfig): Promise<void>;
 
 	/**
 	 * Stop a server/proxy
 	 */
-	stopServer(server: AdapterServer): Promise<void>;
+	stopServer(): Promise<void>;
 
 	/**
 	 * Create a client connection
 	 */
-	createClient(config: AdapterClientConfig): Promise<AdapterClient>;
+	createClient(config: ClientAdapterConfig): Promise<void>;
 
 	/**
 	 * Close a client connection
 	 */
-	closeClient(client: AdapterClient): Promise<void>;
+	closeClient(): Promise<void>;
 
 	/**
 	 * Register message handler for server/proxy
 	 */
 	onMessage<T = unknown>(
-		server: AdapterServer,
+		server: ServerAdapter,
 		messageType: string,
 		handler: MessageHandler<T>,
 	): void;
@@ -377,17 +310,15 @@ export interface AsyncAdapter {
 	 * Send message from client
 	 */
 	sendMessage<T = unknown>(
-		client: AdapterClient,
 		messageType: string,
 		payload: T,
-		metadata?: Partial<MessageMetadata>,
+		traceId?: string,
 	): Promise<void>;
 
 	/**
 	 * Wait for message on client
 	 */
 	waitForMessage<T = unknown>(
-		client: AdapterClient,
 		messageType: string | string[],
 		matcher?: string | ((payload: T) => boolean),
 		timeout?: number,
@@ -397,17 +328,17 @@ export interface AsyncAdapter {
 /**
  * Any adapter type (sync or async)
  */
-export type AnyAdapter = SyncAdapter | AsyncAdapter;
+export type AnyAdapter = ISyncProtocol | IAsyncProtocol;
 
 /**
  * Sync adapter class constructor type
  */
-export type SyncAdapterClass = new (...args: unknown[]) => SyncAdapter;
+export type SyncAdapterClass = new (...args: unknown[]) => ISyncProtocol;
 
 /**
  * Async adapter class constructor type
  */
-export type AsyncAdapterClass = new (...args: unknown[]) => AsyncAdapter;
+export type AsyncAdapterClass = new (...args: unknown[]) => IAsyncProtocol;
 
 /**
  * Any adapter class constructor type
@@ -441,7 +372,7 @@ export interface AdapterTypeMarker {
  */
 export type AdapterOptions<A> = A extends { __types: { options: infer O } }
 	? O
-	: BaseSyncRequestOptions;
+	: SyncRequestOptions;
 
 /**
  * Extract messages type from async adapter.

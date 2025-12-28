@@ -7,7 +7,7 @@
  */
 
 import type { ITestCaseBuilder } from "../../execution/execution.types";
-import { generateRequestId } from "../../base-component";
+import { generateRequestId } from "../base";
 import type { Client } from "./sync-client.component";
 import type { ExtractClientRequest, ExtractClientResponse } from "./sync-client.types";
 import { SyncClientHookBuilder } from "./sync-client.hook-builder";

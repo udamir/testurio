@@ -1,20 +1,20 @@
 {
-  "name": "@testurio/adapter-ws",
+  "name": "@testurio/protocol-ws",
   "version": "0.1.0",
-  "description": "WebSocket adapter for testurio",
+  "description": "WebSocket protocol for testurio",
   "keywords": [
     "testurio",
     "websocket",
     "ws",
     "testing",
-    "adapter"
+    "protocol"
   ],
   "author": "Damir Yusipov",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/udamir/testurio.git",
-    "directory": "packages/adapter-ws"
+    "directory": "packages/protocol-ws"
   },
   "main": "dist/index.js",
   "module": "dist/index.mjs",

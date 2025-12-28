@@ -7,11 +7,11 @@
  */
 
 import type { ITestCaseBuilder } from "../../execution/execution.types";
-import { generateHookId } from "../../base-component";
+import { generateHookId } from "../base";
 import { AsyncServerHookBuilder } from "./async-server.hook-builder";
-import type { Message } from "../../base-adapter";
-import type { Hook } from "../../base-component";
-import type { ExtractMessagePayload } from "../../base-adapter";
+import type { Message } from "../../protocols/base";
+import type { Hook } from "../base";
+import type { ExtractMessagePayload } from "../../protocols/base";
 import type { AsyncServer } from "./async-server.component";
 
 /**

@@ -5,8 +5,8 @@
  * Used for async server components (mock/proxy servers).
  */
 
-import type { Message } from "../../base-adapter";
-import type { ExtractMockEventResponse } from "../../base-adapter";
+import type { Message } from "../../protocols/base";
+import type { ExtractMockEventResponse } from "../../protocols/base";
 import { AsyncClientHookBuilder } from "../async-client/async-client.hook-builder";
 
 /**

@@ -9,17 +9,17 @@
  */
 
 import type {
-	AdapterClientConfig,
+	ClientAdapterConfig,
 	AdapterClientHandle,
-	AdapterServerConfig,
+	ServerAdapterConfig,
 	AdapterServerHandle,
-	AsyncAdapter,
+	IAsyncProtocol,
 	Message,
 	MessageMetadata,
 	ProtocolCharacteristics,
 	SchemaDefinition,
 } from "testurio";
-import { BaseAsyncAdapter, generateHandleId } from "testurio";
+import { BaseAsyncProtocol, generateHandleId } from "testurio";
 import { WebSocket, WebSocketServer } from "ws";
 import type { WsAdapterTypes, WsProtocolDefinition } from "./types";
 
@@ -91,8 +91,8 @@ export interface WebSocketAdapterOptions {
 export class WebSocketAdapter<
 		P extends WsProtocolDefinition = WsProtocolDefinition,
 	>
-	extends BaseAsyncAdapter
-	implements AsyncAdapter
+	extends BaseAsyncProtocol
+	implements IAsyncProtocol
 {
 	/**
 	 * Phantom type property for type inference.
@@ -146,7 +146,7 @@ export class WebSocketAdapter<
 	 * Start a real WebSocket server (mock or proxy)
 	 */
 	async startServer(
-		config: AdapterServerConfig,
+		config: ServerAdapterConfig,
 	): Promise<WebSocketServerHandle> {
 		const id = generateHandleId("ws-server");
 		const isProxy = !!config.targetAddress;
@@ -366,7 +366,7 @@ export class WebSocketAdapter<
 	 * Create a real WebSocket client
 	 */
 	async createClient(
-		config: AdapterClientConfig,
+		config: ClientAdapterConfig,
 	): Promise<WebSocketClientHandle> {
 		const id = generateHandleId("ws-client");
 		const protocol = config.tls?.enabled ? "wss" : "ws";

@@ -109,8 +109,8 @@ describe("GrpcUnaryAdapter", () => {
 			});
 
 			expect(handle.isRunning).toBe(true);
-			expect(handle._internal.isProxy).toBe(true);
-			expect(handle._internal.targetAddress).toEqual({ host: "backend", port: 9090 });
+			expect(handle.ref.isProxy).toBe(true);
+			expect(handle.ref.targetAddress).toEqual({ host: "backend", port: 9090 });
 		});
 
 		it("should start server with loaded schema", async () => {
@@ -121,7 +121,7 @@ describe("GrpcUnaryAdapter", () => {
 			});
 
 			expect(handle.isRunning).toBe(true);
-			expect(handle._internal.schema).toBeDefined();
+			expect(handle.ref.schema).toBeDefined();
 		});
 	});
 
@@ -173,7 +173,7 @@ describe("GrpcUnaryAdapter", () => {
 			expect(handle.id).toMatch(/^grpc-client-/);
 			expect(handle.type).toBe("grpc-unary");
 			expect(handle.isConnected).toBe(true);
-			expect(handle._internal.serviceName).toBe("test.v1.TestService");
+			expect(handle.ref.serviceName).toBe("test.v1.TestService");
 		});
 	});
 
@@ -297,7 +297,7 @@ describe("GrpcStreamAdapter", () => {
 			expect(handle.id).toMatch(/^grpc-stream-server-/);
 			expect(handle.type).toBe("grpc-stream");
 			expect(handle.isRunning).toBe(true);
-			expect(handle._internal.isStreaming).toBe(true);
+			expect(handle.ref.isStreaming).toBe(true);
 		});
 
 		it("should start server with loaded schema", async () => {
@@ -308,7 +308,7 @@ describe("GrpcStreamAdapter", () => {
 			});
 
 			expect(handle.isRunning).toBe(true);
-			expect(handle._internal.schema).toBeDefined();
+			expect(handle.ref.schema).toBeDefined();
 		});
 	});
 
@@ -359,7 +359,7 @@ describe("GrpcStreamAdapter", () => {
 
 			expect(handle.id).toMatch(/^grpc-stream-client-/);
 			expect(handle.isConnected).toBe(true);
-			expect(handle._internal.serviceName).toBe("test.v1.TestService");
+			expect(handle.ref.serviceName).toBe("test.v1.TestService");
 		});
 	});
 
@@ -405,7 +405,7 @@ describe("GrpcStreamAdapter", () => {
 			// Add a pending message
 			let rejectedError: Error | undefined;
 			const timeoutHandle = setTimeout(() => {}, 10000);
-			handle._internal.pendingMessages.set("pending-1", {
+			handle.ref.pendingMessages.set("pending-1", {
 				resolve: () => {},
 				reject: (err: Error) => { rejectedError = err; },
 				messageType: "response",
@@ -500,7 +500,7 @@ describe("GrpcStreamAdapter", () => {
 			});
 
 			// Pre-queue a message
-			handle._internal.messageQueue.push({
+			handle.ref.messageQueue.push({
 				type: "TestResponse",
 				payload: { data: "queued" },
 			});

@@ -7,22 +7,22 @@
  */
 
 import type {
-	AdapterClient,
-	AdapterServer,
-	AsyncAdapter,
+	ClientAdapter,
+	ServerAdapter,
+	IAsyncProtocol,
 	AdapterMessages,
 	Address,
 	Message,
 	TlsConfig,
-} from "../../base-adapter";
+} from "../../protocols/base";
 import type { ITestCaseBuilder } from "../../execution/execution.types";
 import { AsyncServerStepBuilder } from "./async-server.step-builder";
-import { BaseComponent } from "../../base-component";
+import { BaseComponent } from "../base";
 
 /**
  * Async server component options
  */
-export interface AsyncServerOptions<A extends AsyncAdapter = AsyncAdapter> {
+export interface AsyncServerOptions<A extends IAsyncProtocol = IAsyncProtocol> {
 	/** Adapter instance (contains all protocol configuration) */
 	adapter: A;
 	/** Address to listen on */
@@ -56,7 +56,7 @@ export interface AsyncServerOptions<A extends AsyncAdapter = AsyncAdapter> {
  * ```
  */
 export class AsyncServer<
-	A extends AsyncAdapter = AsyncAdapter,
+	A extends IAsyncProtocol = IAsyncProtocol,
 > extends BaseComponent<A, AsyncServerStepBuilder<AdapterMessages<A>, Record<string, unknown>>> {
 	/**
 	 * Phantom type property for type inference.
@@ -67,8 +67,8 @@ export class AsyncServer<
 		messages: AdapterMessages<A>;
 	};
 
-	private serverHandle?: AdapterServer;
-	private clientHandle?: AdapterClient;
+	private serverHandle?: ServerAdapter;
+	private clientHandle?: ClientAdapter;
 	private readonly _listenAddress: Address;
 	private readonly _targetAddress?: Address;
 	private readonly _tls?: TlsConfig;
@@ -83,7 +83,7 @@ export class AsyncServer<
 	/**
 	 * Static factory method to create an AsyncServer instance
 	 */
-	static create<A extends AsyncAdapter>(
+	static create<A extends IAsyncProtocol>(
 		name: string,
 		options: AsyncServerOptions<A>,
 	): AsyncServer<A> {
@@ -126,14 +126,14 @@ export class AsyncServer<
 	/**
 	 * Get server handle
 	 */
-	getServerHandle(): AdapterServer | undefined {
+	getServerHandle(): ServerAdapter | undefined {
 		return this.serverHandle;
 	}
 
 	/**
 	 * Get client handle (for proxy mode)
 	 */
-	getClientHandle(): AdapterClient | undefined {
+	getClientHandle(): ClientAdapter | undefined {
 		return this.clientHandle;
 	}
 
@@ -145,15 +145,15 @@ export class AsyncServer<
 			throw new Error(`AsyncServer ${this.name} is not started`);
 		}
 
-		if (!this.adapter || !this.serverHandle) {
+		if (!this.protocol || !this.serverHandle) {
 			throw new Error(`AsyncServer ${this.name} has no adapter`);
 		}
 
 		// Process message through hooks
 		const processedMessage = await this.processMessage(message);
 
-		if (processedMessage && this.adapter.sendMessage && this.clientHandle) {
-			await this.adapter.sendMessage(
+		if (processedMessage && this.protocol.sendMessage && this.clientHandle) {
+			await this.protocol.sendMessage(
 				this.clientHandle,
 				processedMessage.type,
 				processedMessage.payload,
@@ -167,10 +167,10 @@ export class AsyncServer<
 	 */
 	protected async doStart(): Promise<void> {
 		// Register hook registry with adapter for component-based message handling
-		this.adapter.setHookRegistry(this.hookRegistry);
+		this.protocol.setHookRegistry(this.hookRegistry);
 
 		// Start server
-		this.serverHandle = await this.adapter.startServer({
+		this.serverHandle = await this.protocol.startServer({
 			listenAddress: this._listenAddress,
 			targetAddress: this._targetAddress,
 			tls: this._tls,
@@ -178,7 +178,7 @@ export class AsyncServer<
 
 		// If proxy mode, create client connection to target
 		if (this._targetAddress) {
-			this.clientHandle = await this.adapter.createClient({
+			this.clientHandle = await this.protocol.createClient({
 				targetAddress: this._targetAddress,
 				tls: this._tls,
 			});
@@ -190,14 +190,14 @@ export class AsyncServer<
 	 */
 	protected async doStop(): Promise<void> {
 		if (this.serverHandle) {
-			await this.adapter.stopServer(this.serverHandle);
+			await this.protocol.stopServer(this.serverHandle);
 			this.serverHandle = undefined;
 		}
 		if (this.clientHandle) {
-			await this.adapter.closeClient(this.clientHandle);
+			await this.protocol.closeClient(this.clientHandle);
 			this.clientHandle = undefined;
 		}
-		await this.adapter.dispose();
+		await this.protocol.dispose();
 		this.hookRegistry.clear();
 	}
 }

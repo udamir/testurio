@@ -15,18 +15,18 @@ import * as path from "node:path";
 import * as grpc from "@grpc/grpc-js";
 import * as protoLoader from "@grpc/proto-loader";
 import type {
-	AdapterClientConfig,
-	AdapterClient,
-	AdapterServerConfig,
-	AdapterServer,
-	AsyncAdapter,
+	ClientAdapterConfig,
+	ClientAdapter,
+	ServerAdapterConfig,
+	ServerAdapter,
+	IAsyncProtocol,
 	Message,
 	ProtocolCharacteristics,
 	SchemaDefinition,
-	SyncAdapter,
+	ISyncProtocol,
 } from "testurio";
 import type { GrpcMessageMetadata } from "./types";
-import { BaseAsyncAdapter, BaseSyncAdapter, generateHandleId } from "testurio";
+import { BaseAsyncProtocol, BaseSyncProtocol, generateHandleId } from "testurio";
 import type {
 	GrpcStreamServiceDefinition,
 	GrpcStreamAdapterTypes,
@@ -56,8 +56,8 @@ interface LoadedSchema {
 /**
  * gRPC-specific server handle
  */
-interface GrpcServerHandle extends AdapterServer {
-	_internal: {
+interface GrpcServerHandle extends ServerAdapter {
+	ref: {
 		server: grpc.Server;
 		isProxy: boolean;
 		targetAddress?: { host: string; port: number };
@@ -70,8 +70,8 @@ interface GrpcServerHandle extends AdapterServer {
 /**
  * gRPC-specific client handle for unary calls
  */
-interface GrpcUnaryClientHandle extends AdapterClient {
-	_internal: {
+interface GrpcUnaryClientHandle extends ClientAdapter {
+	ref: {
 		client: grpc.Client;
 		schema?: LoadedSchema;
 		serviceName?: string;
@@ -81,8 +81,8 @@ interface GrpcUnaryClientHandle extends AdapterClient {
 /**
  * gRPC-specific client handle for streaming
  */
-interface GrpcStreamClientHandle extends AdapterClient {
-	_internal: {
+interface GrpcStreamClientHandle extends ClientAdapter {
+	ref: {
 		client: grpc.Client;
 		call?: grpc.ClientDuplexStream<unknown, unknown>;
 		pendingMessages: Map<string, PendingMessage>;
@@ -112,7 +112,7 @@ export interface GrpcUnaryAdapterOptions {
  * @template S - gRPC service definition (method name -> { request, response, metadata? })
  */
 // biome-ignore lint/suspicious/noExplicitAny: Required for interface compatibility without index signatures
-export class GrpcUnaryAdapter<S = any> extends BaseSyncAdapter implements SyncAdapter {
+export class GrpcUnaryAdapter<S = any> extends BaseSyncProtocol implements ISyncProtocol {
 	/**
 	 * Phantom type property for type inference.
 	 * Used by components to infer request/response types.
@@ -257,7 +257,7 @@ export class GrpcUnaryAdapter<S = any> extends BaseSyncAdapter implements SyncAd
 	/**
 	 * Start a gRPC server (mock or proxy)
 	 */
-	async startServer(config: AdapterServerConfig): Promise<GrpcServerHandle> {
+	async startServer(config: ServerAdapterConfig): Promise<GrpcServerHandle> {
 		// Auto-load schema from options if not already loaded
 		if (!this.schema && this.adapterOptions.schema) {
 			await this.loadSchema(this.adapterOptions.schema);
@@ -317,7 +317,7 @@ export class GrpcUnaryAdapter<S = any> extends BaseSyncAdapter implements SyncAd
 						type: this.type,
 						address: { ...config.listenAddress, port },
 						isRunning: true,
-						_internal: {
+						ref: {
 							server,
 							isProxy,
 							targetAddress: config.targetAddress,
@@ -558,14 +558,14 @@ export class GrpcUnaryAdapter<S = any> extends BaseSyncAdapter implements SyncAd
 	/**
 	 * Stop a gRPC server
 	 */
-	async stopServer(server: AdapterServer): Promise<void> {
+	async stopServer(server: ServerAdapter): Promise<void> {
 		const handle = this.servers.get(server.id) as GrpcServerHandle | undefined;
 		if (!handle) {
 			throw new Error(`Server ${server.id} not found`);
 		}
 
 		return new Promise((resolve) => {
-			handle._internal.server.tryShutdown(() => {
+			handle.ref.server.tryShutdown(() => {
 				handle.isRunning = false;
 				this.cleanupServer(server.id);
 				resolve();
@@ -577,7 +577,7 @@ export class GrpcUnaryAdapter<S = any> extends BaseSyncAdapter implements SyncAd
 	 * Create a gRPC client
 	 */
 	async createClient(
-		config: AdapterClientConfig,
+		config: ClientAdapterConfig,
 	): Promise<GrpcUnaryClientHandle> {
 		// Auto-load schema from options if not already loaded
 		if (!this.schema && this.adapterOptions.schema) {
@@ -629,7 +629,7 @@ export class GrpcUnaryAdapter<S = any> extends BaseSyncAdapter implements SyncAd
 			type: this.type,
 			address: config.targetAddress,
 			isConnected: true,
-			_internal: {
+			ref: {
 				client,
 				schema: this.schema,
 				serviceName,
@@ -643,7 +643,7 @@ export class GrpcUnaryAdapter<S = any> extends BaseSyncAdapter implements SyncAd
 	/**
 	 * Close a gRPC client
 	 */
-	async closeClient(client: AdapterClient): Promise<void> {
+	async closeClient(client: ClientAdapter): Promise<void> {
 		const handle = this.clients.get(client.id) as
 			| GrpcUnaryClientHandle
 			| undefined;
@@ -651,7 +651,7 @@ export class GrpcUnaryAdapter<S = any> extends BaseSyncAdapter implements SyncAd
 			throw new Error(`Client ${client.id} not found`);
 		}
 
-		handle._internal.client.close();
+		handle.ref.client.close();
 		handle.isConnected = false;
 		this.cleanupClient(client.id);
 	}
@@ -663,7 +663,7 @@ export class GrpcUnaryAdapter<S = any> extends BaseSyncAdapter implements SyncAd
 	 * @param options - Request options (payload, metadata)
 	 */
 	async request<TReq = unknown, TRes = unknown>(
-		client: AdapterClient,
+		client: ClientAdapter,
 		messageType: string,
 		options?: {
 			payload?: unknown;
@@ -690,7 +690,7 @@ export class GrpcUnaryAdapter<S = any> extends BaseSyncAdapter implements SyncAd
 			}
 		}
 
-		const grpcClient = handle._internal.client as unknown as Record<
+		const grpcClient = handle.ref.client as unknown as Record<
 			string,
 			(
 				request: TReq,
@@ -762,8 +762,8 @@ export interface GrpcStreamAdapterOptions {
 export class GrpcStreamAdapter<
 		S extends GrpcStreamServiceDefinition = GrpcStreamServiceDefinition,
 	>
-	extends BaseAsyncAdapter
-	implements AsyncAdapter
+	extends BaseAsyncProtocol
+	implements IAsyncProtocol
 {
 	/**
 	 * Phantom type property for type inference.
@@ -928,7 +928,7 @@ export class GrpcStreamAdapter<
 	/**
 	 * Start a gRPC streaming server
 	 */
-	async startServer(config: AdapterServerConfig): Promise<GrpcServerHandle> {
+	async startServer(config: ServerAdapterConfig): Promise<GrpcServerHandle> {
 		// Auto-load schema from options if not already loaded
 		if (!this.schema && this.adapterOptions.schema) {
 			await this.loadSchema(this.adapterOptions.schema);
@@ -986,7 +986,7 @@ export class GrpcStreamAdapter<
 						type: this.type,
 						address: { ...config.listenAddress, port },
 						isRunning: true,
-						_internal: {
+						ref: {
 							server,
 							isProxy,
 							targetAddress: config.targetAddress,
@@ -1336,14 +1336,14 @@ export class GrpcStreamAdapter<
 	/**
 	 * Stop a gRPC streaming server
 	 */
-	async stopServer(server: AdapterServer): Promise<void> {
+	async stopServer(server: ServerAdapter): Promise<void> {
 		const handle = this.servers.get(server.id) as GrpcServerHandle | undefined;
 		if (!handle) {
 			throw new Error(`Server ${server.id} not found`);
 		}
 
 		return new Promise((resolve) => {
-			handle._internal.server.tryShutdown(() => {
+			handle.ref.server.tryShutdown(() => {
 				handle.isRunning = false;
 				this.cleanupServer(server.id);
 				resolve();
@@ -1355,7 +1355,7 @@ export class GrpcStreamAdapter<
 	 * Create a gRPC streaming client
 	 */
 	async createClient(
-		config: AdapterClientConfig,
+		config: ClientAdapterConfig,
 	): Promise<GrpcStreamClientHandle> {
 		// Auto-load schema from options if not already loaded
 		if (!this.schema && this.adapterOptions.schema) {
@@ -1412,7 +1412,7 @@ export class GrpcStreamAdapter<
 			type: this.type,
 			address: config.targetAddress,
 			isConnected: true,
-			_internal: {
+			ref: {
 				client,
 				pendingMessages: new Map(),
 				messageQueue: [],
@@ -1431,7 +1431,7 @@ export class GrpcStreamAdapter<
 
 			if (typeof grpcClient[methodName] === "function") {
 				const call = grpcClient[methodName]();
-				handle._internal.call = call;
+				handle.ref.call = call;
 
 				call.on("data", (response: unknown) => {
 					this.handleStreamMessage(handle, response);
@@ -1462,7 +1462,7 @@ export class GrpcStreamAdapter<
 		const dataObj = data as Record<string, unknown>;
 		const messageType =
 			(dataObj.message_type as string) ||
-			handle._internal.methodName ||
+			handle.ref.methodName ||
 			"unknown";
 
 		const message: Message = {
@@ -1485,7 +1485,7 @@ export class GrpcStreamAdapter<
 
 		// Check pending messages
 		for (const [pendingId, pending] of Array.from(
-			handle._internal.pendingMessages.entries(),
+			handle.ref.pendingMessages.entries(),
 		)) {
 			const types = Array.isArray(pending.messageType)
 				? pending.messageType
@@ -1494,14 +1494,14 @@ export class GrpcStreamAdapter<
 			if (types.includes(processedMessage.type)) {
 				if (this.matchesPending(processedMessage, pending)) {
 					clearTimeout(pending.timeout);
-					handle._internal.pendingMessages.delete(pendingId);
+					handle.ref.pendingMessages.delete(pendingId);
 					pending.resolve(processedMessage);
 					return;
 				}
 			}
 		}
 
-		handle._internal.messageQueue.push(processedMessage);
+		handle.ref.messageQueue.push(processedMessage);
 	}
 
 	/**
@@ -1520,7 +1520,7 @@ export class GrpcStreamAdapter<
 	/**
 	 * Close a gRPC streaming client
 	 */
-	async closeClient(client: AdapterClient): Promise<void> {
+	async closeClient(client: ClientAdapter): Promise<void> {
 		const handle = this.clients.get(client.id) as
 			| GrpcStreamClientHandle
 			| undefined;
@@ -1530,19 +1530,19 @@ export class GrpcStreamAdapter<
 
 		// Reject all pending messages
 		for (const [, pending] of Array.from(
-			handle._internal.pendingMessages.entries(),
+			handle.ref.pendingMessages.entries(),
 		)) {
 			clearTimeout(pending.timeout);
 			pending.reject(new Error("Client disconnected"));
 		}
-		handle._internal.pendingMessages.clear();
-		handle._internal.messageQueue = [];
+		handle.ref.pendingMessages.clear();
+		handle.ref.messageQueue = [];
 
-		if (handle._internal.call) {
-			handle._internal.call.end();
+		if (handle.ref.call) {
+			handle.ref.call.end();
 		}
 
-		handle._internal.client.close();
+		handle.ref.client.close();
 		handle.isConnected = false;
 		this.cleanupClient(client.id);
 	}
@@ -1551,7 +1551,7 @@ export class GrpcStreamAdapter<
 	 * Send message on stream
 	 */
 	async sendMessage<T = unknown>(
-		client: AdapterClient,
+		client: ClientAdapter,
 		_messageType: string,
 		payload: T,
 		_metadata?: Partial<GrpcMessageMetadata>,
@@ -1567,18 +1567,18 @@ export class GrpcStreamAdapter<
 			throw new Error(`Client ${client.id} is not connected`);
 		}
 
-		if (!handle._internal.call) {
+		if (!handle.ref.call) {
 			throw new Error(`Client ${client.id} has no active stream`);
 		}
 
-		handle._internal.call.write(payload);
+		handle.ref.call.write(payload);
 	}
 
 	/**
 	 * Wait for message on stream
 	 */
 	async waitForMessage<T = unknown>(
-		client: AdapterClient,
+		client: ClientAdapter,
 		messageType: string | string[],
 		matcher?: string | ((payload: T) => boolean),
 		timeout = 30000,
@@ -1610,13 +1610,13 @@ export class GrpcStreamAdapter<
 			const pendingId = generateHandleId("pending");
 
 			const timeoutHandle = setTimeout(() => {
-				handle._internal.pendingMessages.delete(pendingId);
+				handle.ref.pendingMessages.delete(pendingId);
 				reject(
 					new Error(`Timeout waiting for message type: ${types.join(", ")}`),
 				);
 			}, timeout);
 
-			handle._internal.pendingMessages.set(pendingId, {
+			handle.ref.pendingMessages.set(pendingId, {
 				resolve,
 				reject,
 				messageType,
@@ -1637,7 +1637,7 @@ export class GrpcStreamAdapter<
 		types: string[],
 		matcher?: string | ((payload: unknown) => boolean),
 	): Message | undefined {
-		const index = handle._internal.messageQueue.findIndex((msg) => {
+		const index = handle.ref.messageQueue.findIndex((msg) => {
 			if (!types.includes(msg.type)) return false;
 
 			if (matcher) {
@@ -1651,7 +1651,7 @@ export class GrpcStreamAdapter<
 		});
 
 		if (index >= 0) {
-			return handle._internal.messageQueue.splice(index, 1)[0];
+			return handle.ref.messageQueue.splice(index, 1)[0];
 		}
 
 		return undefined;

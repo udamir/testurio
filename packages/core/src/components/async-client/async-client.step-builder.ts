@@ -5,11 +5,11 @@
  */
 
 import type { ITestCaseBuilder } from "../../execution/execution.types";
-import { generateHookId } from "../../base-component";
+import { generateHookId } from "../base";
 import { AsyncClientHookBuilder } from "./async-client.hook-builder";
-import type { Message } from "../../base-adapter";
-import type { Hook } from "../../base-component/base-component.types";
-import type { ExtractMessagePayload } from "../../base-adapter";
+import type { Message } from "../../protocols/base";
+import type { Hook } from "../base/base.types";
+import type { ExtractMessagePayload } from "../../protocols/base";
 import type { AsyncClient } from "./async-client.component";
 
 /**

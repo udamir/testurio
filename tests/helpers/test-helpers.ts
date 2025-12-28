@@ -6,7 +6,7 @@
 
 import { vi } from "vitest";
 import type {
-	SyncAdapter,
+	ISyncProtocol,
 	AdapterServerHandle,
 	AdapterClientHandle,
 } from "testurio";
@@ -15,7 +15,7 @@ import { Server, Client } from "testurio";
 /**
  * Create a mock protocol adapter for testing
  */
-export const createServerAdapter = (overrides?: Partial<SyncAdapter>): SyncAdapter => ({
+export const createServerAdapter = (overrides?: Partial<ISyncProtocol>): ISyncProtocol => ({
 	type: "http",
 	characteristics: {
 		type: "http",
@@ -51,16 +51,16 @@ export const createServerAdapter = (overrides?: Partial<SyncAdapter>): SyncAdapt
 /**
  * Create a mock Server component for TestScenario
  */
-export const createMockServer = (name: string, port: number, adapter?: SyncAdapter): Server =>
+export const createMockServer = (name: string, port: number, adapter?: ISyncProtocol): Server =>
 	new Server(name, {
-		adapter: adapter ?? createServerAdapter(),
+		protocol: adapter ?? createServerAdapter(),
 		listenAddress: { host: "localhost", port },
 	});
 
 /**
  * Create a Client component for TestScenario
  */
-export const createClient = (name: string, port: number, adapter?: SyncAdapter): Client =>
+export const createClient = (name: string, port: number, adapter?: ISyncProtocol): Client =>
 	new Client(name, {
 		adapter: adapter ?? createServerAdapter(),
 		targetAddress: { host: "localhost", port },
@@ -69,9 +69,9 @@ export const createClient = (name: string, port: number, adapter?: SyncAdapter):
 /**
  * Create a proxy Server component for TestScenario
  */
-export const createProxyServer = (name: string, listenPort: number, targetPort: number, adapter?: SyncAdapter): Server =>
+export const createProxyServer = (name: string, listenPort: number, targetPort: number, adapter?: ISyncProtocol): Server =>
 	new Server(name, {
-		adapter: adapter ?? createServerAdapter(),
+		protocol: adapter ?? createServerAdapter(),
 		listenAddress: { host: "localhost", port: listenPort },
 		targetAddress: { host: "localhost", port: targetPort },
 	});

@@ -81,7 +81,7 @@ interface HttpServiceDef {
 // Helper functions for creating HTTP components with typed adapters
 const createMockServer = (name: string, port: number) =>
 	new Server(name, {
-		adapter: new HttpAdapter<HttpServiceDef>(),
+		protocol: new HttpAdapter<HttpServiceDef>(),
 		listenAddress: { host: "localhost", port },
 	});
 
@@ -93,7 +93,7 @@ const createClient = (name: string, port: number) =>
 
 const createProxyServer = (name: string, listenPort: number, targetPort: number) =>
 	new Server(name, {
-		adapter: new HttpAdapter<HttpServiceDef>(),
+		protocol: new HttpAdapter<HttpServiceDef>(),
 		listenAddress: { host: "localhost", port: listenPort },
 		targetAddress: { host: "localhost", port: targetPort },
 	});

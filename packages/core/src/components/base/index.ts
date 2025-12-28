@@ -7,8 +7,8 @@
  * - AsyncHookBuilderImpl: components/async-server/async-hook-builder.ts
  */
 
-export * from "./base-component.types";
-export * from "./component";
-export * from "./hook-registry";
+export * from "./base.types";
+export * from "./base.component";
+export * from "./base.hooks";
 export * from "./message-matcher";
 export * from "./utils";

@@ -4,13 +4,13 @@
  * Manages hook registration, lookup, and execution.
  */
 
-import type { Message } from "../base-adapter";
+import type { Message } from "../../protocols/base";
 import type {
 	Hook,
 	HookExecutionResult,
 	HookMatchResult,
-} from "./base-component.types";
-import { DropMessageError, HookError } from "./base-component.types";
+} from "./base.types";
+import { DropMessageError, HookError } from "./base.types";
 import { calculateHookScore, matchHook } from "./message-matcher";
 
 /**

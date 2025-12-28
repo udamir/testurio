@@ -6,9 +6,9 @@
  * Contains common methods used by both client and server.
  */
 
-import type { Message } from "../../base-adapter";
-import type { Hook, HookHandler } from "../../base-component/base-component.types";
-import { DropMessageError } from "../../base-component/base-component.types";
+import type { Message } from "../../protocols/base";
+import type { Hook, HookHandler } from "../base/base.types";
+import { DropMessageError } from "../base/base.types";
 
 /**
  * Async Client Hook Builder Implementation

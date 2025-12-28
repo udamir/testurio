@@ -7,14 +7,14 @@
 import { describe, expect, it } from "vitest";
 import {
 	TestScenario,
-	BaseSyncAdapter,
+	BaseSyncProtocol,
 	Client,
 	Server,
 } from "testurio";
 import type { ProtocolCharacteristics } from "testurio";
 
 // Mock adapter class implementing SyncAdapter
-class MockAdapter extends BaseSyncAdapter {
+class MockAdapter extends BaseSyncProtocol {
 	readonly type = "http";
 	readonly characteristics: ProtocolCharacteristics = {
 		type: "http",
@@ -60,7 +60,7 @@ const createClient = (name: string, port: number) => new Client(name, {
 });
 
 const createServer = (name: string, port: number) => new Server(name, {
-	adapter: new MockAdapter(),
+	protocol: new MockAdapter(),
 	listenAddress: { host: "localhost", port },
 });
 

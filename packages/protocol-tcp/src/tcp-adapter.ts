@@ -10,17 +10,17 @@
 
 import * as net from "node:net";
 import type {
-	AdapterClientConfig,
+	ClientAdapterConfig,
 	AdapterClientHandle,
-	AdapterServerConfig,
+	ServerAdapterConfig,
 	AdapterServerHandle,
-	AsyncAdapter,
+	IAsyncProtocol,
 	Message,
 	MessageMetadata,
 	ProtocolCharacteristics,
 	SchemaDefinition,
 } from "testurio";
-import { BaseAsyncAdapter, generateHandleId } from "testurio";
+import { BaseAsyncProtocol, generateHandleId } from "testurio";
 import type { TcpAdapterTypes, TcpProtocolDefinition } from "./types";
 
 /**
@@ -92,8 +92,8 @@ export interface TcpAdapterOptions {
 export class TcpAdapter<
 		P extends TcpProtocolDefinition = TcpProtocolDefinition,
 	>
-	extends BaseAsyncAdapter
-	implements AsyncAdapter
+	extends BaseAsyncProtocol
+	implements IAsyncProtocol
 {
 	/**
 	 * Phantom type property for type inference.
@@ -147,7 +147,7 @@ export class TcpAdapter<
 	/**
 	 * Start a real TCP server (mock or proxy)
 	 */
-	async startServer(config: AdapterServerConfig): Promise<TcpServerHandle> {
+	async startServer(config: ServerAdapterConfig): Promise<TcpServerHandle> {
 		const id = generateHandleId("tcp-server");
 		const isProxy = !!config.targetAddress;
 
@@ -388,7 +388,7 @@ export class TcpAdapter<
 	/**
 	 * Create a real TCP client
 	 */
-	async createClient(config: AdapterClientConfig): Promise<TcpClientHandle> {
+	async createClient(config: ClientAdapterConfig): Promise<TcpClientHandle> {
 		const id = generateHandleId("tcp-client");
 
 		return new Promise((resolve, reject) => {

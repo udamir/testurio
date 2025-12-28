@@ -7,13 +7,13 @@ import {
 	testCase,
 	TestScenario,
 	scenario,
-	BaseSyncAdapter,
+	BaseSyncProtocol,
 	Client,
 } from "testurio";
 import type { TestScenarioConfig } from "testurio";
 
 // Mock adapter class
-class MockAdapter extends BaseSyncAdapter {
+class MockAdapter extends BaseSyncProtocol {
 	readonly type = "http";
 	readonly characteristics = {
 		type: "http",

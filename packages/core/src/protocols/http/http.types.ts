@@ -4,12 +4,12 @@
  * Type definitions specific to the HTTP adapter.
  */
 
-import type { AdapterTypeMarker, BaseSyncRequestOptions } from "../../base-adapter";
+import type { AdapterTypeMarker, SyncRequestOptions } from "../base";
 
 /**
  * HTTP-specific request options
  */
-export interface HttpRequestOptions extends BaseSyncRequestOptions {
+export interface HttpRequestOptions extends SyncRequestOptions {
 	/** HTTP method (GET, POST, PUT, DELETE, etc.) */
 	method: string;
 	/** URL path */
@@ -38,8 +38,8 @@ export interface HttpOptions {
 export interface HttpRequest<TBody = unknown> {
 	method: string; // HTTP method
 	path: string; // Request path
-	headers?: Record<string, string>; // Request headers
-	query?: Record<string, string>; // Query parameters
+	headers?: Record<string, string | string[] | undefined>; // Request headers
+	query?: string; // Query parameters
 	body?: TBody; // Request body
 	requestId?: string; // Request ID for correlation
 }
@@ -48,7 +48,7 @@ export interface HttpRequest<TBody = unknown> {
  * HTTP Response type for sync protocols
  */
 export interface HttpResponse<TBody = unknown> {
-	status: number; // HTTP status code (required for HTTP)
+	code: number; // HTTP status code (required for HTTP)
 	headers?: Record<string, string>; // Response headers/metadata
 	body?: TBody; // Response body
 	requestId?: string; // Request ID for correlation

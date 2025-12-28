@@ -224,6 +224,7 @@ export type TestExecutionStatus =
 export interface ITestCaseBuilder<
 	TContext extends Record<string, unknown> = Record<string, unknown>,
 > {
+	phase: TestPhase;
 	readonly context: TContext;
 	registerStep(step: Omit<TestStep, "phase">): void;
 }

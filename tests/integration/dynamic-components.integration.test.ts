@@ -48,7 +48,7 @@ describe("Dynamic Component Creation Integration", () => {
 	describe("addComponent in init()", () => {
 		it("should create HTTP mock and client in init and use them in test", async () => {
 			const backendServer = new Server("backend", {
-				adapter: new HttpAdapter<HttpServiceDef>(),
+				protocol: new HttpAdapter<HttpServiceDef>(),
 				listenAddress: { host: "127.0.0.1", port: 7001 },
 			});
 			const apiClient = new Client("api", {
@@ -92,7 +92,7 @@ describe("Dynamic Component Creation Integration", () => {
 
 		it("should allow init components to be used across multiple test cases", async () => {
 			const backendServer = new Server("shared-backend", {
-				adapter: new HttpAdapter<HttpServiceDef>(),
+				protocol: new HttpAdapter<HttpServiceDef>(),
 				listenAddress: { host: "127.0.0.1", port: 7002 },
 			});
 			const apiClient = new Client("shared-api", {
@@ -159,7 +159,7 @@ describe("Dynamic Component Creation Integration", () => {
 
 			const tc = testCase("Create and use components in test", (test) => {
 				const backendServer = new Server("test-backend", {
-					adapter: new HttpAdapter<HttpServiceDef>(),
+					protocol: new HttpAdapter<HttpServiceDef>(),
 					listenAddress: { host: "127.0.0.1", port: 7003 },
 				});
 				const apiClient = new Client("test-api", {
@@ -201,7 +201,7 @@ describe("Dynamic Component Creation Integration", () => {
 
 			const tc1 = testCase("First test with scoped component", (test) => {
 				const backendServer = new Server("temp-backend", {
-					adapter: new HttpAdapter<HttpServiceDef>(),
+					protocol: new HttpAdapter<HttpServiceDef>(),
 					listenAddress: { host: "127.0.0.1", port: 7004 },
 				});
 				const apiClient = new Client("temp-api", {
@@ -229,7 +229,7 @@ describe("Dynamic Component Creation Integration", () => {
 
 			const tc2 = testCase("Second test reusing component names", (test) => {
 				const backendServer = new Server("temp-backend", {
-					adapter: new HttpAdapter<HttpServiceDef>(),
+					protocol: new HttpAdapter<HttpServiceDef>(),
 					listenAddress: { host: "127.0.0.1", port: 7005 },
 				});
 				const apiClient = new Client("temp-api", {
@@ -267,7 +267,7 @@ describe("Dynamic Component Creation Integration", () => {
 	describe("mixed static and dynamic components", () => {
 		it("should work with both static and dynamic components", async () => {
 			const backendServer = new Server("static-backend", {
-				adapter: new HttpAdapter<HttpServiceDef>(),
+				protocol: new HttpAdapter<HttpServiceDef>(),
 				listenAddress: { host: "127.0.0.1", port: 7006 },
 			});
 			const apiClient = new Client("dynamic-api", {

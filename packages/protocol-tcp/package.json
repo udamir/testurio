@@ -1,20 +1,20 @@
 {
-  "name": "@testurio/adapter-grpc",
+  "name": "@testurio/protocol-tcp",
   "version": "0.1.0",
-  "description": "gRPC adapter for testurio - unary and streaming support",
+  "description": "TCP protocol for testurio - custom protocol support",
   "keywords": [
     "testurio",
-    "grpc",
-    "protobuf",
+    "tcp",
+    "socket",
     "testing",
-    "adapter"
+    "protocol"
   ],
   "author": "Damir Yusipov",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/udamir/testurio.git",
-    "directory": "packages/adapter-grpc"
+    "directory": "packages/protocol-tcp"
   },
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -38,10 +38,6 @@
     "test": "vitest run",
     "lint": "biome check src",
     "prepublish": "pnpm run lint && pnpm run test && pnpm run build"
-  },
-  "dependencies": {
-    "@grpc/grpc-js": "^1.14.3",
-    "@grpc/proto-loader": "^0.7.13"
   },
   "peerDependencies": {
     "testurio": "^0.1.0"

@@ -7,7 +7,7 @@
 
 import { TestCaseBuilder } from "./test-case-builder";
 import { AsyncClient, AsyncServer, Client, Server } from "../components";
-import type { BaseComponent } from "../base-component";
+import type { BaseComponent } from "../components/base";
 import {
 	ConsoleReporter,
 	InteractionRecorder,

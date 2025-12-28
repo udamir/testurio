@@ -4,7 +4,7 @@
  * Type definitions for gRPC adapters (unary and streaming).
  */
 
-import type { AdapterTypeMarker, BaseSyncRequestOptions } from "testurio";
+import type { AdapterTypeMarker, SyncRequestOptions } from "testurio";
 
 /**
  * gRPC-specific message metadata
@@ -103,7 +103,7 @@ export interface GrpcResponse<TPayload = unknown> {
 /**
  * gRPC request options
  */
-export interface GrpcRequestOptions extends BaseSyncRequestOptions {
+export interface GrpcRequestOptions extends SyncRequestOptions {
 	/** gRPC method name */
 	method?: string;
 	/** Request metadata */

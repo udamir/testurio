@@ -6,19 +6,20 @@
 
 import type {
 	AdapterService,
-	AdapterClient,
-	SyncAdapter,
+	ISyncProtocol,
 	Address,
 	TlsConfig,
-} from "../../base-adapter";
+	SyncRequestOptions,
+	SyncResponse,
+} from "../../protocols/base";
 import type { ITestCaseBuilder } from "../../execution/execution.types";
 import { SyncClientStepBuilder } from "./sync-client.step-builder";
-import { BaseComponent } from "../../base-component";
+import { BaseComponent } from "../base";
 
 /**
  * Client component options
  */
-export interface ClientOptions<A extends SyncAdapter = SyncAdapter> {
+export interface ClientOptions<A extends ISyncProtocol = ISyncProtocol> {
 	/** Adapter instance */
 	adapter: A;
 	/** Target address to connect to */
@@ -44,8 +45,7 @@ export interface ClientOptions<A extends SyncAdapter = SyncAdapter> {
  * });
  * ```
  */
-export class Client<A extends SyncAdapter = SyncAdapter> extends BaseComponent<A, SyncClientStepBuilder<AdapterService<A>>> {
-	private handle?: AdapterClient;
+export class Client<A extends ISyncProtocol = ISyncProtocol> extends BaseComponent<A, SyncClientStepBuilder<AdapterService<A>>> {
 	private _requestTracker?: unknown;
 	private readonly _targetAddress: Address;
 	private readonly _tls?: TlsConfig;
@@ -85,7 +85,7 @@ export class Client<A extends SyncAdapter = SyncAdapter> extends BaseComponent<A
  * });
  * ```
  */
-	static create<A extends SyncAdapter>(name: string, options: ClientOptions<A>): Client<A> {
+	static create<A extends ISyncProtocol>(name: string, options: ClientOptions<A>): Client<A> {
 		return new Client<A>(name, options);
 	}
 
@@ -104,40 +104,29 @@ export class Client<A extends SyncAdapter = SyncAdapter> extends BaseComponent<A
 	}
 
 	/**
-	 * Get client handle
-	 */
-	getHandle(): AdapterClient | undefined {
-		return this.handle;
-	}
-
-	/**
 	 * Make a request (sync protocols like HTTP, gRPC unary)
 	 * @param messageType - Message type identifier (e.g., "GET /users" for HTTP, "GetUser" for gRPC)
 	 * @param options - Request options (payload, metadata, timeout)
 	 */
 	async request<TReq = unknown, TRes = unknown>(
 		messageType: string,
-		options?: { payload?: TReq; metadata?: Record<string, string>; timeout?: number },
-	): Promise<TRes> {
+		options?: SyncRequestOptions<TReq>,
+	): Promise<SyncResponse<TRes>> {
 		if (!this.isStarted()) {
 			throw new Error(`Client ${this.name} is not started`);
 		}
 
-		if (!this.adapter || !this.handle) {
+		if (!this.protocol) {
 			throw new Error(`Client ${this.name} has no adapter`);
 		}
 
 		// Make request via adapter
-		if (!this.adapter.request) {
+		if (!this.protocol.request) {
 			throw new Error(
 				`Client ${this.name} adapter does not support request operation`,
 			);
 		}
-		return this.adapter.request<TRes>(
-			this.handle,
-			messageType,
-			options,
-		);
+		return this.protocol.request<TRes>(messageType, options);
 	}
 
 	/**
@@ -145,10 +134,10 @@ export class Client<A extends SyncAdapter = SyncAdapter> extends BaseComponent<A
 	 */
 	protected async doStart(): Promise<void> {
 		// Register hook registry with adapter for component-based message handling
-		this.adapter.setHookRegistry(this.hookRegistry);
+		this.protocol.setHookRegistry(this.hookRegistry);
 
 		// Create client - adapter already has protocol configuration
-		this.handle = await this.adapter.createClient({
+		await this.protocol.createClient({
 			targetAddress: this._targetAddress,
 			tls: this._tls,
 		});
@@ -158,15 +147,8 @@ export class Client<A extends SyncAdapter = SyncAdapter> extends BaseComponent<A
 	 * Disconnect from server and dispose adapter
 	 */
 	protected async doStop(): Promise<void> {
-		if (this.handle) {
-			await this.adapter.closeClient(this.handle);
-			this.handle = undefined;
-		}
-
-		// Dispose adapter to release all resources
-		await this.adapter.dispose();
-
-		// Clear hooks
+		await this.protocol.closeClient();
+		await this.protocol.dispose();
 		this.hookRegistry.clear();
 	}
 }

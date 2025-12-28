@@ -9,7 +9,7 @@ import {
 	TestScenario,
 	TestCaseBuilder,
 	testCase,
-	BaseSyncAdapter,
+	BaseSyncProtocol,
 	Server,
 	Client,
 } from "testurio";
@@ -21,7 +21,7 @@ import type {
 const componentLifecycle: string[] = [];
 
 // Mock adapter class that tracks lifecycle
-class MockAdapter extends BaseSyncAdapter {
+class MockAdapter extends BaseSyncProtocol {
 	readonly type = "http";
 	readonly characteristics: ProtocolCharacteristics = {
 		type: "http",
@@ -68,7 +68,7 @@ class MockAdapter extends BaseSyncAdapter {
 
 // Helper to create components
 const createServer = (name: string, port: number) => new Server(name, {
-	adapter: new MockAdapter(),
+	protocol: new MockAdapter(),
 	listenAddress: { host: "localhost", port },
 });
 

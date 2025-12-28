@@ -4,8 +4,44 @@
  * Types for hook system, handlers, and builders.
  */
 
-import type { ExtractMockEventResponse, Message, SyncResponse, PayloadMatcher } from "../base-adapter";
-import type { TestPhase } from "../execution/execution.types";
+import type { ExtractMockEventResponse, Message, SyncResponse } from "../../protocols/base";
+import type { TestPhase } from "../../execution/execution.types";
+
+// =============================================================================
+// Payload Matchers
+// =============================================================================
+
+/**
+ * Match by request ID (for correlating request/response)
+ */
+export interface RequestIdPayloadMatcher {
+	type: "requestId";
+	value: string;
+}
+
+/**
+ * Match by trace ID in payload
+ */
+export interface TraceIdPayloadMatcher {
+	type: "traceId";
+	value: string;
+}
+
+/**
+ * Match by custom function
+ */
+export interface FunctionPayloadMatcher {
+	type: "function";
+	fn: (payload: unknown) => boolean;
+}
+
+/**
+ * Payload matcher - matches by traceId, requestId, or custom function
+ */
+export type PayloadMatcher =
+	| TraceIdPayloadMatcher
+	| RequestIdPayloadMatcher
+	| FunctionPayloadMatcher;
 
 // =============================================================================
 // Hook Types
@@ -22,6 +58,7 @@ export interface Hook {
 	id: string;
 	componentName: string;
 	phase: TestPhase;
+	options?: Record<string, unknown>;
 	messageTypes: string | string[];
 	matcher?: PayloadMatcher;
 	handlers: HookHandler[];

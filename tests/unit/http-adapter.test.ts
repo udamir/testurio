@@ -4,7 +4,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createHttpAdapter } from "testurio";
-import type { HttpAdapter } from "testurio";
+import { HttpAdapter } from "testurio";
 
 // Use different ports for each test to avoid conflicts
 let portCounter = 9000;
@@ -16,7 +16,7 @@ describe("HttpAdapter", () => {
 	let adapter: HttpAdapter;
 
 	beforeEach(() => {
-		adapter = createHttpAdapter();
+		adapter = new HttpAdapter();
 	});
 
 	afterEach(() => {
