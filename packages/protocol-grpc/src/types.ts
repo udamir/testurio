@@ -29,7 +29,99 @@
  * ```
  */
 
-import type { SyncRequestOptions } from "testurio";
+import type { SyncRequestOptions, Message } from "testurio";
+
+// =============================================================================
+// Protocol Options
+// =============================================================================
+
+/**
+ * gRPC Unary protocol options
+ */
+export interface GrpcUnaryProtocolOptions {
+	/** Path to .proto file(s) */
+	schema?: string | string[];
+	/** Service name to use for client calls */
+	serviceName?: string;
+	/** Request timeout in milliseconds */
+	timeout?: number;
+}
+
+/**
+ * gRPC Stream protocol options
+ */
+export interface GrpcStreamProtocolOptions {
+	/** Path to .proto file(s) */
+	schema?: string | string[];
+	/** Service name to use for client calls */
+	serviceName?: string;
+	/** Method name for streaming */
+	methodName?: string;
+	/** Request timeout in milliseconds */
+	timeout?: number;
+}
+
+/**
+ * gRPC Unary request options (used by client.request())
+ */
+export interface GrpcUnaryRequestOptions {
+	/** Request payload */
+	payload?: unknown;
+	/** gRPC metadata */
+	metadata?: Record<string, string>;
+	/** Request timeout in milliseconds */
+	timeout?: number;
+}
+
+// =============================================================================
+// Operation Types (for type-safe unary calls)
+// =============================================================================
+
+/**
+ * gRPC operation request wrapper
+ */
+export interface GrpcOperationRequest {
+	payload: unknown;
+	metadata?: GrpcMetadata;
+}
+
+/**
+ * gRPC operation response wrapper
+ */
+export interface GrpcOperationResponse {
+	payload: unknown;
+	metadata?: GrpcMetadata;
+}
+
+/**
+ * gRPC operation definition
+ */
+export interface GrpcOperation {
+	request: GrpcOperationRequest;
+	response: GrpcOperationResponse;
+}
+
+/**
+ * Map of gRPC operations (method name -> operation)
+ */
+export type GrpcOperations<T = Record<string, unknown>> = {
+	[K in keyof T]?: GrpcOperation;
+};
+
+// =============================================================================
+// Internal Types
+// =============================================================================
+
+/**
+ * Pending message resolver for streaming
+ */
+export interface PendingMessage {
+	resolve: (message: Message) => void;
+	reject: (error: Error) => void;
+	messageType: string | string[];
+	matcher?: string | ((payload: unknown) => boolean);
+	timeout: NodeJS.Timeout;
+}
 
 /**
  * gRPC-specific message metadata

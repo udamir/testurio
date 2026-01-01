@@ -1,39 +1,70 @@
 /**
- * gRPC Protocol for Testurio
+ * gRPC Protocol Package
  *
- * Provides gRPC protocol support:
- * - GrpcUnaryProtocol - Unary (request/response) calls
- * - GrpcStreamProtocol - Bidirectional streaming
+ * Provides gRPC protocol implementations for testurio:
+ * - GrpcUnaryProtocol: Synchronous request/response (unary calls)
+ * - GrpcStreamProtocol: Asynchronous bidirectional streaming
  *
  * @example
  * ```typescript
- * import { TestScenario, Server } from 'testurio';
- * import { GrpcUnaryProtocol } from '@testurio/protocol-grpc';
+ * import { GrpcUnaryProtocol, GrpcStreamProtocol } from '@testurio/protocol-grpc';
  *
- * const backend = new Server('backend', {
- *   listenAddress: { host: 'localhost', port: 50051 },
- *   protocol: new GrpcUnaryProtocol({ schema: 'service.proto' }),
- * });
+ * // Unary protocol for request/response
+ * const unaryProtocol = new GrpcUnaryProtocol({ schema: 'service.proto' });
+ *
+ * // Stream protocol for bidirectional streaming
+ * const streamProtocol = new GrpcStreamProtocol({ schema: 'stream.proto' });
  * ```
  */
 
+// Protocol classes
 export {
 	GrpcUnaryProtocol,
-	GrpcStreamProtocol,
-	type GrpcUnaryProtocolOptions,
-	type GrpcStreamProtocolOptions,
-} from "./grpc.protocol";
+	createGrpcUnaryProtocol,
+} from "./unary.protocol";
 
-// Export gRPC-specific types
+export {
+	GrpcStreamProtocol,
+	createGrpcStreamProtocol,
+} from "./stream.protocol";
+
+// Types
 export type {
+	// Protocol options
+	GrpcUnaryProtocolOptions,
+	GrpcStreamProtocolOptions,
+	GrpcUnaryRequestOptions,
+	// Operation types
+	GrpcOperationRequest,
+	GrpcOperationResponse,
+	GrpcOperation,
+	GrpcOperations,
+	// Service definitions
 	GrpcMetadata,
 	GrpcMethod,
 	GrpcServiceDefinition,
 	GrpcStreamMethod,
 	GrpcStreamServiceDefinition,
+	// Request/Response types
 	GrpcRequest,
 	GrpcResponse,
 	GrpcRequestOptions,
+	// Protocol type markers
 	GrpcUnaryProtocolTypes,
 	GrpcStreamProtocolTypes,
 } from "./types";
+
+// Schema utilities (for advanced usage)
+export {
+	loadGrpcSchema,
+	extractServices,
+	getServiceClient,
+	toSchemaDefinition,
+	type LoadedSchema,
+} from "./schema-loader";
+
+// Metadata utilities (for advanced usage)
+export {
+	extractGrpcMetadata,
+	createGrpcMetadata,
+} from "./metadata";
