@@ -2,42 +2,36 @@
  * Sync Client Types
  *
  * Type extraction helpers for sync client step builders.
+ * All types are extracted from the protocol type A which contains
+ * the service definition via __types.service.
  */
 
-/**
- * Extract client request payload type from service definition.
- * Works for both HTTP and gRPC service definitions:
- * - HTTP: Extracts `body` from `S[K]["request"]["body"]`
- * - gRPC: Extracts `S[K]["request"]` directly
- * - Fallback: `unknown` if no "request" property
- *
- * @template S - Service definition type
- * @template K - Operation/method key
- */
-export type ExtractClientRequest<S, K extends keyof S> = S[K] extends {
-	request: { body: infer B };
-}
-	? B
-	: S[K] extends { request: infer R }
-		? R
-		: unknown;
+import type { ProtocolService } from "../../protocols/base";
 
 /**
- * Extract client response type from service definition.
- * Works for both HTTP and gRPC service definitions:
- * - HTTP: Extracts `body` from `S[K]["responses"][status]["body"]`
- * - gRPC: Extracts `S[K]["response"]` directly
- * - Fallback: `S[K]` if no "response" or "responses" property
+ * Extract request data type from protocol service definition.
+ * Returns the request type directly from the service definition.
+ * Protocol-specific fields (e.g., body for HTTP) should be
+ * defined in the service definition itself, not extracted here.
  *
- * @template S - Service definition type
+ * @template A - Protocol type
  * @template K - Operation/method key
  */
-export type ExtractClientResponse<S, K extends keyof S> = S[K] extends {
-	responses: infer R;
-}
-	? R extends Record<number, { body?: infer B }>
-		? B
-		: R
-	: S[K] extends { response: infer R }
+export type ExtractRequestData<A, K extends keyof ProtocolService<A>> =
+	ProtocolService<A>[K] extends { request: infer R }
 		? R
-		: S[K];
+		: ProtocolService<A>[K];
+
+/**
+ * Extract client response type from protocol.
+ * Returns the response type directly from the service definition.
+ * Protocol-specific response format (e.g., HttpResponse) should be
+ * defined in the service definition itself, not inferred here.
+ *
+ * @template A - Protocol type (ISyncProtocol)
+ * @template K - Operation/method key
+ */
+export type ExtractClientResponse<A, K extends keyof ProtocolService<A>> =
+	ProtocolService<A>[K] extends { response: infer R }
+		? R
+		: ProtocolService<A>[K];

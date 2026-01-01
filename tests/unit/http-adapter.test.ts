@@ -1,26 +1,38 @@
 /**
- * HTTP Adapter Tests
+ * HTTP Protocol Tests
+ *
+ * Tests for the Protocol API.
+ * The HttpProtocol uses:
+ * - startServer() / stopServer() without handles
+ * - createClient() / closeClient() without handles
+ * - setRequestHandler() for request handling
+ * - request() for making requests
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createHttpAdapter } from "testurio";
-import { HttpAdapter } from "testurio";
+import { HttpProtocol } from "testurio";
 
 // Use different ports for each test to avoid conflicts
-let portCounter = 9000;
+let portCounter = 9100;
 function getNextPort(): number {
 	return portCounter++;
 }
 
-describe("HttpAdapter", () => {
-	let adapter: HttpAdapter;
+describe("HttpAdapter (Protocol API)", () => {
+	let adapter: HttpProtocol;
 
 	beforeEach(() => {
-		adapter = new HttpAdapter();
+		adapter = new HttpProtocol();
 	});
 
-	afterEach(() => {
-		// Clean up any remaining servers/clients
+	afterEach(async () => {
+		// Clean up
+		if (adapter.server.isRunning) {
+			await adapter.stopServer();
+		}
+		if (adapter.client.isConnected) {
+			await adapter.closeClient();
+		}
 	});
 
 	describe("characteristics", () => {
@@ -36,218 +48,235 @@ describe("HttpAdapter", () => {
 			expect(adapter.characteristics.supportsProxy).toBe(true);
 			expect(adapter.characteristics.supportsMock).toBe(true);
 		});
+
+		it("should not require connection", () => {
+			expect(adapter.characteristics.requiresConnection).toBe(false);
+		});
 	});
 
-	describe("startServer", () => {
-		it("should start a mock server", async () => {
+	describe("server lifecycle", () => {
+		it("should start and stop a server", async () => {
 			const port = getNextPort();
-			const handle = await adapter.startServer({
+
+			await adapter.startServer({
 				listenAddress: { host: "localhost", port },
 			});
 
-			expect(handle).toBeDefined();
-			expect(handle.id).toMatch(/^http-server-/);
-			expect(handle.isRunning).toBe(true);
-			expect(handle.address.host).toBe("localhost");
-			expect(handle.address.port).toBe(port);
+			expect(adapter.server.isRunning).toBe(true);
+			expect(adapter.server.ref).toBeDefined();
 
-			await adapter.stopServer(handle);
+			await adapter.stopServer();
+
+			expect(adapter.server.isRunning).toBe(false);
 		});
 
-		it("should start a proxy server", async () => {
+		it("should handle stopServer when not running", async () => {
+			// Should not throw
+			await adapter.stopServer();
+			expect(adapter.server.isRunning).toBe(false);
+		});
+	});
+
+	describe("client lifecycle", () => {
+		it("should create and close a client", async () => {
+			await adapter.createClient({
+				targetAddress: { host: "localhost", port: 3000 },
+			});
+
+			expect(adapter.client.isConnected).toBe(true);
+			expect(adapter.client.ref).toBe("http://localhost:3000");
+
+			await adapter.closeClient();
+
+			expect(adapter.client.isConnected).toBe(false);
+		});
+
+		it("should use https for TLS", async () => {
+			await adapter.createClient({
+				targetAddress: { host: "localhost", port: 443 },
+				tls: { enabled: true },
+			});
+
+			expect(adapter.client.ref).toBe("https://localhost:443");
+		});
+	});
+
+	describe("setRequestHandler", () => {
+		it("should set request handler before starting server", async () => {
 			const port = getNextPort();
-			const handle = await adapter.startServer({
-				listenAddress: { host: "localhost", port },
-				targetAddress: { host: "api.example.com", port: 443 },
+			let handlerCalled = false;
+
+			adapter.setRequestHandler(async () => {
+				handlerCalled = true;
+				return { code: 200, body: { ok: true } };
 			});
 
-			expect(handle).toBeDefined();
-			expect(handle.isRunning).toBe(true);
-
-			await adapter.stopServer(handle);
-		});
-	});
-
-	describe("stopServer", () => {
-		it("should stop a running server", async () => {
-			const port = getNextPort();
-			const handle = await adapter.startServer({
+			await adapter.startServer({
 				listenAddress: { host: "localhost", port },
 			});
 
-			await adapter.stopServer(handle);
-
-			expect(handle.isRunning).toBe(false);
-		});
-
-		it("should throw for unknown server", async () => {
-			await expect(
-				adapter.stopServer({
-					id: "unknown-server",
-					type: "http",
-					address: { host: "localhost", port: 9999 },
-					isRunning: true,
-				}),
-			).rejects.toThrow("Server unknown-server not found");
-		});
-	});
-
-	describe("createClient", () => {
-		it("should create a client", async () => {
-			const handle = await adapter.createClient({
-				targetAddress: { host: "api.example.com", port: 443 },
-			});
-
-			expect(handle).toBeDefined();
-			expect(handle.id).toMatch(/^http-client-/);
-			expect(handle.isConnected).toBe(true);
-			expect(handle.address.host).toBe("api.example.com");
-
-			await adapter.closeClient(handle);
-		});
-	});
-
-	describe("closeClient", () => {
-		it("should close a client", async () => {
-			const handle = await adapter.createClient({
-				targetAddress: { host: "api.example.com", port: 443 },
-			});
-
-			await adapter.closeClient(handle);
-
-			expect(handle.isConnected).toBe(false);
-		});
-
-		it("should throw for unknown client", async () => {
-			await expect(
-				adapter.closeClient({
-					id: "unknown-client",
-					type: "http",
-					address: { host: "localhost", port: 8080 },
-					isConnected: true,
-				}),
-			).rejects.toThrow("Client unknown-client not found");
-		});
-	});
-
-	describe("request", () => {
-		it("should make request to mock server", async () => {
-			const port = getNextPort();
-			// Start mock server with onRequest callback
-			const server = await adapter.startServer({
-				listenAddress: { host: "localhost", port },
-				onRequest: async (message) => {
-					if (message.type === "GET /api/users") {
-						return {
-							type: "response",
-							payload: { status: 200, headers: {}, body: [{ id: 1, name: "John" }] },
-						};
-					}
-					return null;
-				},
-			});
-
-			// Create client
-			const client = await adapter.createClient({
+			// Make a request to trigger the handler
+			await adapter.createClient({
 				targetAddress: { host: "localhost", port },
 			});
 
-			// Make request with method/path in options
-			const response = await adapter.request(client, "getUsers", {
+			const response = await adapter.request("test", {
 				method: "GET",
-				path: "/api/users",
+				path: "/test",
 			});
 
-			expect(response).toEqual([{ id: 1, name: "John" }]);
-
-			await adapter.closeClient(client);
-			await adapter.stopServer(server);
-		});
-
-		it("should return 404 for unhandled path", async () => {
-			const port = getNextPort();
-			const server = await adapter.startServer({
-				listenAddress: { host: "localhost", port },
-			});
-
-			const client = await adapter.createClient({
-				targetAddress: { host: "localhost", port },
-			});
-
-			const response = await adapter.request<{ error: string }>(
-				client,
-				"getUnknown",
-				{ method: "GET", path: "/unknown" },
-			);
-
-			expect(response.error).toContain("No handler");
-
-			await adapter.closeClient(client);
-			await adapter.stopServer(server);
+			expect(handlerCalled).toBe(true);
+			expect(response.code).toBe(200);
+			expect(response.body).toEqual({ ok: true });
 		});
 	});
 
-	describe("onRequest callback", () => {
-		it("should handle request via onRequest callback", async () => {
+	describe("request/response flow", () => {
+		it("should make GET request and receive response", async () => {
 			const port = getNextPort();
-			const server = await adapter.startServer({
-				listenAddress: { host: "localhost", port },
-				onRequest: async (message) => {
-					if (message.type === "POST /api/orders") {
-						return {
-							type: "response",
-							payload: { status: 201, headers: {}, body: { id: "order-123", item: "widget" } },
-						};
-					}
-					return null;
-				},
+
+			adapter.setRequestHandler(async (type, req) => {
+				if (type === "GET /users" && req.method === "GET" && req.path === "/users") {
+					return {
+						code: 200,
+						headers: { "content-type": "application/json" },
+						body: [{ id: 1, name: "Alice" }],
+					};
+				}
+				return null;
 			});
 
-			const client = await adapter.createClient({
-				targetAddress: { host: "localhost", port },
+			await adapter.startServer({ listenAddress: { host: "localhost", port } });
+			await adapter.createClient({ targetAddress: { host: "localhost", port } });
+
+			const response = await adapter.request<{ id: number; name: string }[]>("getUsers", {
+				method: "GET",
+				path: "/users",
 			});
 
-			const response = await adapter.request(client, "createOrder", {
+			expect(response.code).toBe(200);
+			expect(response.body).toEqual([{ id: 1, name: "Alice" }]);
+		});
+
+		it("should make POST request with body", async () => {
+			const port = getNextPort();
+			let receivedBody: unknown;
+
+			adapter.setRequestHandler(async (type, req) => {
+				if (type === "POST /users" && req.method === "POST" && req.path === "/users") {
+					receivedBody = req.body;
+					return {
+						code: 201,
+						body: { id: 2, ...req.body as object },
+					};
+				}
+				return null;
+			});
+
+			await adapter.startServer({ listenAddress: { host: "localhost", port } });
+			await adapter.createClient({ targetAddress: { host: "localhost", port } });
+
+			const response = await adapter.request<{ id: number; name: string; email: string }>("createUser", {
 				method: "POST",
-				path: "/api/orders",
-				payload: { item: "widget" },
+				path: "/users",
+				body: { name: "Bob", email: "bob@example.com" },
 			});
 
-			expect(response).toMatchObject({ id: "order-123" });
-
-			await adapter.closeClient(client);
-			await adapter.stopServer(server);
+			expect(response.code).toBe(201);
+			expect(response.body).toMatchObject({ id: 2, name: "Bob", email: "bob@example.com" });
+			expect(receivedBody).toEqual({ name: "Bob", email: "bob@example.com" });
 		});
 
-		it("should match path parameters via onRequest callback", async () => {
+		it("should return error body when no handler matches", async () => {
 			const port = getNextPort();
-			const server = await adapter.startServer({
-				listenAddress: { host: "localhost", port },
-				onRequest: async (message) => {
-					// Match GET /api/users/* pattern
-					if (message.type.startsWith("GET /api/users/")) {
-						return {
-							type: "response",
-							payload: { status: 200, headers: {}, body: { id: "123", name: "John" } },
-						};
-					}
-					return null;
-				},
-			});
 
-			const client = await adapter.createClient({
-				targetAddress: { host: "localhost", port },
-			});
+			// No handler set - should return error body
+			await adapter.startServer({ listenAddress: { host: "localhost", port } });
+			await adapter.createClient({ targetAddress: { host: "localhost", port } });
 
-			const response = await adapter.request(client, "getUser", {
+			const response = await adapter.request<{ error: string }>("unknown", {
 				method: "GET",
-				path: "/api/users/123",
+				path: "/unknown",
 			});
 
-			expect(response).toMatchObject({ id: "123", name: "John" });
+			expect(response.code).toBe(404);
+			expect(response.body?.error).toBe("Not Found");
+		});
 
-			await adapter.closeClient(client);
-			await adapter.stopServer(server);
+		it("should return error body when handler returns null", async () => {
+			const port = getNextPort();
+
+			adapter.setRequestHandler(async () => null);
+
+			await adapter.startServer({ listenAddress: { host: "localhost", port } });
+			await adapter.createClient({ targetAddress: { host: "localhost", port } });
+
+			const response = await adapter.request<{ error: string }>("test", {
+				method: "GET",
+				path: "/test",
+			});
+
+			expect(response.code).toBe(404);
+			expect(response.body?.error).toBe("Not Found");
+		});
+	});
+
+	describe("respond", () => {
+		it("should send response with custom status code", async () => {
+			const port = getNextPort();
+
+			adapter.setRequestHandler(async () => {
+				return {
+					code: 418,
+					headers: { "x-custom": "teapot" },
+					body: { message: "I'm a teapot" },
+				};
+			});
+
+			await adapter.startServer({ listenAddress: { host: "localhost", port } });
+			await adapter.createClient({ targetAddress: { host: "localhost", port } });
+
+			const response = await adapter.request<{ message: string }>("teapot", {
+				method: "GET",
+				path: "/teapot",
+			});
+
+			expect(response.code).toBe(418);
+			expect(response.headers?.["x-custom"]).toBe("teapot");
+			expect(response.body?.message).toBe("I'm a teapot");
+		});
+	});
+
+	describe("error handling", () => {
+		it("should throw when requesting without client connection", async () => {
+			await expect(
+				adapter.request("test", { method: "GET", path: "/test" }),
+			).rejects.toThrow("Client is not connected");
+		});
+
+		it("should throw when request missing method or path", async () => {
+			await adapter.createClient({
+				targetAddress: { host: "localhost", port: 3000 },
+			});
+
+			await expect(
+				adapter.request("test"),
+			).rejects.toThrow("HTTP request requires method and path");
+		});
+	});
+
+	describe("dispose", () => {
+		it("should clean up resources", async () => {
+			const port = getNextPort();
+
+			await adapter.startServer({ listenAddress: { host: "localhost", port } });
+			await adapter.createClient({ targetAddress: { host: "localhost", port } });
+
+			await adapter.dispose();
+
+			// After dispose, server and client should be cleaned up
+			expect(adapter.server.isRunning).toBe(false);
+			expect(adapter.client.isConnected).toBe(false);
 		});
 	});
 });

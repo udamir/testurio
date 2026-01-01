@@ -103,12 +103,12 @@ describe("MessageMatcher", () => {
 			expect(matchPayload(matcher, message)).toBe(false);
 		});
 
-		it("should match by requestId", () => {
-			const matcher: PayloadMatcher = { type: "requestId", value: "req-123" };
+		it("should match by traceId", () => {
+			const matcher: PayloadMatcher = { type: "traceId", value: "req-123" };
 			const message: Message = {
 				type: "request",
 				payload: {},
-				metadata: { requestId: "req-123" },
+				traceId: "req-123",
 			};
 
 			expect(matchPayload(matcher, message)).toBe(true);
@@ -210,8 +210,9 @@ describe("MessageMatcher", () => {
 			expect(calculateHookScore(hook)).toBe(120); // 20 + 100
 		});
 
-		it("should add requestId matcher score", () => {
-			const hook = createHook("Order", { type: "requestId", value: "req-123" });
+		it("should add traceId matcher score (duplicate)", () => {
+			// This test duplicates the traceId test above - keeping for coverage
+			const hook = createHook("Order", { type: "traceId", value: "req-123" });
 			expect(calculateHookScore(hook)).toBe(120); // 20 + 100
 		});
 

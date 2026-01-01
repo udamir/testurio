@@ -4,7 +4,7 @@
  * Implements message matching logic for hooks.
  *
  * Matching is two-level:
- * 1. Message type(s) - adapter level, filters which messages trigger this hook
+ * 1. Message type(s) - protocol level, filters which messages trigger this hook
  * 2. Payload matcher - hook level, filters by traceId, requestId, or custom function
  */
 
@@ -27,7 +27,7 @@ export function matchMessageType(
 /**
  * Check if a message matches a hook (both message type and payload matcher)
  */
-export function matchHook(hook: Hook, message: Message): boolean {
+export function matchHook<T>(hook: Hook<T>, message: Message<T>): boolean {
 	// First check message type
 	if (!matchMessageType(hook.messageTypes, message.type)) {
 		return false;
@@ -53,9 +53,6 @@ export function matchPayload(
 		case "traceId":
 			return message.traceId === matcher.value;
 
-		case "requestId":
-			return message.metadata?.requestId === matcher.value;
-
 		case "function":
 			try {
 				return matcher.fn(message.payload);
@@ -73,7 +70,7 @@ export function matchPayload(
  * Calculate match score for hook prioritization
  * Higher score = more specific match
  */
-export function calculateHookScore(hook: Hook): number {
+export function calculateHookScore<T>(hook: Hook<T>): number {
 	// Base score for message type specificity
 	let score = 0;
 
@@ -98,7 +95,6 @@ export function calculateHookScore(hook: Hook): number {
 function calculatePayloadMatcherScore(matcher: PayloadMatcher): number {
 	switch (matcher.type) {
 		case "traceId":
-		case "requestId":
 			return 100; // Exact ID match = highest priority
 
 		case "function":

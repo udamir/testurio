@@ -44,8 +44,8 @@ export class AsyncClientHookBuilder<
 	assert(handler: (payload: TPayload) => boolean | Promise<boolean>): this {
 		this.addHandler({
 			type: "assert",
-			execute: async (msg: Message) => {
-				const result = await Promise.resolve(handler(msg.payload as TPayload));
+			execute: async (msg: Message<TPayload>) => {
+				const result = await Promise.resolve(handler(msg.payload));
 				if (!result) {
 					throw new Error(`Assertion failed for message type: ${msg.type}`);
 				}
@@ -61,10 +61,10 @@ export class AsyncClientHookBuilder<
 	proxy(handler?: (payload: TPayload) => TPayload | Promise<TPayload>): this {
 		this.addHandler({
 			type: "proxy",
-			execute: async (msg: Message) => {
+			execute: async (msg: Message<TPayload>) => {
 				if (handler) {
 					const transformedPayload = await Promise.resolve(
-						handler(msg.payload as TPayload),
+						handler(msg.payload),
 					);
 					return {
 						...msg,
@@ -84,7 +84,7 @@ export class AsyncClientHookBuilder<
 	delay(ms: number | (() => number)): this {
 		this.addHandler({
 			type: "delay",
-			execute: async (msg: Message) => {
+			execute: async (msg: Message<TPayload>) => {
 				const delayMs = typeof ms === "function" ? ms() : ms;
 				await new Promise((resolve) => setTimeout(resolve, delayMs));
 				return msg;
@@ -107,9 +107,10 @@ export class AsyncClientHookBuilder<
 	}
 
 	/**
-	 * Add a handler to the hook
+	 * Add a handler to the hook.
+	 * Handlers can return messages with different payload types (e.g., mockEvent returns response type).
 	 */
-	protected addHandler(handler: HookHandler): void {
-		this.hook.handlers.push(handler);
+	protected addHandler(handler: HookHandler<TPayload, unknown>): void {
+		this.hook.handlers.push(handler as HookHandler<unknown>);
 	}
 }

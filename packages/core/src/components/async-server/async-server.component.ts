@@ -7,10 +7,8 @@
  */
 
 import type {
-	ClientAdapter,
-	ServerAdapter,
 	IAsyncProtocol,
-	AdapterMessages,
+	ProtocolMessages,
 	Address,
 	Message,
 	TlsConfig,
@@ -23,8 +21,8 @@ import { BaseComponent } from "../base";
  * Async server component options
  */
 export interface AsyncServerOptions<A extends IAsyncProtocol = IAsyncProtocol> {
-	/** Adapter instance (contains all protocol configuration) */
-	adapter: A;
+	/** Protocol instance (contains all protocol configuration) */
+	protocol: A;
 	/** Address to listen on */
 	listenAddress: Address;
 	/** Target address to forward to (if present, enables proxy mode) */
@@ -41,7 +39,7 @@ export interface AsyncServerOptions<A extends IAsyncProtocol = IAsyncProtocol> {
  * @example Mock mode:
  * ```typescript
  * const wsServer = new AsyncServer("ws-backend", {
- *   adapter: new WebSocketAdapter(),
+ *   protocol: new WebSocketProtocol(),
  *   listenAddress: { host: "localhost", port: 8080 },
  * });
  * ```
@@ -49,7 +47,7 @@ export interface AsyncServerOptions<A extends IAsyncProtocol = IAsyncProtocol> {
  * @example Proxy mode:
  * ```typescript
  * const wsProxy = new AsyncServer("ws-gateway", {
- *   adapter: new WebSocketAdapter(),
+ *   protocol: new WebSocketProtocol(),
  *   listenAddress: { host: "localhost", port: 8081 },
  *   targetAddress: { host: "localhost", port: 8080 },
  * });
@@ -57,24 +55,22 @@ export interface AsyncServerOptions<A extends IAsyncProtocol = IAsyncProtocol> {
  */
 export class AsyncServer<
 	A extends IAsyncProtocol = IAsyncProtocol,
-> extends BaseComponent<A, AsyncServerStepBuilder<AdapterMessages<A>, Record<string, unknown>>> {
+> extends BaseComponent<A, AsyncServerStepBuilder<ProtocolMessages<A>, Record<string, unknown>>> {
 	/**
 	 * Phantom type property for type inference.
 	 * This property is never assigned at runtime - it exists only for TypeScript.
 	 * Used by `test.use(component)` to infer message types.
 	 */
 	declare readonly __types: {
-		messages: AdapterMessages<A>;
+		messages: ProtocolMessages<A>;
 	};
 
-	private serverHandle?: ServerAdapter;
-	private clientHandle?: ClientAdapter;
 	private readonly _listenAddress: Address;
 	private readonly _targetAddress?: Address;
 	private readonly _tls?: TlsConfig;
 
 	constructor(name: string, options: AsyncServerOptions<A>) {
-		super(name, options.adapter);
+		super(name, options.protocol);
 		this._listenAddress = options.listenAddress;
 		this._targetAddress = options.targetAddress;
 		this._tls = options.tls;
@@ -95,8 +91,8 @@ export class AsyncServer<
 	 */
 	createStepBuilder<TContext extends Record<string, unknown>>(
 		builder: ITestCaseBuilder<TContext>,
-	): AsyncServerStepBuilder<AdapterMessages<A>, TContext> {
-		return new AsyncServerStepBuilder<AdapterMessages<A>, TContext>(
+	): AsyncServerStepBuilder<ProtocolMessages<A>, TContext> {
+		return new AsyncServerStepBuilder<ProtocolMessages<A>, TContext>(
 			this,
 			builder,
 		);
@@ -124,20 +120,6 @@ export class AsyncServer<
 	}
 
 	/**
-	 * Get server handle
-	 */
-	getServerHandle(): ServerAdapter | undefined {
-		return this.serverHandle;
-	}
-
-	/**
-	 * Get client handle (for proxy mode)
-	 */
-	getClientHandle(): ClientAdapter | undefined {
-		return this.clientHandle;
-	}
-
-	/**
 	 * Send a message to connected clients
 	 */
 	async send(message: Message): Promise<void> {
@@ -145,19 +127,18 @@ export class AsyncServer<
 			throw new Error(`AsyncServer ${this.name} is not started`);
 		}
 
-		if (!this.protocol || !this.serverHandle) {
-			throw new Error(`AsyncServer ${this.name} has no adapter`);
+		if (!this.protocol) {
+			throw new Error(`AsyncServer ${this.name} has no protocol`);
 		}
 
 		// Process message through hooks
-		const processedMessage = await this.processMessage(message);
+		const processedMessage = await this.hookRegistry.executeHooks(message);
 
-		if (processedMessage && this.protocol.sendMessage && this.clientHandle) {
+		if (processedMessage && this.protocol.sendMessage) {
 			await this.protocol.sendMessage(
-				this.clientHandle,
 				processedMessage.type,
 				processedMessage.payload,
-				processedMessage.metadata,
+				processedMessage.traceId,
 			);
 		}
 	}
@@ -166,19 +147,18 @@ export class AsyncServer<
 	 * Start the async server
 	 */
 	protected async doStart(): Promise<void> {
-		// Register hook registry with adapter for component-based message handling
+		// Register hook registry with protocol for component-based message handling
 		this.protocol.setHookRegistry(this.hookRegistry);
 
 		// Start server
-		this.serverHandle = await this.protocol.startServer({
+		await this.protocol.startServer({
 			listenAddress: this._listenAddress,
-			targetAddress: this._targetAddress,
 			tls: this._tls,
 		});
 
 		// If proxy mode, create client connection to target
 		if (this._targetAddress) {
-			this.clientHandle = await this.protocol.createClient({
+			await this.protocol.createClient({
 				targetAddress: this._targetAddress,
 				tls: this._tls,
 			});
@@ -189,13 +169,9 @@ export class AsyncServer<
 	 * Stop the async server
 	 */
 	protected async doStop(): Promise<void> {
-		if (this.serverHandle) {
-			await this.protocol.stopServer(this.serverHandle);
-			this.serverHandle = undefined;
-		}
-		if (this.clientHandle) {
-			await this.protocol.closeClient(this.clientHandle);
-			this.clientHandle = undefined;
+		await this.protocol.stopServer();
+		if (this._targetAddress) {
+			await this.protocol.closeClient();
 		}
 		await this.protocol.dispose();
 		this.hookRegistry.clear();

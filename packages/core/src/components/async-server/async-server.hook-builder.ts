@@ -6,7 +6,7 @@
  */
 
 import type { Message } from "../../protocols/base";
-import type { ExtractMockEventResponse } from "../../protocols/base";
+import type { ExtractMessagePayload } from "../../protocols/base";
 import { AsyncClientHookBuilder } from "../async-client/async-client.hook-builder";
 
 /**
@@ -35,7 +35,7 @@ export class AsyncServerHookBuilder<
 		responseType: K,
 		handler: (
 			payload: TPayload,
-		) => ExtractMockEventResponse<M, K> | Promise<ExtractMockEventResponse<M, K>>,
+		) => ExtractMessagePayload<M, K> | Promise<ExtractMessagePayload<M, K>>,
 	): this {
 		this.addHandler({
 			type: "mock",
@@ -44,7 +44,7 @@ export class AsyncServerHookBuilder<
 					handler(msg.payload as TPayload),
 				);
 				// Create a new response message (separate from the original)
-				// The adapter will send this back to the client
+				// The protocol will send this back to the client
 				return {
 					type: responseType,
 					payload: responsePayload,

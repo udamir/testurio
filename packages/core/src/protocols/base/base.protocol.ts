@@ -1,28 +1,29 @@
 /**
- * Base Protocol Adapters
+ * Base Protocol
  *
- * Abstract base classes for sync and async protocol adapters.
+ * Abstract base classes for sync and async protocol.
  * Provides common functionality while enforcing type safety at compile time.
  */
 
 import type {
 	ProtocolCharacteristics,
 	SchemaDefinition,
-	ClientAdapterConfig,
-	ClientAdapter,
-	ServerAdapterConfig,
-	ServerAdapter,
+	ClientProtocolConfig,
+	ClientProtocol,
+	ServerProtocolConfig,
+	ServerProtocol,
 	MessageHandler,
 	IHookRegistry,
 	SyncRequestCallback,
+	SyncOperations,
 } from "./base.types";
 
 
 /**
  * Abstract base class with common protocol functionality
  *
- * Provides shared infrastructure for both sync and async adapters.
- * Not exported directly - use BaseSyncAdapter or BaseAsyncAdapter instead.
+ * Provides shared infrastructure for both sync and async protocols.
+ * Not exported directly - use BaseSyncProtocol or BaseAsyncProtocol instead.
  */
 abstract class BaseProtocol<S = unknown, C = unknown> {
 	abstract readonly type: string;
@@ -30,15 +31,15 @@ abstract class BaseProtocol<S = unknown, C = unknown> {
 
 	/**
 	 * Hook registry for component-based message handling
-	 * Each component owns its own HookRegistry and passes it to its adapter
+	 * Each component owns its own HookRegistry and passes it to its protocol
 	 */
 	protected hookRegistry?: IHookRegistry;
-	protected server: ServerAdapter<S> = { isRunning: false };
-	protected client: ClientAdapter<C> = { isConnected: false };
+	protected server: ServerProtocol<S> = { isRunning: false };
+	protected client: ClientProtocol<C> = { isConnected: false };
 
 	/**
-	 * Set the hook registry for this adapter
-	 * Called by component when adapter is created
+	 * Set the hook registry for this protocol
+	 * Called by component when protocol is created
 	 */
 	setHookRegistry(registry: IHookRegistry): void {
 		this.hookRegistry = registry;
@@ -59,7 +60,7 @@ abstract class BaseProtocol<S = unknown, C = unknown> {
 	/**
 	 * Start a server (for mocks) or proxy listener
 	 */
-	abstract startServer(config: ServerAdapterConfig): Promise<void>;
+	abstract startServer(config: ServerProtocolConfig): Promise<void>;
 
 	/**
 	 * Stop a server/proxy
@@ -69,7 +70,7 @@ abstract class BaseProtocol<S = unknown, C = unknown> {
 	/**
 	 * Create a client connection
 	 */
-	abstract createClient(config: ClientAdapterConfig): Promise<void>;
+	abstract createClient(config: ClientProtocolConfig): Promise<void>;
 
 	/**
 	 * Close a client connection
@@ -77,7 +78,7 @@ abstract class BaseProtocol<S = unknown, C = unknown> {
 	abstract closeClient(): Promise<void>;
 
 	/**
-	 * Dispose adapter and release all resources
+	 * Dispose protocol and release all resources
 	 * Closes all servers, clients, and clears internal state
 	 */
 	async dispose(): Promise<void> {
@@ -103,13 +104,24 @@ abstract class BaseProtocol<S = unknown, C = unknown> {
 }
 
 /**
- * Base class for sync protocol adapters (HTTP, gRPC Unary)
+ * Base class for sync protocol (HTTP, gRPC Unary)
  *
  * Provides common functionality for request/response protocols.
  * Use this for protocols where each request gets exactly one response.
+ * 
+ * @template T - Service definition type (operation name -> { request, response })
+ * @template TReq - Raw request type for the protocol
+ * @template TRes - Raw response type for the protocol
  */
-export abstract class BaseSyncProtocol<TReq = unknown, TRes = unknown> extends BaseProtocol {
-
+export abstract class BaseSyncProtocol<T extends SyncOperations<T> = SyncOperations, TReq = unknown, TRes = unknown> extends BaseProtocol {
+	/**
+	 * Phantom type properties for type inference.
+	 * These properties are never assigned at runtime - they exist only for TypeScript.
+	 */
+	declare readonly $types: T;
+	declare readonly $request: TReq;
+	declare readonly $response: TRes;
+	
 	protected requestHandler?: SyncRequestCallback<TReq, TRes>;
 
 	public setRequestHandler(callback: SyncRequestCallback<TReq, TRes>): void {
@@ -118,7 +130,7 @@ export abstract class BaseSyncProtocol<TReq = unknown, TRes = unknown> extends B
 }
 
 /**
- * Base class for async protocol adapters (WebSocket, TCP, gRPC Stream)
+ * Base class for async protocol (WebSocket, TCP, gRPC Stream)
  *
  * Provides message handler management for bidirectional message protocols.
  * Use this for protocols with message streams.
@@ -146,7 +158,7 @@ export abstract class BaseAsyncProtocol extends BaseProtocol {
 	}
 
 	/**
-	 * Dispose adapter and release all resources
+	 * Dispose protocol and release all resources
 	 */
 	override async dispose(): Promise<void> {
 		await super.dispose();

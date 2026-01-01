@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from "vitest";
 import { TestScenario, testCase, AsyncServer, AsyncClient } from "testurio";
-import { GrpcStreamAdapter, type GrpcStreamServiceDefinition } from "@testurio/adapter-grpc";
+import { GrpcStreamProtocol, type GrpcStreamServiceDefinition } from "@testurio/protocol-grpc";
 
 // ============================================================================
 // Message Type Definitions
@@ -56,13 +56,13 @@ const STREAM_METHOD = "DeliveryMessage";
 // Helper functions for creating components with typed adapters
 const createMockServer = (name: string, port: number) =>
 	new AsyncServer(name, {
-		adapter: new GrpcStreamAdapter<GrpcStreamMessages>({ schema: TEST_PROTO }),
+		protocol: new GrpcStreamProtocol<GrpcStreamMessages>({ schema: TEST_PROTO }),
 		listenAddress: { host: "127.0.0.1", port },
 	});
 
 const createClient = (name: string, port: number) =>
 	new AsyncClient(name, {
-		adapter: new GrpcStreamAdapter<GrpcStreamMessages>({
+		protocol: new GrpcStreamProtocol<GrpcStreamMessages>({
 			schema: TEST_PROTO,
 			serviceName: STREAM_SERVICE,
 			methodName: STREAM_METHOD,
@@ -72,7 +72,7 @@ const createClient = (name: string, port: number) =>
 
 const createProxyServer = (name: string, listenPort: number, targetPort: number) =>
 	new AsyncServer(name, {
-		adapter: new GrpcStreamAdapter<GrpcStreamMessages>({ schema: TEST_PROTO }),
+		protocol: new GrpcStreamProtocol<GrpcStreamMessages>({ schema: TEST_PROTO }),
 		listenAddress: { host: "127.0.0.1", port: listenPort },
 		targetAddress: { host: "127.0.0.1", port: targetPort },
 	});

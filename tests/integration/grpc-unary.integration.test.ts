@@ -7,13 +7,24 @@
 
 import { describe, expect, it } from "vitest";
 import { Server, Client, TestScenario, testCase } from "testurio";
-import { GrpcUnaryAdapter } from "@testurio/adapter-grpc";
+import { GrpcUnaryProtocol } from "@testurio/protocol-grpc";
 
 // ============================================================================
-// Type Definitions
+// Type Definitions - Aligned with test-service.proto
 // ============================================================================
 
-interface GetUserPayload {
+// === Common Types ===
+interface SuccessPayload {
+	value: string;
+}
+
+interface ErrorPayload {
+	code: number;
+	message: string;
+}
+
+// === 1. Simple Request/Response ===
+interface GetUserRequest {
 	user_id: number;
 }
 
@@ -23,38 +34,184 @@ interface GetUserResponse {
 	email: string;
 }
 
-interface CreateOrderPayload {
+// === 2. Nested Objects ===
+interface OrderItem {
+	product_id: string;
+	quantity: number;
+	price: number;
+}
+
+interface ShippingAddress {
+	street: string;
+	city: string;
+	zip: string;
+	country: string;
+}
+
+interface CreateOrderRequest {
 	customer_id: string;
-	items: Array<{ product_id: string; quantity: number; price: number }>;
-	shipping_address: Record<string, string>;
+	items: OrderItem[];
+	shipping_address: ShippingAddress;
 }
 
 interface CreateOrderResponse {
 	order_id: string;
 	status: string;
 	total: number;
+	shipping_address: ShippingAddress;
 }
 
-interface CachedDataResponse {
+// === 3. OneOf (union types) ===
+interface GenericRequest {
 	key: string;
-	value: string;
-	from_cache: boolean;
 }
 
-interface ErrorResponse {
-	error: string;
-	status: number;
+// OneOf in proto3 means only one field is set at a time
+interface GenericResponse {
+	success?: SuccessPayload;
+	error?: ErrorPayload;
 }
 
-// Service definition for type-safe gRPC calls
+// === 4. Repeated Fields (arrays) ===
+interface ListUsersRequest {
+	limit: number;
+	offset?: number;
+}
+
+interface UserInfo {
+	id: number;
+	name: string;
+	email: string;
+}
+
+interface ListUsersResponse {
+	users: UserInfo[];
+	total: number;
+}
+
+// === 5. Optional Fields ===
+interface UpdateUserRequest {
+	user_id: number;
+	name?: string;
+	email?: string;
+	active?: boolean;
+}
+
+interface UpdateUserResponse {
+	user_id: number;
+	name: string;
+	email: string;
+	active: boolean;
+	updated_at: string;
+}
+
+// === 6. Map Fields ===
+interface GetConfigRequest {
+	namespace: string;
+}
+
+interface GetConfigResponse {
+	namespace: string;
+	config: Record<string, string>;
+}
+
+// === 7. Enum Types ===
+type OrderStatus =
+	| "ORDER_STATUS_UNSPECIFIED"
+	| "ORDER_STATUS_PENDING"
+	| "ORDER_STATUS_CONFIRMED"
+	| "ORDER_STATUS_SHIPPED"
+	| "ORDER_STATUS_DELIVERED"
+	| "ORDER_STATUS_CANCELLED";
+
+interface GetOrderStatusRequest {
+	order_id: string;
+}
+
+interface GetOrderStatusResponse {
+	order_id: string;
+	status: OrderStatus;
+	status_message: string;
+}
+
+// === 8. Boolean Response ===
+interface DeleteUserRequest {
+	user_id: number;
+}
+
+interface DeleteUserResponse {
+	deleted: boolean;
+}
+
+// ============================================================================
+// Typed Metadata - Based on proto options (response_metadata, required_metadata)
+// ============================================================================
+
+// GetUser: response_metadata = "x-request-id", "x-api-version"; response_trailers = "x-processing-time-ms"
+interface GetUserResponseMetadata {
+	"x-request-id"?: string;
+	"x-api-version"?: string;
+	"x-processing-time-ms"?: string;
+}
+
+// GetSecretData: required_metadata = "authorization"; response_metadata = "x-auth-user"
+interface GetSecretDataRequestMetadata {
+	authorization?: string;
+}
+
+interface GetSecretDataResponseMetadata {
+	"x-auth-user"?: string;
+}
+
+// ============================================================================
+// Service Definition - Type-safe gRPC calls with { payload, metadata } wrapper
+// ============================================================================
 interface TestService {
-	GetUser: { request: GetUserPayload; response: GetUserResponse };
-	CreateOrder: { request: CreateOrderPayload; response: CreateOrderResponse };
-	GetCachedData: { request: { key: string }; response: CachedDataResponse };
-	GetNotFound: { request: { key: string }; response: ErrorResponse };
-	GetSecretData: { request: { key: string }; response: { success: { value: string } } | { error: { message: string } } };
-	ListUsers: { request: { limit: number }; response: { users: Array<{ id: number }>; total: number } };
-	DeleteUser: { request: { user_id: number }; response: { deleted: boolean } };
+	// 1. Simple request/response with response metadata
+	GetUser: {
+		request: { payload: GetUserRequest };
+		response: { payload: GetUserResponse; metadata: GetUserResponseMetadata };
+	};
+	// 2. Nested objects
+	CreateOrder: {
+		request: { payload: CreateOrderRequest };
+		response: { payload: CreateOrderResponse };
+	};
+	// 3. OneOf (union types)
+	GetData: {
+		request: { payload: GenericRequest };
+		response: { payload: GenericResponse };
+	};
+	// GetSecretData requires authorization metadata
+	GetSecretData: {
+		request: { payload: GenericRequest; metadata: GetSecretDataRequestMetadata };
+		response: { payload: GenericResponse; metadata: GetSecretDataResponseMetadata };
+	};
+	// 4. Repeated fields (arrays)
+	ListUsers: {
+		request: { payload: ListUsersRequest };
+		response: { payload: ListUsersResponse };
+	};
+	// 5. Optional fields
+	UpdateUser: {
+		request: { payload: UpdateUserRequest };
+		response: { payload: UpdateUserResponse };
+	};
+	// 6. Map fields
+	GetConfig: {
+		request: { payload: GetConfigRequest };
+		response: { payload: GetConfigResponse };
+	};
+	// 7. Enum types
+	GetOrderStatus: {
+		request: { payload: GetOrderStatusRequest };
+		response: { payload: GetOrderStatusResponse };
+	};
+	// 8. Boolean response
+	DeleteUser: {
+		request: { payload: DeleteUserRequest };
+		response: { payload: DeleteUserResponse };
+	};
 }
 
 // Proto file path for test service
@@ -64,19 +221,26 @@ const TEST_SERVICE = "test.v1.TestService";
 // Helper functions for creating components with typed adapters
 const createMockServer = (name: string, port: number) =>
 	new Server(name, {
-		protocol: new GrpcUnaryAdapter<TestService>({ schema: TEST_PROTO }),
+		protocol: new GrpcUnaryProtocol<TestService>({ schema: TEST_PROTO }),
 		listenAddress: { host: "127.0.0.1", port },
 	});
 
 const createClient = (name: string, port: number) =>
 	new Client(name, {
-		adapter: new GrpcUnaryAdapter<TestService>({ schema: TEST_PROTO, serviceName: TEST_SERVICE }),
+		protocol: new GrpcUnaryProtocol<TestService>({
+			schema: TEST_PROTO,
+			serviceName: TEST_SERVICE,
+		}),
 		targetAddress: { host: "127.0.0.1", port },
 	});
 
-const createProxyServer = (name: string, listenPort: number, targetPort: number) =>
+const createProxyServer = (
+	name: string,
+	listenPort: number,
+	targetPort: number,
+) =>
 	new Server(name, {
-		protocol: new GrpcUnaryAdapter<TestService>({ schema: TEST_PROTO }),
+		protocol: new GrpcUnaryProtocol<TestService>({ schema: TEST_PROTO }),
 		listenAddress: { host: "127.0.0.1", port: listenPort },
 		targetAddress: { host: "127.0.0.1", port: targetPort },
 	});
@@ -96,7 +260,7 @@ describe("gRPC Unary Protocol Chain: Client → Mock", () => {
 			});
 
 			let responseData!: GetUserResponse;
-			let receivedPayload: GetUserPayload | undefined;
+			let receivedPayload: GetUserRequest | undefined;
 
 			const tc = testCase("GetUser through chain", (test) => {
 				const api = test.use(apiClient);
@@ -105,23 +269,24 @@ describe("gRPC Unary Protocol Chain: Client → Mock", () => {
 				// Step 1: Client sends gRPC request (type-safe via adapter generic)
 				api.request("GetUser", { payload: { user_id: 42 } });
 
-				// Step 2: Mock handles request (payload is GetUserPayload directly)
-				backend.onRequest("GetUser").mockResponse((payload) => {
-					receivedPayload = payload;
+				// Step 2: Mock handles request (payload wrapped in { payload, metadata })
+				backend.onRequest("GetUser").mockResponse((req) => {
+					receivedPayload = req.payload;
 					return {
-						status: 200,
-						headers: {},
-						body: {
-							user_id: payload.user_id,
+						payload: {
+							user_id: req.payload.user_id,
 							name: "John Doe",
 							email: "john@example.com",
 						},
+						metadata: {
+							"x-request-id": "test-request-id"
+						}
 					};
 				});
 
 				// Step 3: Handle response (type inferred from service definition)
 				api.onResponse("GetUser").assert((res) => {
-					responseData = res;
+					responseData = res.payload;
 					return true;
 				});
 			});
@@ -146,7 +311,7 @@ describe("gRPC Unary Protocol Chain: Client → Mock", () => {
 				components: [backendServer, apiClient],
 			});
 
-			let receivedPayload: CreateOrderPayload | undefined;
+			let receivedPayload: CreateOrderRequest | undefined;
 			let responseData!: CreateOrderResponse;
 
 			const tc = testCase("CreateOrder with complex payload", (test) => {
@@ -165,27 +330,27 @@ describe("gRPC Unary Protocol Chain: Client → Mock", () => {
 							street: "123 Main St",
 							city: "New York",
 							zip: "10001",
+							country: "USA",
 						},
 					},
 				});
 
 				// Step 2: Mock handles request
-				backend.onRequest("CreateOrder").mockResponse((payload) => {
-					receivedPayload = payload;
+				backend.onRequest("CreateOrder").mockResponse((req) => {
+					receivedPayload = req.payload;
 					return {
-						status: 200,
-						headers: {},
-						body: {
+						payload: {
 							order_id: "ORD-12345",
 							status: "confirmed",
 							total: 109.97,
+							shipping_address: req.payload.shipping_address,
 						},
 					};
 				});
 
 				// Step 3: Handle response
 				api.onResponse("CreateOrder").assert((res) => {
-					responseData = res;
+					responseData = res.payload;
 					return true;
 				});
 			});
@@ -207,41 +372,41 @@ describe("gRPC Unary Protocol Chain: Client → Mock", () => {
 	});
 
 	// ============================================================
-	// 3.2 Direct Mock Response
+	// 3.2 OneOf Response (Success/Error)
 	// ============================================================
-	describe("3.2 Direct Mock Response", () => {
-		it("should allow mock to respond directly", async () => {
+	describe("3.2 OneOf Response (Success/Error)", () => {
+		it("should handle success response in oneof", async () => {
 			const backendServer = createMockServer("backend", 5122);
 			const apiClient = createClient("api", 5122);
 
 			const scenario = new TestScenario({
-				name: "Direct Mock gRPC Test",
+				name: "OneOf Success gRPC Test",
 				components: [backendServer, apiClient],
 			});
 
-			let responseData!: CachedDataResponse;
+			let responseData!: GenericResponse;
 			let receivedKey: string | undefined;
 
-			const tc = testCase("Mock responds directly", (test) => {
+			const tc = testCase("GetData returns success", (test) => {
 				const api = test.use(apiClient);
 				const backend = test.use(backendServer);
 
 				// Step 1: Client sends request
-				api.request("GetCachedData", { payload: { key: "user:123" } });
+				api.request("GetData", { payload: { key: "config:app" } });
 
 				// Step 2: Mock handles
-				backend.onRequest("GetCachedData").mockResponse((payload) => {
-					receivedKey = payload.key;
+				backend.onRequest("GetData").mockResponse((req) => {
+					receivedKey = req.payload.key;
 					return {
-						status: 200,
-						headers: {},
-						body: { key: payload.key, value: "cached-value", from_cache: true },
+						payload: {
+							success: { value: "application-config-data" },
+						},
 					};
 				});
 
 				// Step 3: Handle response
-				api.onResponse("GetCachedData").assert((res) => {
-					responseData = res;
+				api.onResponse("GetData").assert((res) => {
+					responseData = res.payload;
 					return true;
 				});
 			});
@@ -249,20 +414,18 @@ describe("gRPC Unary Protocol Chain: Client → Mock", () => {
 			const result = await scenario.run(tc);
 
 			expect(result.passed).toBe(true);
-			expect(receivedKey).toBe("user:123");
-			expect(responseData).toMatchObject({
-				key: "user:123",
-				value: "cached-value",
-				from_cache: true,
+			expect(receivedKey).toBe("config:app");
+			expect(responseData.success).toMatchObject({
+				value: "application-config-data",
 			});
 		});
 	});
 
 	// ============================================================
-	// 3.3 Error Handling
+	// 3.3 Error Handling (OneOf Error)
 	// ============================================================
-	describe("3.3 Error Handling", () => {
-		it("should propagate gRPC errors", async () => {
+	describe("3.3 Error Handling (OneOf Error)", () => {
+		it("should propagate gRPC errors via oneof", async () => {
 			const backendServer = createMockServer("backend", 5132);
 			const apiClient = createClient("api", 5132);
 
@@ -271,7 +434,7 @@ describe("gRPC Unary Protocol Chain: Client → Mock", () => {
 				components: [backendServer, apiClient],
 			});
 
-			let responseData!: ErrorResponse;
+			let responseData!: GenericResponse;
 			let receivedKey: string | undefined;
 
 			const tc = testCase("Error response from backend", (test) => {
@@ -279,21 +442,17 @@ describe("gRPC Unary Protocol Chain: Client → Mock", () => {
 				const backend = test.use(backendServer);
 
 				// Step 1: Client sends request
-				api.request("GetNotFound", { payload: { key: "nonexistent" } });
+				api.request("GetData", { payload: { key: "nonexistent" } });
 
-				// Step 2: Mock handles
-				backend.onRequest("GetNotFound").mockResponse((payload) => {
-					receivedKey = payload.key;
-					return {
-						status: 404,
-						headers: {},
-						body: { error: "Resource not found", status: 404 },
-					};
+				// Step 2: Mock handles with error response
+				backend.onRequest("GetData").mockResponse((req) => {
+					receivedKey = req.payload.key;
+					return { payload: { error: { code: 404, message: "Resource not found" } } };
 				});
 
 				// Step 3: Handle response
-				api.onResponse("GetNotFound").assert((res) => {
-					responseData = res;
+				api.onResponse("GetData").assert((res) => {
+					responseData = res.payload;
 					return true;
 				});
 			});
@@ -302,9 +461,9 @@ describe("gRPC Unary Protocol Chain: Client → Mock", () => {
 
 			expect(result.passed).toBe(true);
 			expect(receivedKey).toBe("nonexistent");
-			expect(responseData).toMatchObject({
-				error: "Resource not found",
-				status: 404,
+			expect(responseData.error).toMatchObject({
+				code: 404,
+				message: "Resource not found",
 			});
 		});
 	});
@@ -334,37 +493,36 @@ describe("gRPC Unary Protocol Chain: Client → Mock", () => {
 				api.request("DeleteUser", { payload: { user_id: 1 } });
 
 				// Mock handlers
-				backend.onRequest("GetUser").mockResponse(() => ({
-					status: 200,
-					headers: {},
-					body: { user_id: 1, name: "Alice" },
-				}));
+				backend
+					.onRequest("GetUser")
+					.mockResponse(() => ({
+						payload: { user_id: 1, name: "Alice", email: "alice@example.com" },
+						metadata: { "x-request-id": "req-001", "x-api-version": "v1" },
+					}));
 
-				backend.onRequest("ListUsers").mockResponse(() => ({
-					status: 200,
-					headers: {},
-					body: { users: [{ id: 1 }, { id: 2 }], total: 2 },
-				}));
+				backend
+					.onRequest("ListUsers")
+					.mockResponse(() => ({
+						payload: { users: [{ id: 1, name: "Alice", email: "alice@example.com" }, { id: 2, name: "Bob", email: "bob@example.com" }], total: 2 },
+					}));
 
-				backend.onRequest("DeleteUser").mockResponse(() => ({
-					status: 200,
-					headers: {},
-					body: { deleted: true },
-				}));
+				backend
+					.onRequest("DeleteUser")
+					.mockResponse(() => ({ payload: { deleted: true } }));
 
 				// Response handlers
 				api.onResponse("GetUser").assert((res) => {
-					responses.getUser = res;
+					responses.getUser = res.payload;
 					return true;
 				});
 
 				api.onResponse("ListUsers").assert((res) => {
-					responses.listUsers = res;
+					responses.listUsers = res.payload;
 					return true;
 				});
 
 				api.onResponse("DeleteUser").assert((res) => {
-					responses.deleteUser = res;
+					responses.deleteUser = res.payload;
 					return true;
 				});
 			});
@@ -394,9 +552,9 @@ describe("gRPC Unary Protocol Chain: Client → Proxy → Mock", () => {
 				components: [backendServer, gatewayProxy, apiClient],
 			});
 
-			let receivedAtBackend: GetUserPayload | undefined;
+			let receivedAtBackend: GetUserRequest | undefined;
 			let responseData!: GetUserResponse;
-			let proxyReceivedPayload: GetUserPayload | undefined;
+			let proxyReceivedPayload: GetUserRequest | undefined;
 
 			const tc = testCase("Forward request through proxy", (test) => {
 				const api = test.use(apiClient);
@@ -407,28 +565,29 @@ describe("gRPC Unary Protocol Chain: Client → Proxy → Mock", () => {
 				api.request("GetUser", { payload: { user_id: 100 } });
 
 				// Step 2: Proxy captures and forwards
-				gateway.onRequest("GetUser").proxy((payload) => {
-					proxyReceivedPayload = payload;
-					return payload;
+				gateway.onRequest("GetUser").proxy((req) => {
+					proxyReceivedPayload = req.payload;
+					return req;
 				});
 
 				// Step 3: Mock handles request
-				backend.onRequest("GetUser").mockResponse((payload) => {
-					receivedAtBackend = payload;
+				backend.onRequest("GetUser").mockResponse((req) => {
+					receivedAtBackend = req.payload;
 					return {
-						status: 200,
-						headers: {},
-						body: {
-							user_id: payload.user_id,
+						payload: {
+							user_id: req.payload.user_id,
 							name: "Proxied User",
 							email: "proxied@example.com",
 						},
+						metadata: {
+							"x-request-id": "proxy-request-id"
+						}
 					};
 				});
 
 				// Step 4: Handle response
 				api.onResponse("GetUser").assert((res) => {
-					responseData = res;
+					responseData = res.payload;
 					return true;
 				});
 			});
@@ -454,8 +613,9 @@ describe("gRPC Unary Protocol Chain: Client → Proxy → Mock", () => {
 				components: [backendServer, gatewayProxy, apiClient],
 			});
 
-			let receivedAtBackend: CreateOrderPayload | undefined;
+			let receivedAtBackend: CreateOrderRequest | undefined;
 			let responseData!: CreateOrderResponse;
+			const defaultAddress: ShippingAddress = { street: "N/A", city: "N/A", zip: "00000", country: "N/A" };
 
 			const tc = testCase("Proxy transforms request", (test) => {
 				const api = test.use(apiClient);
@@ -464,33 +624,34 @@ describe("gRPC Unary Protocol Chain: Client → Proxy → Mock", () => {
 
 				// Step 1: Client sends request
 				api.request("CreateOrder", {
-					payload: { customer_id: "ORD-001", items: [], shipping_address: {} },
+					payload: {
+						customer_id: "ORD-001",
+						items: [],
+						shipping_address: defaultAddress,
+					},
 				});
 
 				// Step 2: Proxy intercepts and responds
-				gateway.onRequest("CreateOrder").mockResponse((payload) => ({
-					status: 200,
-					headers: {},
-					body: {
-						order_id: payload.customer_id,
+				gateway.onRequest("CreateOrder").mockResponse((req) => ({
+					payload: {
+						order_id: req.payload.customer_id,
 						status: "created",
 						total: 100,
+						shipping_address: req.payload.shipping_address,
 					},
 				}));
 
 				// Backend should NOT be called
-				backend.onRequest("CreateOrder").mockResponse((payload) => {
-					receivedAtBackend = payload;
+				backend.onRequest("CreateOrder").mockResponse((req) => {
+					receivedAtBackend = req.payload;
 					return {
-						status: 200,
-						headers: {},
-						body: { status: "created", order_id: "ORD-001", total: 0 },
+						payload: { status: "created", order_id: "ORD-001", total: 0, shipping_address: defaultAddress },
 					};
 				});
 
 				// Step 3: Handle response
 				api.onResponse("CreateOrder").assert((res) => {
-					responseData = res;
+					responseData = res.payload;
 					return true;
 				});
 			});
@@ -515,7 +676,7 @@ describe("gRPC Unary Protocol Chain: Client → Proxy → Mock", () => {
 				components: [backendServer, gatewayProxy, apiClient],
 			});
 
-			let responseData!: ErrorResponse;
+			let responseData!: GenericResponse;
 			let backendCalled = false;
 
 			const tc = testCase("Proxy blocks unauthorized request", (test) => {
@@ -523,29 +684,30 @@ describe("gRPC Unary Protocol Chain: Client → Proxy → Mock", () => {
 				const gateway = test.use(gatewayProxy);
 				const backend = test.use(backendServer);
 
-				// Step 1: Client sends request
-				api.request("GetSecretData", { payload: { key: "secret-key" } });
+				// Step 1: Client sends request (without required metadata - proxy will block)
+				api.request("GetSecretData", {
+					payload: { key: "secret-key" },
+					metadata: { authorization: "" }, // Empty auth - will be rejected
+				});
 
-				// Step 2: Proxy blocks
+				// Step 2: Proxy blocks with error response (oneof)
 				gateway.onRequest("GetSecretData").mockResponse(() => ({
-					status: 403,
-					headers: {},
-					body: { error: "Access denied", status: 403 },
+					payload: { error: { code: 403, message: "Access denied" } },
+					metadata: { "x-auth-user": "" },
 				}));
 
 				// Backend should NOT be called
 				backend.onRequest("GetSecretData").mockResponse(() => {
 					backendCalled = true;
 					return {
-						status: 200,
-						headers: {},
-						body: { value: "top-secret-value" },
+						payload: { success: { value: "top-secret-value" } },
+						metadata: { "x-auth-user": "user-123" },
 					};
 				});
 
 				// Step 3: Handle response
 				api.onResponse("GetSecretData").assert((res) => {
-					responseData = res as unknown as ErrorResponse;
+					responseData = res.payload;
 					return true;
 				});
 			});
@@ -554,9 +716,9 @@ describe("gRPC Unary Protocol Chain: Client → Proxy → Mock", () => {
 
 			expect(result.passed).toBe(true);
 			expect(backendCalled).toBe(false);
-			expect(responseData).toMatchObject({
-				error: "Access denied",
-				status: 403,
+			expect(responseData.error).toMatchObject({
+				code: 403,
+				message: "Access denied",
 			});
 		});
 	});
@@ -576,8 +738,8 @@ describe("gRPC Unary Protocol Chain: Client → Proxy → Mock", () => {
 			});
 
 			let responseData!: GetUserResponse;
-			let receivedPayload: GetUserPayload | undefined;
-			let proxyReceivedPayload: GetUserPayload | undefined;
+			let receivedPayload: GetUserRequest | undefined;
+			let proxyReceivedPayload: GetUserRequest | undefined;
 
 			const tc = testCase("Request with auth metadata", (test) => {
 				const api = test.use(apiClient);
@@ -586,33 +748,33 @@ describe("gRPC Unary Protocol Chain: Client → Proxy → Mock", () => {
 
 				// Step 1: Client sends request with metadata
 				api.request("GetUser", {
-					payload: { user_id: 42 },
-					metadata: { authorization: "Bearer test-token-123" },
+					payload: { user_id: 42 }
 				});
 
 				// Step 2: Proxy forwards
-				gateway.onRequest("GetUser").proxy((payload) => {
-					proxyReceivedPayload = payload;
-					return payload;
+				gateway.onRequest("GetUser").proxy((req) => {
+					proxyReceivedPayload = req.payload;
+					return req;
 				});
 
 				// Step 3: Mock handles
-				backend.onRequest("GetUser").mockResponse((payload) => {
-					receivedPayload = payload;
+				backend.onRequest("GetUser").mockResponse((req) => {
+					receivedPayload = req.payload;
 					return {
-						status: 200,
-						headers: {},
-						body: {
-							user_id: payload.user_id,
+						payload: {
+							user_id: req.payload.user_id,
 							name: "Authenticated User",
 							email: "auth@example.com",
 						},
+						metadata: {
+							"x-request-id": "test-request-id"
+						}
 					};
 				});
 
 				// Step 4: Handle response
 				api.onResponse("GetUser").assert((res) => {
-					responseData = res;
+					responseData = res.payload;
 					return true;
 				});
 			});
@@ -630,9 +792,9 @@ describe("gRPC Unary Protocol Chain: Client → Proxy → Mock", () => {
 	});
 
 	// ============================================================
-	// 3.7 gRPC Error Responses
+	// 3.7 gRPC Error Responses (via OneOf)
 	// ============================================================
-	describe("3.7 gRPC Error Responses", () => {
+	describe("3.7 gRPC Error Responses (via OneOf)", () => {
 		it("should propagate error response through proxy", async () => {
 			const backendServer = createMockServer("backend", 5160);
 			const gatewayProxy = createProxyServer("gateway", 5161, 5160);
@@ -643,28 +805,25 @@ describe("gRPC Unary Protocol Chain: Client → Proxy → Mock", () => {
 				components: [backendServer, gatewayProxy, apiClient],
 			});
 
-			let responseData!: ErrorResponse;
+			let responseData!: GenericResponse;
 
 			const tc = testCase("Request returns error through proxy", (test) => {
 				const api = test.use(apiClient);
 				const backend = test.use(backendServer);
 
 				// Step 1: Client sends request
-				api.request("GetNotFound", { payload: { key: "nonexistent" } });
+				api.request("GetData", { payload: { key: "nonexistent" } });
 
-				// Step 2: Mock handles
-				backend.onRequest("GetNotFound").mockResponse(() => ({
-					status: 200,
-					headers: {},
-					body: {
-						error: "Resource not found",
-						code: "404",
+				// Step 2: Mock handles with error response (oneof)
+				backend.onRequest("GetData").mockResponse(() => ({
+					payload: {
+						error: { code: 404, message: "Resource not found" },
 					},
 				}));
 
 				// Step 3: Handle response
-				api.onResponse("GetNotFound").assert((res) => {
-					responseData = res;
+				api.onResponse("GetData").assert((res) => {
+					responseData = res.payload;
 					return true;
 				});
 			});
@@ -672,9 +831,204 @@ describe("gRPC Unary Protocol Chain: Client → Proxy → Mock", () => {
 			const result = await scenario.run(tc);
 
 			expect(result.passed).toBe(true);
+			expect(responseData.error).toMatchObject({
+				code: 404,
+				message: "Resource not found",
+			});
+		});
+	});
+
+	// ============================================================
+	// 3.8 Response Metadata (response_metadata option)
+	// ============================================================
+	describe("3.8 Response Metadata", () => {
+		it("should allow mock to return response with metadata", async () => {
+			const backendServer = createMockServer("backend", 5162);
+			const gatewayProxy = createProxyServer("gateway", 5163, 5162);
+			const apiClient = createClient("api", 5163);
+
+			const scenario = new TestScenario({
+				name: "gRPC Response Metadata Test",
+				components: [backendServer, gatewayProxy, apiClient],
+			});
+
+			let responseData!: GetUserResponse;
+			let backendReceivedRequest = false;
+
+			const tc = testCase("GetUser with response metadata", (test) => {
+				const api = test.use(apiClient);
+				const gateway = test.use(gatewayProxy);
+				const backend = test.use(backendServer);
+
+				// Step 1: Client sends request
+				api.request("GetUser", { payload: { user_id: 42 } });
+
+				// Step 2: Proxy forwards
+				gateway.onRequest("GetUser").proxy((req) => req);
+
+				// Step 3: Mock responds with metadata (x-request-id, x-api-version per proto option)
+				backend.onRequest("GetUser").mockResponse(() => {
+					backendReceivedRequest = true;
+					return {
+						payload: {
+							user_id: 42,
+							name: "John Doe",
+							email: "john@example.com",
+						},
+						metadata: {
+							"x-request-id": "req-12345",
+							"x-api-version": "v1.0.0",
+						},
+					};
+				});
+
+				// Step 4: Handle response
+				api.onResponse("GetUser").assert((res) => {
+					responseData = res.payload;
+					return true;
+				});
+			});
+
+			const result = await scenario.run(tc);
+
+			expect(result.passed).toBe(true);
+			expect(backendReceivedRequest).toBe(true);
 			expect(responseData).toMatchObject({
-				code: "404",
-				error: "Resource not found",
+				user_id: 42,
+				name: "John Doe",
+			});
+			// Note: Response metadata propagation to client is tested via the mock's ability
+			// to return metadata. Full end-to-end metadata propagation depends on adapter impl.
+		});
+	});
+
+	// ============================================================
+	// 3.9 Required Metadata (required_metadata option)
+	// ============================================================
+	describe("3.9 Required Metadata", () => {
+		it("should pass request with required authorization metadata", async () => {
+			const backendServer = createMockServer("backend", 5164);
+			const gatewayProxy = createProxyServer("gateway", 5165, 5164);
+			const apiClient = createClient("api", 5165);
+
+			const scenario = new TestScenario({
+				name: "gRPC Required Metadata Test",
+				components: [backendServer, gatewayProxy, apiClient],
+			});
+
+			let responseData!: GenericResponse;
+			let receivedMetadata: GetSecretDataRequestMetadata | undefined;
+
+			const tc = testCase("GetSecretData with required authorization", (test) => {
+				const api = test.use(apiClient);
+				const gateway = test.use(gatewayProxy);
+				const backend = test.use(backendServer);
+
+				// Step 1: Client sends request with required authorization metadata
+				api.request("GetSecretData", {
+					payload: { key: "secret-key" },
+					metadata: { authorization: "Bearer valid-token" },
+				});
+
+				// Step 2: Proxy validates and forwards
+				gateway.onRequest("GetSecretData").proxy((req) => {
+					// Proxy could validate the authorization here
+					return req;
+				});
+
+				// Step 3: Backend receives and responds with x-auth-user metadata
+				backend.onRequest("GetSecretData").mockResponse((req) => {
+					receivedMetadata = req.metadata;
+					return {
+						payload: { success: { value: "secret-data" } },
+						metadata: { "x-auth-user": "user-123" },
+					};
+				});
+
+				// Step 4: Handle response
+				api.onResponse("GetSecretData").assert((res) => {
+					responseData = res.payload;
+					return true;
+				});
+			});
+
+			const result = await scenario.run(tc);
+
+			expect(result.passed).toBe(true);
+			expect(receivedMetadata).toMatchObject({
+				authorization: "Bearer valid-token",
+			});
+			expect(responseData.success).toMatchObject({
+				value: "secret-data",
+			});
+		});
+
+		it("should reject request without required authorization metadata", async () => {
+			const backendServer = createMockServer("backend", 5166);
+			const gatewayProxy = createProxyServer("gateway", 5167, 5166);
+			const apiClient = createClient("api", 5167);
+
+			const scenario = new TestScenario({
+				name: "gRPC Missing Required Metadata Test",
+				components: [backendServer, gatewayProxy, apiClient],
+			});
+
+			let responseData!: GenericResponse;
+			let backendCalled = false;
+
+			const tc = testCase("GetSecretData without authorization rejected", (test) => {
+				const api = test.use(apiClient);
+				const gateway = test.use(gatewayProxy);
+				const backend = test.use(backendServer);
+
+				// Step 1: Client sends request WITHOUT required authorization
+				api.request("GetSecretData", {
+					payload: { key: "secret-key" },
+					metadata: {},
+					// No metadata - missing required authorization
+				});
+
+				// Step 2: Proxy checks for required metadata and rejects
+				gateway.onRequest("GetSecretData").mockResponse((req) => {
+					// Check if authorization is missing
+					if (!req.metadata?.authorization) {
+						return {
+							payload: { error: { code: 401, message: "Authorization required" } },
+							metadata: {
+								"x-auth-user": "test-request-id"
+							}
+						};
+					}
+					// This shouldn't be reached in this test
+					return { 
+						payload: { success: { value: "should-not-reach" } }, 
+						metadata: { "x-auth-user": "test-request-id" } 
+					};
+				});
+
+				// Backend should NOT be called
+				backend.onRequest("GetSecretData").mockResponse(() => {
+					backendCalled = true;
+					return { 
+						payload: { success: { value: "secret-data" } },
+						metadata: { "x-auth-user": "backend-test-user" }
+					};
+				});
+
+				// Step 3: Handle error response
+				api.onResponse("GetSecretData").assert((res) => {
+					responseData = res.payload;
+					return true;
+				});
+			});
+
+			const result = await scenario.run(tc);
+
+			expect(result.passed).toBe(true);
+			expect(backendCalled).toBe(false);
+			expect(responseData.error).toMatchObject({
+				code: 401,
+				message: "Authorization required",
 			});
 		});
 	});

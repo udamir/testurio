@@ -212,7 +212,7 @@ export class TestScenario<
 			}
 		}
 
-		// Stop all components (components dispose their own adapters and clear their hooks)
+		// Stop all components (components dispose their own protocols and clear their hooks)
 		await this.stopComponents();
 
 		this.initialized = false;

@@ -7,8 +7,7 @@
  */
 
 import type {
-	AdapterMessages,
-	ClientAdapter,
+	ProtocolMessages,
 	IAsyncProtocol,
 	Address,
 	Message,
@@ -22,8 +21,8 @@ import { BaseComponent } from "../base";
  * Async client component options
  */
 export interface AsyncClientOptions<A extends IAsyncProtocol = IAsyncProtocol> {
-	/** Adapter instance (contains all protocol configuration) */
-	adapter: A;
+	/** Protocol instance (contains all protocol configuration) */
+	protocol: A;
 	/** Target address to connect to */
 	targetAddress: Address;
 	/** TLS configuration */
@@ -38,34 +37,33 @@ export interface AsyncClientOptions<A extends IAsyncProtocol = IAsyncProtocol> {
  * @example
  * ```typescript
  * const wsClient = new AsyncClient("ws-api", {
- *   adapter: new WebSocketAdapter(),
+ *   protocol: new WebSocketProtocol(),
  *   targetAddress: { host: "localhost", port: 8080 },
  * });
  *
  * const tcpClient = new AsyncClient("tcp-api", {
- *   adapter: new TcpAdapter({ schema: "path/to/proto" }),
+ *   protocol: new TcpProtocol({ schema: "path/to/proto" }),
  *   targetAddress: { host: "localhost", port: 9000 },
  * });
  * ```
  */
 export class AsyncClient<
 	A extends IAsyncProtocol = IAsyncProtocol,
-> extends BaseComponent<A, AsyncClientStepBuilder<AdapterMessages<A>, Record<string, unknown>>> {
+> extends BaseComponent<A, AsyncClientStepBuilder<ProtocolMessages<A>, Record<string, unknown>>> {
 	/**
 	 * Phantom type property for type inference.
 	 * This property is never assigned at runtime - it exists only for TypeScript.
 	 * Used by `test.use(component)` to infer message types.
 	 */
 	declare readonly __types: {
-		messages: AdapterMessages<A>;
+		messages: ProtocolMessages<A>;
 	};
 
-	private handle?: ClientAdapter;
 	private readonly _targetAddress: Address;
 	private readonly _tls?: TlsConfig;
 
 	constructor(name: string, options: AsyncClientOptions<A>) {
-		super(name, options.adapter);
+		super(name, options.protocol);
 		this._targetAddress = options.targetAddress;
 		this._tls = options.tls;
 	}
@@ -85,8 +83,8 @@ export class AsyncClient<
 	 */
 	createStepBuilder<TContext extends Record<string, unknown>>(
 		builder: ITestCaseBuilder<TContext>,
-	): AsyncClientStepBuilder<AdapterMessages<A>, TContext> {
-		return new AsyncClientStepBuilder<AdapterMessages<A>, TContext>(
+	): AsyncClientStepBuilder<ProtocolMessages<A>, TContext> {
+		return new AsyncClientStepBuilder<ProtocolMessages<A>, TContext>(
 			this,
 			builder,
 		);
@@ -100,13 +98,6 @@ export class AsyncClient<
 	}
 
 	/**
-	 * Get client handle
-	 */
-	getHandle(): ClientAdapter | undefined {
-		return this.handle;
-	}
-
-	/**
 	 * Send a message to server
 	 */
 	async send(message: Message): Promise<void> {
@@ -114,19 +105,18 @@ export class AsyncClient<
 			throw new Error(`AsyncClient ${this.name} is not started`);
 		}
 
-		if (!this.protocol || !this.handle) {
-			throw new Error(`AsyncClient ${this.name} has no adapter`);
+		if (!this.protocol) {
+			throw new Error(`AsyncClient ${this.name} has no protocol`);
 		}
 
 		// Process message through hooks
-		const processedMessage = await this.processMessage(message);
+		const processedMessage = await this.hookRegistry.executeHooks(message);
 
 		if (processedMessage && this.protocol.sendMessage) {
 			await this.protocol.sendMessage(
-				this.handle,
 				processedMessage.type,
 				processedMessage.payload,
-				processedMessage.metadata,
+				processedMessage.traceId,
 			);
 		}
 	}
@@ -143,18 +133,17 @@ export class AsyncClient<
 			throw new Error(`AsyncClient ${this.name} is not started`);
 		}
 
-		if (!this.protocol || !this.handle) {
-			throw new Error(`AsyncClient ${this.name} has no adapter`);
+		if (!this.protocol) {
+			throw new Error(`AsyncClient ${this.name} has no protocol`);
 		}
 
 		if (!this.protocol.waitForMessage) {
 			throw new Error(
-				`Adapter for ${this.name} does not support waitForMessage`,
+				`Protocol for ${this.name} does not support waitForMessage`,
 			);
 		}
 
 		return this.protocol.waitForMessage(
-			this.handle,
 			messageType,
 			matcher,
 			timeout,
@@ -165,11 +154,11 @@ export class AsyncClient<
 	 * Start the async client
 	 */
 	protected async doStart(): Promise<void> {
-		// Register hook registry with adapter for component-based message handling
+		// Register hook registry with protocol for component-based message handling
 		this.protocol.setHookRegistry(this.hookRegistry);
 
 		// Create client connection
-		this.handle = await this.protocol.createClient({
+		await this.protocol.createClient({
 			targetAddress: this._targetAddress,
 			tls: this._tls,
 		});
@@ -179,10 +168,7 @@ export class AsyncClient<
 	 * Stop the async client
 	 */
 	protected async doStop(): Promise<void> {
-		if (this.handle) {
-			await this.protocol.closeClient(this.handle);
-			this.handle = undefined;
-		}
+		await this.protocol.closeClient();
 		await this.protocol.dispose();
 		this.hookRegistry.clear();
 	}

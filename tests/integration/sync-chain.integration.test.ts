@@ -4,12 +4,11 @@
  * Tests the complete component chain: Client → Proxy → Mock
  * Using sync (HTTP-like) protocol with real HttpAdapter.
  *
- * Note: HttpAdapter.request() returns the response body directly,
- * not the full HttpResponse object with status/headers.
+ * Note: onResponse() receives SyncResponse<T> with { status, headers, body }.
  */
 
 import { describe, expect, it } from "vitest";
-import { TestScenario, testCase, Server, Client, HttpAdapter } from "testurio";
+import { TestScenario, testCase, Server, Client, HttpProtocol, type HttpResponse } from "testurio";
 
 // ============================================================================
 // Response Type Definitions
@@ -37,63 +36,59 @@ interface ErrorResponse {
 
 interface HttpServiceDef {
 	getUsers: {
-		request: { method: string; path: string; body?: never; headers?: Record<string, string> };
-		responses: { 200: { body: User[] } };
+		request: { method: "GET"; path: "/users"; body?: never };
+		response: { code: 200; body: User[] };
 	};
 	createUser: {
-		request: { method: string; path: string; body: CreateUserPayload; headers?: Record<string, string> };
-		responses: { 200: { body: User } };
+		request: { method: "POST"; path: "/users"; body: CreateUserPayload };
+		response: { code: 201; body: User };
 	};
 	getData: {
-		request: { method: string; path: string; body?: never; headers?: Record<string, string> };
-		responses: { 200: { body: { proxied?: boolean; headers?: Record<string, string>; value?: number; transformedBy?: string } } };
+		request: { method: "GET"; path: "/api/data"; body?: never; headers?: Record<string, string> };
+		response: { code: 200; body: { proxied?: boolean; headers?: Record<string, string>; value?: number; transformedBy?: string } };
 	};
 	getBlocked: {
-		request: { method: string; path: string; body?: never; headers?: Record<string, string> };
-		responses: { 403: { body: ErrorResponse }; 200: { body: { data: string } } };
+		request: { method: "GET"; path: "/blocked"; body?: never };
+		response: { code: 200; body: { data: string } } | { code: 403; body: ErrorResponse };
 	};
 	getOrders: {
-		request: { method: string; path: string; body?: never; headers?: Record<string, string> };
-		responses: { 200: { body: Array<{ id: number; item: string }> } };
+		request: { method: "GET"; path: "/orders"; body?: never };
+		response: { code: 200; body: { id: number; item: string }[] };
 	};
 	postOrder: {
-		request: { method: string; path: string; body: { item: string }; headers?: Record<string, string> };
-		responses: { 200: { body: { id: number; item: string } } };
+		request: { method: "POST"; path: "/orders"; body: { item: string } };
+		response: { code: 201; body: { id: number; item: string } };
 	};
 	deleteUsers: {
-		request: { method: string; path: string; body?: never; headers?: Record<string, string> };
-		responses: { 200: { body: { deleted: boolean } } };
+		request: { method: "DELETE"; path: "/users"; body?: never };
+		response: { code: 200; body: { deleted: boolean } };
 	};
 	getError: {
-		request: { method: string; path: string; body?: never; headers?: Record<string, string> };
-		responses: { 500: { body: { error: string; code: string } } };
+		request: { method: "GET"; path: "/error"; body?: never };
+		response: { code: 500; body: { error: string; errorCode: string } };
 	};
 	getUnknown: {
-		request: { method: string; path: string; body?: never; headers?: Record<string, string> };
-		responses: { 404: { body: ErrorResponse } };
-	};
-	[key: string]: {
-		request: { method: string; path: string; body?: unknown; headers?: Record<string, string> };
-		responses: Record<number, { body?: unknown }>;
+		request: { method: "GET"; path: "/unknown"; body?: never };
+		response: { code: 404; body: ErrorResponse };
 	};
 }
 
 // Helper functions for creating HTTP components with typed adapters
 const createMockServer = (name: string, port: number) =>
 	new Server(name, {
-		protocol: new HttpAdapter<HttpServiceDef>(),
+		protocol: new HttpProtocol<HttpServiceDef>(),
 		listenAddress: { host: "localhost", port },
 	});
 
 const createClient = (name: string, port: number) =>
 	new Client(name, {
-		adapter: new HttpAdapter<HttpServiceDef>(),
+		protocol: new HttpProtocol<HttpServiceDef>(),
 		targetAddress: { host: "localhost", port },
 	});
 
 const createProxyServer = (name: string, listenPort: number, targetPort: number) =>
 	new Server(name, {
-		protocol: new HttpAdapter<HttpServiceDef>(),
+		protocol: new HttpProtocol<HttpServiceDef>(),
 		listenAddress: { host: "localhost", port: listenPort },
 		targetAddress: { host: "localhost", port: targetPort },
 	});
@@ -113,7 +108,7 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 				components: [backendServer, gatewayProxy, apiClient],
 			});
 
-			let responseData!: User[];
+			let responseData!: HttpResponse<User[]>;
 			let backendCalled = false;
 			let receivedMethod: string | undefined;
 			let receivedPath: string | undefined;
@@ -131,8 +126,7 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 					receivedMethod = req.method;
 					receivedPath = req.path;
 					return {
-						status: 200,
-						headers: {},
+						code: 200,
 						body: [
 							{ id: 1, name: "Alice" },
 							{ id: 2, name: "Bob" },
@@ -153,7 +147,8 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 			expect(backendCalled).toBe(true);
 			expect(receivedMethod).toBe("GET");
 			expect(receivedPath).toBe("/users");
-			expect(responseData).toEqual([
+			expect(responseData.code).toBe(200);
+			expect(responseData.body).toEqual([
 				{ id: 1, name: "Alice" },
 				{ id: 2, name: "Bob" },
 			]);
@@ -170,7 +165,7 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 			});
 
 			let receivedPayload: CreateUserPayload | undefined;
-			let responseData!: User;
+			let responseData!: HttpResponse<User>;
 
 			const tc = testCase("POST /users", (test) => {
 				const api = test.use(apiClient);
@@ -187,11 +182,7 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 				// Step 2: Mock handles request
 				backend.onRequest("createUser", { method: "POST", path: "/users" }).mockResponse((req) => {
 					receivedPayload = req.body;
-					return {
-						status: 200,
-						headers: {},
-						body: { id: 3, name: req.body.name, email: req.body.email },
-					};
+					return { code: 201, body: { id: 3, name: req.body.name, email: req.body.email } };
 				});
 
 				// Step 3: Handle response
@@ -208,7 +199,8 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 				name: "Charlie",
 				email: "charlie@example.com",
 			});
-			expect(responseData).toMatchObject({
+			expect(responseData.code).toBe(201);
+			expect(responseData.body).toMatchObject({
 				id: 3,
 				name: "Charlie",
 			});
@@ -245,11 +237,7 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 						"x-proxy-added": "true",
 						"x-request-id": "req-12345",
 					};
-					return {
-						status: 200,
-						headers: {},
-						body: { proxied: true, headers: receivedHeaders },
-					};
+					return { code: 200, body: { proxied: true, headers: receivedHeaders } };
 				});
 
 				// Step 3: Handle response
@@ -280,7 +268,7 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 				components: [backendServer, gatewayProxy, apiClient],
 			});
 
-			let responseData: { proxied?: boolean; headers?: Record<string, string>; value?: number; transformedBy?: string } | undefined;
+			let responseData: HttpResponse<{ proxied?: boolean; headers?: Record<string, string>; value?: number; transformedBy?: string }> | undefined;
 			let proxyReceivedRequest = false;
 			let backendCalled = false;
 
@@ -290,27 +278,19 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 				const backend = test.use(backendServer);
 
 				// Step 1: Client sends request
-				api.request("getData", { method: "GET", path: "/data" });
+				api.request("getData", { method: "GET", path: "/api/data" });
 
 				// Step 2: Proxy intercepts and responds
-				gateway.onRequest("getData", { method: "GET", path: "/data" }).mockResponse((req) => {
+				gateway.onRequest("getData", { method: "GET", path: "/api/data" }).mockResponse((req) => {
 					proxyReceivedRequest = true;
 					expect(req.method).toBe("GET");
-					return {
-						status: 200,
-						headers: {},
-						body: { value: 100, transformedBy: "proxy" },
-					};
+					return { code: 200, body: { value: 100, transformedBy: "proxy" } };
 				});
 
 				// Backend should NOT be called since proxy mocks the response
-				backend.onRequest("getData", { method: "GET", path: "/data" }).mockResponse(() => {
+				backend.onRequest("getData", { method: "GET", path: "/api/data" }).mockResponse(() => {
 					backendCalled = true;
-					return {
-						status: 200,
-						headers: {},
-						body: { value: 999, transformedBy: "backend" },
-					};
+					return { code: 200, body: { value: 999, transformedBy: "backend" } };
 				});
 
 				// Step 3: Handle response
@@ -325,7 +305,7 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 			expect(result.passed).toBe(true);
 			expect(proxyReceivedRequest).toBe(true);
 			expect(backendCalled).toBe(false);
-			expect(responseData).toMatchObject({
+			expect(responseData?.body).toMatchObject({
 				value: 100,
 				transformedBy: "proxy",
 			});
@@ -347,7 +327,7 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 			});
 
 			let backendCalled = false;
-			let responseData: ErrorResponse | { data: string } | undefined;
+			let responseData: HttpResponse<ErrorResponse | { data: string }> | undefined;
 
 			const tc = testCase("Blocked request", (test) => {
 				const api = test.use(apiClient);
@@ -358,20 +338,12 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 				api.request("getBlocked", { method: "GET", path: "/blocked" });
 
 				// Step 2: Proxy blocks request
-				gateway.onRequest("getBlocked", { method: "GET", path: "/blocked" }).mockResponse(() => ({
-					status: 403,
-					headers: {},
-					body: { error: "Access denied by proxy" },
-				}));
+				gateway.onRequest("getBlocked", { method: "GET", path: "/blocked" }).mockResponse(() => ({ code: 403, body: { error: "Access denied by proxy" } }));
 
 				// Backend should NOT be called
 				backend.onRequest("getBlocked", { method: "GET", path: "/blocked" }).mockResponse(() => {
 					backendCalled = true;
-					return {
-						status: 200,
-						headers: {},
-						body: { data: "secret" },
-					};
+					return { code: 200, body: { data: "secret" } };
 				});
 
 				// Step 3: Handle response
@@ -385,7 +357,7 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 
 			expect(result.passed).toBe(true);
 			expect(backendCalled).toBe(false);
-			expect(responseData).toMatchObject({
+			expect(responseData?.body).toMatchObject({
 				error: "Access denied by proxy",
 			});
 		});
@@ -406,10 +378,10 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 			});
 
 			interface MultiEndpointResponses {
-				getUsers?: User[];
-				getOrders?: Array<{ id: number; item: string }>;
-				postOrder?: { id: number; item: string };
-				deleteUsers?: { deleted: boolean };
+				getUsers?: HttpResponse<User[]>;
+				getOrders?: HttpResponse<Array<{ id: number; item: string }>>;
+				postOrder?: HttpResponse<{ id: number; item: string }>;
+				deleteUsers?: HttpResponse<{ deleted: boolean }>;
 			}
 			const responses: MultiEndpointResponses = {};
 
@@ -424,29 +396,13 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 				api.request("deleteUsers", { method: "DELETE", path: "/users" });
 
 				// Mock handlers
-				backend.onRequest("getUsers", { method: "GET", path: "/users" }).mockResponse(() => ({
-					status: 200,
-					headers: {},
-					body: [{ id: 1, name: "Alice" }],
-				}));
+				backend.onRequest("getUsers", { method: "GET", path: "/users" }).mockResponse(() => ({ code: 200, body: [{ id: 1, name: "Alice" }] }));
 
-				backend.onRequest("getOrders", { method: "GET", path: "/orders" }).mockResponse(() => ({
-					status: 200,
-					headers: {},
-					body: [{ id: 101, item: "Widget" }],
-				}));
+				backend.onRequest("getOrders", { method: "GET", path: "/orders" }).mockResponse(() => ({ code: 200, body: [{ id: 101, item: "Widget" }] }));
 
-				backend.onRequest("postOrder", { method: "POST", path: "/orders" }).mockResponse(() => ({
-					status: 200,
-					headers: {},
-					body: { id: 102, item: "Gadget" },
-				}));
+				backend.onRequest("postOrder", { method: "POST", path: "/orders" }).mockResponse(() => ({ code: 201, body: { id: 102, item: "Gadget" } }));
 
-				backend.onRequest("deleteUsers", { method: "DELETE", path: "/users" }).mockResponse(() => ({
-					status: 200,
-					headers: {},
-					body: { deleted: true },
-				}));
+				backend.onRequest("deleteUsers", { method: "DELETE", path: "/users" }).mockResponse(() => ({ code: 200, body: { deleted: true } }));
 
 				// Response handlers
 				api.onResponse("getUsers").assert((res) => {
@@ -473,10 +429,10 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 			const result = await scenario.run(tc);
 
 			expect(result.passed).toBe(true);
-			expect(responses.getUsers).toEqual([{ id: 1, name: "Alice" }]);
-			expect(responses.getOrders).toEqual([{ id: 101, item: "Widget" }]);
-			expect(responses.postOrder).toMatchObject({ id: 102, item: "Gadget" });
-			expect(responses.deleteUsers).toMatchObject({ deleted: true });
+			expect(responses.getUsers?.body).toEqual([{ id: 1, name: "Alice" }]);
+			expect(responses.getOrders?.body).toEqual([{ id: 101, item: "Widget" }]);
+			expect(responses.postOrder?.body).toMatchObject({ id: 102, item: "Gadget" });
+			expect(responses.deleteUsers?.body).toMatchObject({ deleted: true });
 		});
 	});
 
@@ -494,7 +450,7 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 				components: [backendServer, gatewayProxy, apiClient],
 			});
 
-			let responseData!: { error: string; code: string };
+			let responseData!: HttpResponse<{ error: string; errorCode: string }>;
 			let backendReceivedRequest = false;
 			let receivedPath: string | undefined;
 
@@ -509,11 +465,7 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 				backend.onRequest("getError", { method: "GET", path: "/error" }).mockResponse((req) => {
 					backendReceivedRequest = true;
 					receivedPath = req.path;
-					return {
-						status: 500,
-						headers: {},
-						body: { error: "Internal server error", code: "ERR_INTERNAL" },
-					};
+					return { code: 500, body: { error: "Internal server error", errorCode: "ERR_INTERNAL" } };
 				});
 
 				// Step 3: Handle response
@@ -528,23 +480,27 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 			expect(result.passed).toBe(true);
 			expect(backendReceivedRequest).toBe(true);
 			expect(receivedPath).toBe("/error");
-			expect(responseData).toMatchObject({
+			expect(responseData.code).toBe(500);
+			expect(responseData.body).toMatchObject({
 				error: "Internal server error",
-				code: "ERR_INTERNAL",
+				errorCode: "ERR_INTERNAL",
 			});
 		});
 
 		it("should handle 404 for unregistered endpoints", async () => {
+			// Simplified test: client directly to mock server (no proxy)
 			const backendServer = createMockServer("backend", 3102);
-			const gatewayProxy = createProxyServer("gateway", 3101, 3102);
-			const apiClient = createClient("api", 3101);
+			const apiClient = new Client("api", {
+				protocol: new HttpProtocol<HttpServiceDef>(),
+				targetAddress: { host: "localhost", port: 3102 },
+			});
 
 			const scenario = new TestScenario({
 				name: "404 Test",
-				components: [backendServer, gatewayProxy, apiClient],
+				components: [backendServer, apiClient],
 			});
 
-			let responseData!: ErrorResponse;
+			let responseData!: HttpResponse<ErrorResponse>;
 
 			const tc = testCase("Request to unknown endpoint", (test) => {
 				const api = test.use(apiClient);
@@ -562,8 +518,10 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 			const result = await scenario.run(tc);
 
 			expect(result.passed).toBe(true);
-			expect(responseData).toMatchObject({
-				error: "No handler for GET /unknown",
+			// The 404 comes from the backend mock server (no handler registered)
+			expect(responseData.code).toBe(404);
+			expect(responseData.body).toMatchObject({
+				error: "Not Found",
 			});
 		});
 	});

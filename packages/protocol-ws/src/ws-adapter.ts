@@ -9,9 +9,9 @@
  */
 
 import type {
-	ClientAdapterConfig,
+	ClientProtocolConfig,
 	AdapterClientHandle,
-	ServerAdapterConfig,
+	ServerProtocolConfig,
 	AdapterServerHandle,
 	IAsyncProtocol,
 	Message,
@@ -146,7 +146,7 @@ export class WebSocketAdapter<
 	 * Start a real WebSocket server (mock or proxy)
 	 */
 	async startServer(
-		config: ServerAdapterConfig,
+		config: ServerProtocolConfig,
 	): Promise<WebSocketServerHandle> {
 		const id = generateHandleId("ws-server");
 		const isProxy = !!config.targetAddress;
@@ -366,7 +366,7 @@ export class WebSocketAdapter<
 	 * Create a real WebSocket client
 	 */
 	async createClient(
-		config: ClientAdapterConfig,
+		config: ClientProtocolConfig,
 	): Promise<WebSocketClientHandle> {
 		const id = generateHandleId("ws-client");
 		const protocol = config.tls?.enabled ? "wss" : "ws";

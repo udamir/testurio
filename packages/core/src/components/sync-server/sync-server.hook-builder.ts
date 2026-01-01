@@ -5,7 +5,7 @@
  * Receives an already-registered hook and adds handlers to it.
  */
 
-import type { Message, SyncResponse } from "../../protocols/base";
+import type { Message } from "../../protocols/base";
 import type {
 	Hook,
 	HookHandler,
@@ -19,16 +19,19 @@ import { DropMessageError } from "../base/base.types";
  * Receives an already-registered hook from the caller.
  * Handler methods (assert, proxy, mockResponse, delay, drop) add handlers directly
  * to the hook.
+ *
+ * @template TPayload - Request payload type (what comes in)
+ * @template TResponse - Response type (what mockResponse should return)
  */
-export class SyncHookBuilderImpl<TPayload = unknown>
-	implements SyncHookBuilder<TPayload>
+export class SyncHookBuilderImpl<TPayload = unknown, TResponse = unknown>
+	implements SyncHookBuilder<TPayload, TResponse>
 {
 	/**
 	 * Create a new sync hook builder.
 	 *
 	 * @param hook - Already registered hook to add handlers to
 	 */
-	constructor(private hook: Hook) {}
+	constructor(private hook: Hook<TPayload>) {}
 
 	/**
 	 * Get the hook ID
@@ -43,8 +46,8 @@ export class SyncHookBuilderImpl<TPayload = unknown>
 	assert(handler: (payload: TPayload) => boolean | Promise<boolean>): this {
 		this.addHandler({
 			type: "assert",
-			execute: async (msg: Message) => {
-				const result = await Promise.resolve(handler(msg.payload as TPayload));
+			execute: async (msg: Message<TPayload>) => {
+				const result = await Promise.resolve(handler(msg.payload));
 				if (!result) {
 					throw new Error(`Assertion failed for message type: ${msg.type}`);
 				}
@@ -60,10 +63,10 @@ export class SyncHookBuilderImpl<TPayload = unknown>
 	proxy(handler?: (payload: TPayload) => TPayload | Promise<TPayload>): this {
 		this.addHandler({
 			type: "proxy",
-			execute: async (msg: Message) => {
+			execute: async (msg: Message<TPayload>) => {
 				if (handler) {
 					const transformedPayload = await Promise.resolve(
-						handler(msg.payload as TPayload),
+						handler(msg.payload),
 					);
 					return {
 						...msg,
@@ -80,25 +83,26 @@ export class SyncHookBuilderImpl<TPayload = unknown>
 	/**
 	 * Add mock response handler (return custom response)
 	 * Use this to mock a backend response for sync protocols (HTTP, gRPC Unary).
+	 * The response type is inferred from the service definition.
 	 */
-	mockResponse<TResponse = unknown>(
+	mockResponse(
 		handler: (
 			payload: TPayload,
-		) => SyncResponse<TResponse> | Promise<SyncResponse<TResponse>>,
+		) => TResponse | Promise<TResponse>,
 	): this {
 		this.addHandler({
 			type: "mock",
-			execute: async (msg: Message) => {
+			execute: async (msg: Message<TPayload>) => {
 				const response = await Promise.resolve(
-					handler(msg.payload as TPayload),
+					handler(msg.payload),
 				);
 
+				// TODO: fix type
 				// Replace message payload with response
 				return {
-					...msg,
 					type: "response",
 					payload: response,
-				};
+				} as Message<TPayload>;
 			},
 		});
 		return this;
@@ -110,7 +114,7 @@ export class SyncHookBuilderImpl<TPayload = unknown>
 	delay(ms: number | (() => number)): this {
 		this.addHandler({
 			type: "delay",
-			execute: async (msg: Message) => {
+			execute: async (msg: Message<TPayload>) => {
 				const delayMs = typeof ms === "function" ? ms() : ms;
 				await new Promise((resolve) => setTimeout(resolve, delayMs));
 				return msg;
@@ -135,7 +139,7 @@ export class SyncHookBuilderImpl<TPayload = unknown>
 	/**
 	 * Add a handler to the hook
 	 */
-	private addHandler(handler: HookHandler): void {
+	private addHandler(handler: HookHandler<TPayload>): void {
 		this.hook.handlers.push(handler);
 	}
 }

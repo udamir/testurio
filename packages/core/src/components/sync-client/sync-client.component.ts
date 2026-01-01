@@ -4,14 +4,7 @@
  * Represents a client that connects to a target server.
  */
 
-import type {
-	AdapterService,
-	ISyncProtocol,
-	Address,
-	TlsConfig,
-	SyncRequestOptions,
-	SyncResponse,
-} from "../../protocols/base";
+import type { ISyncProtocol, Address, TlsConfig } from "../../protocols/base";
 import type { ITestCaseBuilder } from "../../execution/execution.types";
 import { SyncClientStepBuilder } from "./sync-client.step-builder";
 import { BaseComponent } from "../base";
@@ -20,8 +13,8 @@ import { BaseComponent } from "../base";
  * Client component options
  */
 export interface ClientOptions<A extends ISyncProtocol = ISyncProtocol> {
-	/** Adapter instance */
-	adapter: A;
+	/** Protocol instance */
+	protocol: A;
 	/** Target address to connect to */
 	targetAddress: Address;
 	/** TLS configuration */
@@ -34,24 +27,24 @@ export interface ClientOptions<A extends ISyncProtocol = ISyncProtocol> {
  * @example
  * ```typescript
  * const client = new Client("api", {
- *   adapter: new HttpAdapter(),
+ *   protocol: new HttpProtocol(),
  *   targetAddress: { host: "localhost", port: 3000 },
  * });
  *
- * // For adapters with protocol options
+ * // For protocols with options
  * const grpcClient = new Client("grpc-api", {
- *   adapter: new GrpcUnaryAdapter({ schema: "path/to/proto", serviceName: "MyService" }),
+ *   protocol: new GrpcProtocol({ schema: "path/to/proto", serviceName: "MyService" }),
  *   targetAddress: { host: "localhost", port: 50051 },
  * });
  * ```
  */
-export class Client<A extends ISyncProtocol = ISyncProtocol> extends BaseComponent<A, SyncClientStepBuilder<AdapterService<A>>> {
+export class Client<A extends ISyncProtocol = ISyncProtocol> extends BaseComponent<A, SyncClientStepBuilder<A>> {
 	private _requestTracker?: unknown;
 	private readonly _targetAddress: Address;
 	private readonly _tls?: TlsConfig;
 
 	constructor(name: string, options: ClientOptions<A>) {
-		super(name, options.adapter);
+		super(name, options.protocol);
 		this._targetAddress = options.targetAddress;
 		this._tls = options.tls;
 	}
@@ -80,10 +73,10 @@ export class Client<A extends ISyncProtocol = ISyncProtocol> extends BaseCompone
 	 * @example
 	 * ```typescript
 	 * const client = Client.create("api", {
- *   adapter: new HttpAdapter(),
- *   targetAddress: { host: "localhost", port: 3000 },
- * });
- * ```
+	 *   protocol: new HttpProtocol(),
+	 *   targetAddress: { host: "localhost", port: 3000 },
+	 * });
+	 * ```
  */
 	static create<A extends ISyncProtocol>(name: string, options: ClientOptions<A>): Client<A> {
 		return new Client<A>(name, options);
@@ -92,8 +85,8 @@ export class Client<A extends ISyncProtocol = ISyncProtocol> extends BaseCompone
 	/**
 	 * Create a step builder for this client component
 	 */
-	createStepBuilder(builder: ITestCaseBuilder): SyncClientStepBuilder<AdapterService<A>> {
-		return new SyncClientStepBuilder<AdapterService<A>>(this, builder);
+	createStepBuilder(builder: ITestCaseBuilder): SyncClientStepBuilder<A> {
+		return new SyncClientStepBuilder<A>(this, builder);
 	}
 
 	/**
@@ -107,36 +100,38 @@ export class Client<A extends ISyncProtocol = ISyncProtocol> extends BaseCompone
 	 * Make a request (sync protocols like HTTP, gRPC unary)
 	 * @param messageType - Message type identifier (e.g., "GET /users" for HTTP, "GetUser" for gRPC)
 	 * @param options - Request options (payload, metadata, timeout)
+	 * @returns Response payload directly (protocol-specific format)
 	 */
-	async request<TReq = unknown, TRes = unknown>(
+	async request(
 		messageType: string,
-		options?: SyncRequestOptions<TReq>,
-	): Promise<SyncResponse<TRes>> {
+		data?: A["$request"],
+		timeout?: number,
+	): Promise<A["$response"]> {
 		if (!this.isStarted()) {
 			throw new Error(`Client ${this.name} is not started`);
 		}
 
 		if (!this.protocol) {
-			throw new Error(`Client ${this.name} has no adapter`);
+			throw new Error(`Client ${this.name} has no protocol`);
 		}
 
-		// Make request via adapter
+		// Make request via protocol
 		if (!this.protocol.request) {
 			throw new Error(
-				`Client ${this.name} adapter does not support request operation`,
+				`Client ${this.name} protocol does not support request operation`,
 			);
 		}
-		return this.protocol.request<TRes>(messageType, options);
+		return this.protocol.request(messageType, data, timeout);
 	}
 
 	/**
 	 * Connect to target server
 	 */
 	protected async doStart(): Promise<void> {
-		// Register hook registry with adapter for component-based message handling
+		// Register hook registry with protocol for component-based message handling
 		this.protocol.setHookRegistry(this.hookRegistry);
 
-		// Create client - adapter already has protocol configuration
+		// Create client - protocol already has protocol configuration
 		await this.protocol.createClient({
 			targetAddress: this._targetAddress,
 			tls: this._tls,
@@ -144,7 +139,7 @@ export class Client<A extends ISyncProtocol = ISyncProtocol> extends BaseCompone
 	}
 
 	/**
-	 * Disconnect from server and dispose adapter
+	 * Disconnect from server and dispose protocol
 	 */
 	protected async doStop(): Promise<void> {
 		await this.protocol.closeClient();

@@ -14,10 +14,10 @@ import {
 import type { ProtocolCharacteristics } from "testurio";
 
 // Mock adapter class implementing SyncAdapter
-class MockAdapter extends BaseSyncProtocol {
-	readonly type = "test-protocol";
+class MockProtocol extends BaseSyncProtocol {
+	readonly type = "http";
 	readonly characteristics: ProtocolCharacteristics = {
-		type: "test-protocol",
+		type: "http",
 		async: false,
 		supportsProxy: true,
 		supportsMock: true,
@@ -26,24 +26,18 @@ class MockAdapter extends BaseSyncProtocol {
 		bidirectional: false,
 	};
 
-	async startServer(config: { listenAddress: { host: string; port: number } }) {
-		return {
-			id: "test-server-1",
-			type: "test-protocol",
-			address: config.listenAddress,
-			isRunning: true,
-		};
+	// Expose protected properties as public to satisfy ISyncProtocol interface
+	public override server = { isRunning: false };
+	public override client = { isConnected: false };
+
+	async startServer(_config: { listenAddress: { host: string; port: number } }): Promise<void> {
+		this.server.isRunning = true;
 	}
 
 	async stopServer() {}
 
-	async createClient(config: { targetAddress: { host: string; port: number } }) {
-		return {
-			id: "test-client-1",
-			type: "test-protocol",
-			address: config.targetAddress,
-			isConnected: true,
-		};
+	async createClient(_config: { targetAddress: { host: string; port: number } }): Promise<void> {
+		this.client.isConnected = true;
 	}
 
 	async closeClient() {}
@@ -51,16 +45,20 @@ class MockAdapter extends BaseSyncProtocol {
 	async request<TRes = unknown>(): Promise<TRes> {
 		return { data: "mock response" } as TRes;
 	}
+
+	respond(_traceId: string, _payload: unknown): void {
+		// Mock implementation - no-op
+	}
 }
 
 // Helper to create components with mock adapter
 const createClient = (name: string, port: number) => new Client(name, {
-	adapter: new MockAdapter(),
+	protocol: new MockProtocol(),
 	targetAddress: { host: "localhost", port },
 });
 
 const createServer = (name: string, port: number) => new Server(name, {
-	protocol: new MockAdapter(),
+	protocol: new MockProtocol(),
 	listenAddress: { host: "localhost", port },
 });
 
@@ -99,9 +97,9 @@ describe("TestScenario Adapter Management", () => {
 
 	describe("custom adapters", () => {
 		it("should allow using custom adapter in component", () => {
-			const customAdapter = new MockAdapter();
+			const customProtocol = new MockProtocol();
 			const client = new Client("custom-client", {
-				adapter: customAdapter,
+				protocol: customProtocol,
 				targetAddress: { host: "localhost", port: 8080 },
 			});
 

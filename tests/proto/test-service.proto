@@ -2,7 +2,40 @@ syntax = "proto3";
 
 package test.v1;
 
-// User messages
+import "google/protobuf/descriptor.proto";
+
+// ============================================================================
+// Custom Options for Metadata
+// ============================================================================
+
+extend google.protobuf.MethodOptions {
+  // Response metadata headers to include
+  repeated string response_metadata = 50001;
+  // Response trailers to include
+  repeated string response_trailers = 50002;
+  // Required request metadata headers
+  repeated string required_metadata = 50003;
+}
+
+// ============================================================================
+// Common Types
+// ============================================================================
+
+// Success response with value
+message SuccessPayload {
+  string value = 1;
+}
+
+// Error response with code and message
+message ErrorPayload {
+  int32 code = 1;
+  string message = 2;
+}
+
+// ============================================================================
+// 1. Simple Request/Response (basic types)
+// ============================================================================
+
 message GetUserRequest {
   int32 user_id = 1;
 }
@@ -13,12 +46,9 @@ message GetUserResponse {
   string email = 3;
 }
 
-// Order messages
-message CreateOrderRequest {
-  string customer_id = 1;
-  repeated OrderItem items = 2;
-  ShippingAddress shipping_address = 3;
-}
+// ============================================================================
+// 2. Nested Objects (complex structures)
+// ============================================================================
 
 message OrderItem {
   string product_id = 1;
@@ -30,32 +60,50 @@ message ShippingAddress {
   string street = 1;
   string city = 2;
   string zip = 3;
+  string country = 4;
+}
+
+message CreateOrderRequest {
+  string customer_id = 1;
+  repeated OrderItem items = 2;
+  ShippingAddress shipping_address = 3;
 }
 
 message CreateOrderResponse {
   string order_id = 1;
   string status = 2;
   double total = 3;
+  ShippingAddress shipping_address = 4;
 }
 
-// Generic messages
+// ============================================================================
+// 3. OneOf (union types)
+// ============================================================================
+
 message GenericRequest {
   string key = 1;
-  string data = 2;
 }
 
 message GenericResponse {
-  int32 status = 1;
-  string value = 2;
-  string error = 3;
-  bool from_cache = 4;
-  string code = 5;
-  string key = 6;
+  oneof result {
+    SuccessPayload success = 1;
+    ErrorPayload error = 2;
+  }
 }
 
-// List users
+// ============================================================================
+// 4. Repeated Fields (arrays)
+// ============================================================================
+
 message ListUsersRequest {
   int32 limit = 1;
+  int32 offset = 2;
+}
+
+message UserInfo {
+  int32 id = 1;
+  string name = 2;
+  string email = 3;
 }
 
 message ListUsersResponse {
@@ -63,12 +111,65 @@ message ListUsersResponse {
   int32 total = 2;
 }
 
-message UserInfo {
-  int32 id = 1;
-  string name = 2;
+// ============================================================================
+// 5. Optional Fields (proto3 optional)
+// ============================================================================
+
+message UpdateUserRequest {
+  int32 user_id = 1;
+  optional string name = 2;
+  optional string email = 3;
+  optional bool active = 4;
 }
 
-// Delete user
+message UpdateUserResponse {
+  int32 user_id = 1;
+  string name = 2;
+  string email = 3;
+  bool active = 4;
+  string updated_at = 5;
+}
+
+// ============================================================================
+// 6. Map Fields
+// ============================================================================
+
+message GetConfigRequest {
+  string namespace = 1;
+}
+
+message GetConfigResponse {
+  string namespace = 1;
+  map<string, string> config = 2;
+}
+
+// ============================================================================
+// 7. Enum Types
+// ============================================================================
+
+enum OrderStatus {
+  ORDER_STATUS_UNSPECIFIED = 0;
+  ORDER_STATUS_PENDING = 1;
+  ORDER_STATUS_CONFIRMED = 2;
+  ORDER_STATUS_SHIPPED = 3;
+  ORDER_STATUS_DELIVERED = 4;
+  ORDER_STATUS_CANCELLED = 5;
+}
+
+message GetOrderStatusRequest {
+  string order_id = 1;
+}
+
+message GetOrderStatusResponse {
+  string order_id = 1;
+  OrderStatus status = 2;
+  string status_message = 3;
+}
+
+// ============================================================================
+// 8. Boolean Response (simple delete/action)
+// ============================================================================
+
 message DeleteUserRequest {
   int32 user_id = 1;
 }
@@ -77,7 +178,10 @@ message DeleteUserResponse {
   bool deleted = 1;
 }
 
-// Streaming messages
+// ============================================================================
+// Streaming Messages (for bidirectional streaming tests)
+// ============================================================================
+
 message StreamRequest {
   string request_id = 1;
   oneof payload {
@@ -107,7 +211,7 @@ message StreamResponse {
     PongResponse pong = 2;
     SubscribeResponse subscribe = 3;
     DataResponse data = 4;
-    ErrorResponse error = 5;
+    ErrorPayload error = 5;
   }
 }
 
@@ -126,22 +230,44 @@ message DataResponse {
   string status = 3;
 }
 
-message ErrorResponse {
-  int32 code = 1;
-  string message = 2;
-}
+// ============================================================================
+// Test Service - Unary and Streaming Methods
+// ============================================================================
 
-// Test service with unary and streaming methods
 service TestService {
-  // Unary calls
-  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+  // 1. Simple request/response with metadata options
+  rpc GetUser(GetUserRequest) returns (GetUserResponse) {
+    option (response_metadata) = "x-request-id";
+    option (response_metadata) = "x-api-version";
+    option (response_trailers) = "x-processing-time-ms";
+  }
+  
+  // 2. Nested objects
   rpc CreateOrder(CreateOrderRequest) returns (CreateOrderResponse);
-  rpc GetCachedData(GenericRequest) returns (GenericResponse);
-  rpc GetNotFound(GenericRequest) returns (GenericResponse);
-  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
-  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+  
+  // 3. OneOf (union types) - success or error
   rpc GetData(GenericRequest) returns (GenericResponse);
-  rpc GetSecretData(GenericRequest) returns (GenericResponse);
+  
+  // GetSecretData requires authorization metadata
+  rpc GetSecretData(GenericRequest) returns (GenericResponse) {
+    option (required_metadata) = "authorization";
+    option (response_metadata) = "x-auth-user";
+  }
+  
+  // 4. Repeated fields (arrays)
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+  
+  // 5. Optional fields
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
+  
+  // 6. Map fields
+  rpc GetConfig(GetConfigRequest) returns (GetConfigResponse);
+  
+  // 7. Enum types
+  rpc GetOrderStatus(GetOrderStatusRequest) returns (GetOrderStatusResponse);
+  
+  // 8. Boolean response
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
   
   // Bidirectional streaming
   rpc Stream(stream StreamRequest) returns (stream StreamResponse);
@@ -149,6 +275,5 @@ service TestService {
 
 // Streaming test service
 service StreamTestService {
-  // Bidirectional streaming for testing
   rpc DeliveryMessage(stream StreamRequest) returns (stream StreamResponse);
 }

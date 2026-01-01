@@ -12,9 +12,7 @@
 
 import type {
 	ISyncProtocol,
-	AdapterService,
 	Address,
-	Message,
 	TlsConfig,
 } from "../../protocols/base";
 import type { ITestCaseBuilder } from "../../execution/execution.types";
@@ -25,7 +23,7 @@ import { BaseComponent } from "../base";
  * Server component options
  */
 export interface ServerOptions<P extends ISyncProtocol = ISyncProtocol> {
-	/** Adapter instance (contains all protocol configuration) */
+	/** Protocol instance (contains all protocol configuration) */
 	protocol: P;
 	/** Address to listen on */
 	listenAddress: Address;
@@ -43,7 +41,7 @@ export interface ServerOptions<P extends ISyncProtocol = ISyncProtocol> {
  * @example Mock mode:
  * ```typescript
  * const server = new Server("backend", {
- *   adapter: new HttpAdapter(),
+ *   protocol: new HttpProtocol(),
  *   listenAddress: { host: "localhost", port: 3000 },
  * });
  * ```
@@ -51,13 +49,13 @@ export interface ServerOptions<P extends ISyncProtocol = ISyncProtocol> {
  * @example Proxy mode:
  * ```typescript
  * const proxy = new Server("gateway", {
- *   adapter: new HttpAdapter(),
+ *   protocol: new HttpProtocol(),
  *   listenAddress: { host: "localhost", port: 3001 },
  *   targetAddress: { host: "localhost", port: 3000 },
  * });
  * ```
  */
-export class Server<A extends ISyncProtocol = ISyncProtocol> extends BaseComponent<A, SyncServerStepBuilder<AdapterService<A>>> {
+export class Server<A extends ISyncProtocol = ISyncProtocol> extends BaseComponent<A, SyncServerStepBuilder<A>> {
 	private readonly _listenAddress: Address;
 	private readonly _targetAddress?: Address;
 	private readonly _tls?: TlsConfig;
@@ -73,9 +71,9 @@ export class Server<A extends ISyncProtocol = ISyncProtocol> extends BaseCompone
 	 * Static factory method to create a Server instance
 	 *
 	 * @example Mock mode:
-	 * ```typescript
-	 * const server = Server.create("backend", {
- *   adapter: new HttpAdapter(),
+ * ```typescript
+ * const server = Server.create("backend", {
+ *   protocol: new HttpProtocol(),
  *   listenAddress: { host: "localhost", port: 3000 },
  * });
  * ```
@@ -83,7 +81,7 @@ export class Server<A extends ISyncProtocol = ISyncProtocol> extends BaseCompone
  * @example Proxy mode:
  * ```typescript
 	 * const proxy = Server.create("gateway", {
- *   adapter: new HttpAdapter(),
+ *   protocol: new HttpProtocol(),
  *   listenAddress: { host: "localhost", port: 3001 },
  *   targetAddress: { host: "localhost", port: 3000 },
  * });
@@ -96,8 +94,8 @@ export class Server<A extends ISyncProtocol = ISyncProtocol> extends BaseCompone
 	/**
 	 * Create a step builder for this server component
 	 */
-	createStepBuilder(builder: ITestCaseBuilder): SyncServerStepBuilder<AdapterService<A>> {
-		return new SyncServerStepBuilder<AdapterService<A>>(this, builder.phase);
+	createStepBuilder(builder: ITestCaseBuilder): SyncServerStepBuilder<A> {
+		return new SyncServerStepBuilder<A>(this, builder.phase);
 	}
 
 	/**
@@ -111,10 +109,11 @@ export class Server<A extends ISyncProtocol = ISyncProtocol> extends BaseCompone
 	 * Start the server (and client connection if proxy mode)
 	 */
 	protected async doStart(): Promise<void> {
-		// Start server with onRequest callback to delegate request handling to this component
-		await this.protocol.startServer({ listenAddress: this._listenAddress, tls: this._tls });
+		// Set request handler to delegate request handling to this component
+		this.protocol.setRequestHandler((messageType, request) => this.handleIncomingRequest(messageType, request));
 
-		this.protocol.onRequest((message) => this.handleIncomingRequest(message));
+		// Start server
+		await this.protocol.startServer({ listenAddress: this._listenAddress, tls: this._tls });
 
 		// If proxy mode, create client connection to target
 		if (this._targetAddress) {
@@ -123,7 +122,7 @@ export class Server<A extends ISyncProtocol = ISyncProtocol> extends BaseCompone
 	}
 
 	/**
-	 * Stop server and dispose adapter
+	 * Stop server and dispose protocol
 	 */
 	protected async doStop(): Promise<void> {
 		// Stop server
@@ -134,7 +133,7 @@ export class Server<A extends ISyncProtocol = ISyncProtocol> extends BaseCompone
 			await this.protocol.closeClient();
 		}
 
-		// Dispose adapter to release all resources
+		// Dispose protocol to release all resources
 		await this.protocol.dispose();
 
 		// Clear hooks
@@ -143,24 +142,42 @@ export class Server<A extends ISyncProtocol = ISyncProtocol> extends BaseCompone
 
 	/**
 	 * Handle incoming request (sync protocols)
-	 * Called by the adapter when a request is received
+	 * Called by the protocol when a request is received
 	 */
-	async handleIncomingRequest(message: Message): Promise<Message> {
+	async handleIncomingRequest(messageType: string, request: A["$request"]): Promise<A["$response"] | null> {
 		// Process through hooks (includes mock response generation)
-		const processedMessage = await this.hookRegistry.executeHooks(message);
+		const processedMessage = await this.hookRegistry.executeHooks({ type: messageType, payload: request });
 
-		return processedMessage;
+		// If message was dropped by a hook, return null
+		if (!processedMessage) {
+			return null;
+		}
+
+		// If a hook produced a response, return the payload directly
+		if (processedMessage.type === "response") {
+			return processedMessage.payload as A["$response"];
+		}
+
+		// No hook produced a response - check if we're in proxy mode
+		if (this.isProxy) {
+			// Forward to target server
+			return this.forwardRequest(processedMessage.type, processedMessage.payload as A["$request"]);
+		}
+
+		// Mock mode with no handler - return null to let protocol send default 404
+		return null;
 	}
 
 	/**
 	 * Forward request to target (sync protocols, proxy mode)
 	 * @param messageType - Message type identifier (e.g., "GET /users" for HTTP, "GetUser" for gRPC)
 	 * @param options - Request options (payload, metadata, timeout)
+	 * @returns Response body directly (protocol-agnostic)
 	 */
-	async forwardRequest<TReq = unknown, TRes = unknown>(
+	async forwardRequest(
 		messageType: string,
-		options?: { payload?: TReq; metadata?: Record<string, string>; timeout?: number },
-	): Promise<TRes> {
+		data?: A["$request"],
+	): Promise<A["$response"]> {
 		if (!this.isProxy) {
 			throw new Error(`Server ${this.name} is not in proxy mode`);
 		}
@@ -171,13 +188,10 @@ export class Server<A extends ISyncProtocol = ISyncProtocol> extends BaseCompone
 
 		if (!this.protocol.request) {
 			throw new Error(
-				`Server ${this.name} adapter does not support request operation`,
+				`Server ${this.name} protocol does not support request operation`,
 			);
 		}
 
-		return this.protocol.request<TRes>(
-			messageType,
-			options,
-		);
+		return this.protocol.request(messageType, data);
 	}
 }

@@ -9,22 +9,10 @@
 import type { ITestCaseBuilder } from "../../execution/execution.types";
 import { generateRequestId } from "../base";
 import type { Client } from "./sync-client.component";
-import type { ExtractClientRequest, ExtractClientResponse } from "./sync-client.types";
+import type { ExtractRequestData, ExtractClientResponse } from "./sync-client.types";
+import type { ProtocolService, ISyncProtocol } from "../../protocols/base";
 import { SyncClientHookBuilder } from "./sync-client.hook-builder";
 
-/**
- * Base request options for sync protocols
- * Adapters extend this with protocol-specific fields.
- * @template TPayload - Request payload type
- */
-export interface RequestOptions<TPayload = unknown> {
-	/** Request payload/body */
-	payload?: TPayload;
-	/** Request timeout in milliseconds */
-	timeout?: number;
-	/** Additional adapter-specific options (method, path for HTTP, etc.) */
-	[key: string]: unknown;
-}
 
 /**
  * Request entry for tracking correlation
@@ -98,18 +86,14 @@ export class RequestTracker {
 	}
 }
 
-// Type extraction utilities imported from ../../types/adapter-types
-
 /**
  * Sync Client Step Builder
  *
  * Provides declarative API for sync request/response flows.
  *
- * @template S - Service definition (operation/method -> { request, response/responses })
+ * @template A - Protocol type (ISyncProtocol) - contains service definition via __types.service
  */
-export class SyncClientStepBuilder<
-	S extends Record<string, unknown> = Record<string, unknown>,
-> {
+export class SyncClientStepBuilder<A extends ISyncProtocol = ISyncProtocol> {
 	private requestTracker: RequestTracker;
 
 	constructor(
@@ -125,18 +109,15 @@ export class SyncClientStepBuilder<
 	 * Send a request (generic API for all sync protocols)
 	 *
 	 * @param messageType - Message type identifier (operationId for HTTP, method name for gRPC)
-	 * @param options - Adapter-specific request options with type-safe payload
-	 * @param traceId - Optional traceId for correlation with onResponse
+	 * @param data - Request data (type comes directly from service definition)
+	 * @param timeout - Optional request timeout in milliseconds
 	 */
-	request<K extends keyof S & string>(
+	request<K extends keyof ProtocolService<A> & string>(
 		messageType: K,
-		options?: RequestOptions<ExtractClientRequest<S, K>>,
-		traceId?: string,
+		data: ExtractRequestData<A, K>,
+		timeout?: number,
 	): void {
-		const actualTraceId = this.requestTracker.trackRequest(
-			messageType,
-			traceId,
-		);
+		const traceId = this.requestTracker.trackRequest(messageType);
 
 		this.testBuilder.registerStep({
 			type: "request",
@@ -144,8 +125,8 @@ export class SyncClientStepBuilder<
 			messageType,
 			description: `Request ${messageType}`,
 			action: async () => {
-				const response = await this.client.request(messageType, options);
-				this.requestTracker.storeResponse(actualTraceId, response);
+				const response = await this.client.request(messageType, data, timeout);
+				this.requestTracker.storeResponse(traceId, response);
 			},
 		});
 	}
@@ -153,15 +134,15 @@ export class SyncClientStepBuilder<
 	/**
 	 * Handle a response (declarative, sequential)
 	 *
-	 * For typed adapters (e.g., GrpcUnaryAdapter<Service>), the response type
+	 * For typed protocols (e.g., GrpcProtocol<Service>), the response type
 	 * is inferred from the service definition.
-	 * For untyped adapters, use explicit type parameter: onResponse<"messageType", MyType>("messageType")
+	 * For untyped protocols, use explicit type parameter: onResponse<"messageType", MyType>("messageType")
 	 *
 	 * @param messageType - Message type to match
 	 * @param traceId - Optional traceId for explicit correlation
 	 *                  If omitted, matches last request of this messageType
 	 */
-	onResponse<K extends keyof S & string, TResponse = ExtractClientResponse<S, K>>(
+	onResponse<K extends keyof ProtocolService<A> & string, TResponse = ExtractClientResponse<A, K>>(
 		messageType: K,
 		traceId?: string,
 	): SyncClientHookBuilder<TResponse> {

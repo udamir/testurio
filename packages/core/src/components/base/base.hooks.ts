@@ -41,10 +41,10 @@ export class HookRegistry {
 	/**
 	 * Find all hooks matching a message
 	 */
-	findMatchingHooks(message: Message): HookMatchResult[] {
-		const matches: HookMatchResult[] = [];
+	findMatchingHooks<T>(message: Message<T>): HookMatchResult<T>[] {
+		const matches: HookMatchResult<T>[] = [];
 
-		for (const hook of this.hooks) {
+		for (const hook of this.hooks as Hook<T>[]) {
 			if (matchHook(hook, message)) {
 				matches.push({
 					hook,
@@ -62,7 +62,7 @@ export class HookRegistry {
 	 * Execute all matching hooks for a message
 	 * Returns transformed message or null if dropped
 	 */
-	async executeHooks(message: Message): Promise<Message | null> {
+	async executeHooks<T, R = T>(message: Message<T>): Promise<Message<T | R> | null> {
 		const matches = this.findMatchingHooks(message);
 
 		if (matches.length === 0) {
@@ -71,7 +71,7 @@ export class HookRegistry {
 		}
 
 		let currentMessage = message;
-		const executionResults: HookExecutionResult[] = [];
+		const executionResults: HookExecutionResult<T>[] = [];
 
 		// Execute all matching hooks in order
 		for (const match of matches) {
@@ -106,10 +106,10 @@ export class HookRegistry {
 	/**
 	 * Execute a single hook (all handlers in chain)
 	 */
-	private async executeHook(
-		hook: Hook,
-		message: Message,
-	): Promise<HookExecutionResult> {
+	private async executeHook<T>(
+		hook: Hook<T>,
+		message: Message<T>,
+	): Promise<HookExecutionResult<T>> {
 		const startTime = Date.now();
 		let currentMessage = message;
 

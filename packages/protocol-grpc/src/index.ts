@@ -1,36 +1,32 @@
 /**
- * gRPC Adapter for Testurio
+ * gRPC Protocol for Testurio
  *
  * Provides gRPC protocol support:
- * - GrpcUnaryAdapter - Unary (request/response) calls
- * - GrpcStreamAdapter - Bidirectional streaming
+ * - GrpcUnaryProtocol - Unary (request/response) calls
+ * - GrpcStreamProtocol - Bidirectional streaming
  *
  * @example
  * ```typescript
- * import { TestScenario, MockConfig } from 'testurio';
- * import { GrpcUnary, GrpcStream } from '@testurio/adapter-grpc';
+ * import { TestScenario, Server } from 'testurio';
+ * import { GrpcUnaryProtocol } from '@testurio/protocol-grpc';
  *
- * const scenario = new TestScenario({
- *   components: [
- *     new MockConfig({
- *       name: 'backend',
- *       listenAddress: { host: 'localhost', port: 50051 },
- *       protocol: new GrpcUnary({ schema: 'service.proto' }),
- *     }),
- *   ],
+ * const backend = new Server('backend', {
+ *   listenAddress: { host: 'localhost', port: 50051 },
+ *   protocol: new GrpcUnaryProtocol({ schema: 'service.proto' }),
  * });
  * ```
  */
 
 export {
-	GrpcUnaryAdapter,
-	GrpcStreamAdapter,
-	type GrpcUnaryAdapterOptions,
-	type GrpcStreamAdapterOptions,
-} from "./grpc-adapter";
+	GrpcUnaryProtocol,
+	GrpcStreamProtocol,
+	type GrpcUnaryProtocolOptions,
+	type GrpcStreamProtocolOptions,
+} from "./grpc.protocol";
 
 // Export gRPC-specific types
 export type {
+	GrpcMetadata,
 	GrpcMethod,
 	GrpcServiceDefinition,
 	GrpcStreamMethod,
@@ -38,6 +34,6 @@ export type {
 	GrpcRequest,
 	GrpcResponse,
 	GrpcRequestOptions,
-	GrpcUnaryAdapterTypes,
-	GrpcStreamAdapterTypes,
+	GrpcUnaryProtocolTypes,
+	GrpcStreamProtocolTypes,
 } from "./types";

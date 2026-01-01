@@ -183,7 +183,7 @@ export class AsyncClientStepBuilder<
 		};
 
 		// NOTE: Don't register hook with hookRegistry - we execute handlers manually in the step
-		// This avoids double execution (once by adapter, once by step)
+		// This avoids double execution (once by protocol, once by step)
 
 		// Create a step that waits for the event using client.waitForMessage
 		this.testBuilder.registerStep({
@@ -223,7 +223,7 @@ export class AsyncClientStepBuilder<
 	/**
 	 * Register event handler (hook)
 	 *
-	 * @param messageType - Message type(s) to match (adapter-level)
+	 * @param messageType - Message type(s) to match (protocol-level)
 	 * @param matcher - Optional payload matcher (traceId string or filter function)
 	 * @param timeout - Optional timeout in milliseconds
 	 */
@@ -252,8 +252,7 @@ export class AsyncClientStepBuilder<
 		};
 
 		// Register hook first, then pass to builder
-		const hookRegistry = this.client.getHookRegistry();
-		hookRegistry.registerHook(hook);
+		this.client.registerHook(hook);
 
 		return new AsyncClientHookBuilder<ExtractMessagePayload<M, K>, M>(hook);
 	}

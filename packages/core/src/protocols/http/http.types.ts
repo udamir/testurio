@@ -1,10 +1,38 @@
 /**
- * HTTP Adapter Types
+ * HTTP Protocol Types
  *
- * Type definitions specific to the HTTP adapter.
+ * Type definitions specific to the HTTP protocol.
+ * 
+ * @example Service Definition
+ * ```typescript
+ * interface MyHttpService {
+ *   getUsers: {
+ *     request: { method: "GET"; path: "/users"; body?: never };
+ *     response: { code: 200; body: User[] };
+ *   };
+ *   createUser: {
+ *     request: { method: "POST"; path: "/users"; body: CreateUserPayload };
+ *     response: { code: 201; body: User };
+ *   };
+ * }
+ * ```
+ * 
+ * @example Usage
+ * ```typescript
+ * const server = new Server('backend', {
+ *   protocol: new HttpProtocol<MyHttpService>(),
+ *   listenAddress: { host: 'localhost', port: 3000 },
+ * });
+ * 
+ * // In test case
+ * backend.onRequest('getUsers').mockResponse(() => ({
+ *   code: 200,
+ *   body: [{ id: 1, name: 'John' }]
+ * }));
+ * ```
  */
 
-import type { AdapterTypeMarker, SyncRequestOptions } from "../base";
+import type { SyncRequestOptions } from "../base";
 
 /**
  * HTTP-specific request options
@@ -21,7 +49,7 @@ export interface HttpRequestOptions extends SyncRequestOptions {
 }
 
 /**
- * HTTP adapter options (for client configuration)
+ * HTTP protocol options (for client configuration)
  */
 export interface HttpOptions {
 	/** Base URL */
@@ -36,67 +64,69 @@ export interface HttpOptions {
  * HTTP Request type for sync protocols
  */
 export interface HttpRequest<TBody = unknown> {
-	method: string; // HTTP method
-	path: string; // Request path
-	headers?: Record<string, string | string[] | undefined>; // Request headers
-	query?: string; // Query parameters
-	body?: TBody; // Request body
-	requestId?: string; // Request ID for correlation
+	/** HTTP method (GET, POST, PUT, DELETE, etc.) */
+	method: string;
+	/** Request path */
+	path: string;
+	/** Extracted path parameters (e.g., { id: "123" } from /users/:id) */
+	params?: Record<string, string>;
+	/** Request headers */
+	headers?: Record<string, string | string[] | undefined>;
+	/** Query string (without leading ?) */
+	query?: string;
+	/** Request body */
+	body?: TBody;
 }
 
 /**
  * HTTP Response type for sync protocols
  */
 export interface HttpResponse<TBody = unknown> {
-	code: number; // HTTP status code (required for HTTP)
-	headers?: Record<string, string>; // Response headers/metadata
-	body?: TBody; // Response body
-	requestId?: string; // Request ID for correlation
+	/** HTTP status code */
+	code: number;
+	/** Response headers */
+	headers?: Record<string, string>;
+	/** Response body */
+	body?: TBody;
 }
 
 /**
- * HTTP Operation definition for type-safe HTTP adapters.
+ * HTTP Operation definition for type-safe HTTP protocols.
  * Maps operation IDs to request/response structures.
  */
 export interface HttpOperation {
 	/** Request definition */
-	request: {
-		/** HTTP method */
-		method: string;
-		/** URL path pattern */
-		path: string;
-		/** Request body type */
-		body?: unknown;
-		/** Request headers */
-		headers?: Record<string, unknown>;
-		/** Query parameters */
-		query?: Record<string, unknown>;
-		/** Path parameters */
-		params?: Record<string, unknown>;
-	};
-	/** Response definitions keyed by status code */
-	responses: Record<
-		number,
-		{
-			body?: unknown;
-			headers?: Record<string, unknown>;
-			type?: string;
-		}
-	>;
+	request: HttpRequest;
+	/** Response type - HttpResponse with body type */
+	response: HttpResponse;
 }
 
 /**
  * HTTP Service definition - maps operation IDs to HTTP operations
  */
-export type HttpServiceDefinition = Record<string, HttpOperation>;
+export type HttpServiceDefinition = Record<string, HttpOperation | undefined>;
 
 /**
- * HTTP Adapter type marker
- * @template S - HTTP service definition (operation ID -> { request, responses })
+ * HTTP Protocol type marker
+ * 
+ * Declares the types used by HttpProtocol for type inference.
+ * Components use `$types` to extract request/response/service types.
+ * 
+ * @template S - HTTP service definition (operation ID -> { request, response })
+ * 
+ * @example
+ * ```typescript
+ * // HttpProtocol declares this internally:
+ * declare readonly __types: HttpProtocolTypes<S>;
+ * 
+ * // Components extract types via:
+ * type Service = ProtocolService<HttpProtocol<MyService>>; // MyService
+ * type Request = ExtractRequestData<HttpProtocol<MyService>, 'getUsers'>; // { method, path }
+ * ```
  */
-export interface HttpAdapterTypes<
+export interface HttpProtocolTypes<
 	S extends HttpServiceDefinition = HttpServiceDefinition,
-> extends AdapterTypeMarker {
+> {
 	readonly request: HttpRequest;
 	readonly response: HttpResponse;
 	readonly options: HttpRequestOptions;

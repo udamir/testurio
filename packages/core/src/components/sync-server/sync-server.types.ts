@@ -2,38 +2,38 @@
  * Sync Server Types
  *
  * Type extraction helpers for sync server step builders.
+ * All types are extracted from the protocol type A which contains
+ * the service definition via __types.service.
  */
 
+import type { ProtocolService } from "../../protocols/base";
+
 /**
- * Extract server request type from service definition.
+ * Extract server request type from protocol.
  * For servers, we want the full request object (not just body):
  * - HTTP: Full request with body, query, params, headers
  * - gRPC: Request payload directly
  *
- * @template S - Service definition type
+ * @template A - Protocol type
  * @template K - Operation/method key
  */
-export type ExtractServerRequest<S, K extends keyof S> = S[K] extends {
-	request: infer R;
-}
-	? R
-	: S[K];
+export type ExtractServerRequest<A, K extends keyof ProtocolService<A>> =
+	ProtocolService<A>[K] extends { request: infer R }
+		? R
+		: ProtocolService<A>[K];
 
 /**
- * Extract server response type from service definition.
- * For servers generating responses:
- * - HTTP: Returns `{ status, body }` structure for full control
- * - gRPC: Returns response payload directly
+ * Extract server response type from protocol.
+ * Returns the response type directly from the service definition.
+ * Protocol-specific response wrapping (e.g., HttpResponse) should be
+ * defined in the service definition itself, not inferred here.
  *
- * @template S - Service definition type
+ * @template A - Protocol type
  * @template K - Operation/method key
  */
-export type ExtractServerResponse<S, K extends keyof S> = S[K] extends {
-	responses: infer R;
-}
-	? R extends Record<number, { body?: infer B }>
-		? { status: keyof R & number; body: B }
-		: R
-	: S[K] extends { response: infer R }
+export type ExtractServerResponse<A, K extends keyof ProtocolService<A>> =
+	ProtocolService<A>[K] extends { responses: infer R }
 		? R
-		: S[K];
+		: ProtocolService<A>[K] extends { response: infer R }
+			? R
+			: ProtocolService<A>[K];

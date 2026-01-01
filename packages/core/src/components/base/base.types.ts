@@ -4,7 +4,7 @@
  * Types for hook system, handlers, and builders.
  */
 
-import type { ExtractMockEventResponse, Message, SyncResponse } from "../../protocols/base";
+import type { ExtractMessagePayload, Message } from "../../protocols/base";
 import type { TestPhase } from "../../execution/execution.types";
 
 // =============================================================================
@@ -12,15 +12,7 @@ import type { TestPhase } from "../../execution/execution.types";
 // =============================================================================
 
 /**
- * Match by request ID (for correlating request/response)
- */
-export interface RequestIdPayloadMatcher {
-	type: "requestId";
-	value: string;
-}
-
-/**
- * Match by trace ID in payload
+ * Match by trace ID (for correlating request/response)
  */
 export interface TraceIdPayloadMatcher {
 	type: "traceId";
@@ -36,11 +28,10 @@ export interface FunctionPayloadMatcher {
 }
 
 /**
- * Payload matcher - matches by traceId, requestId, or custom function
+ * Payload matcher - matches by traceId or custom function
  */
 export type PayloadMatcher =
 	| TraceIdPayloadMatcher
-	| RequestIdPayloadMatcher
 	| FunctionPayloadMatcher;
 
 // =============================================================================
@@ -51,17 +42,17 @@ export type PayloadMatcher =
  * Hook - represents a registered message interceptor
  *
  * Matching is two-level:
- * 1. Message type(s) - adapter level, filters which messages trigger this hook
+ * 1. Message type(s) - protocol level, filters which messages trigger this hook
  * 2. Payload matcher - hook level, filters by traceId or custom function
  */
-export interface Hook {
+export interface Hook<T = unknown> {
 	id: string;
 	componentName: string;
 	phase: TestPhase;
 	options?: Record<string, unknown>;
 	messageTypes: string | string[];
 	matcher?: PayloadMatcher;
-	handlers: HookHandler[];
+	handlers: HookHandler<T>[];
 	persistent: boolean;
 	timeout?: number;
 	metadata?: Record<string, unknown>;
@@ -70,9 +61,9 @@ export interface Hook {
 /**
  * Hook handler - single handler in the chain
  */
-export interface HookHandler {
+export interface HookHandler<T, R = T> {
 	type: HookHandlerType;
-	execute: (message: Message) => Promise<Message>;
+	execute: (message: Message<T>) => Promise<Message<R>>;
 	metadata?: Record<string, unknown>;
 }
 
@@ -154,20 +145,22 @@ export interface AsyncHookBuilder<
 		responseType: K,
 		handler: (
 			payload: TPayload,
-		) => ExtractMockEventResponse<M, K> | Promise<ExtractMockEventResponse<M, K>>,
+		) => ExtractMessagePayload<M, K> | Promise<ExtractMessagePayload<M, K>>,
 	): this;
 }
 
 /**
  * Sync hook builder for sync protocols
+ * @template TPayload - Request payload type (what comes in)
+ * @template TResponse - Response type (what mockResponse should return)
  */
-export interface SyncHookBuilder<TPayload = unknown>
+export interface SyncHookBuilder<TPayload = unknown, TResponse = unknown>
 	extends BaseHookBuilder<TPayload> {
 	proxy(handler?: (payload: TPayload) => TPayload | Promise<TPayload>): this;
-	mockResponse<TResponse = unknown>(
+	mockResponse(
 		handler: (
 			payload: TPayload,
-		) => SyncResponse<TResponse> | Promise<SyncResponse<TResponse>>,
+		) => TResponse | Promise<TResponse>,
 	): this;
 }
 
@@ -178,19 +171,19 @@ export interface SyncHookBuilder<TPayload = unknown>
 /**
  * Hook match result
  */
-export interface HookMatchResult {
-	hook: Hook;
-	message: Message;
+export interface HookMatchResult<T> {
+	hook: Hook<T>;
+	message: Message<T>;
 	score: number;
 }
 
 /**
  * Hook execution context
  */
-export interface HookExecutionContext {
-	hook: Hook;
-	originalMessage: Message;
-	currentMessage: Message;
+export interface HookExecutionContext<T> {
+	hook: Hook<T>;
+	originalMessage: Message<T>;
+	currentMessage: Message<T>;
 	handlerIndex: number;
 	totalHandlers: number;
 	abortSignal?: AbortSignal;
@@ -199,11 +192,11 @@ export interface HookExecutionContext {
 /**
  * Hook execution result
  */
-export interface HookExecutionResult {
-	hook: Hook;
+export interface HookExecutionResult<T> {
+	hook: Hook<T>;
 	success: boolean;
-	originalMessage: Message;
-	transformedMessage: Message | null;
+	originalMessage: Message<T>;
+	transformedMessage: Message<T> | null;
 	duration: number;
 	error?: Error;
 	metadata?: Record<string, unknown>;

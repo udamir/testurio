@@ -1,21 +1,16 @@
 /**
- * TCP Adapter for Testurio
+ * TCP Protocol for Testurio
  *
  * Provides TCP protocol support for custom binary/text protocols.
  *
  * @example
  * ```typescript
- * import { TestScenario, MockConfig } from 'testurio';
- * import { TcpProto } from '@testurio/adapter-tcp';
+ * import { TestScenario, Server } from 'testurio';
+ * import { TcpAdapter } from '@testurio/protocol-tcp';
  *
- * const scenario = new TestScenario({
- *   components: [
- *     new MockConfig({
- *       name: 'server',
- *       listenAddress: { host: 'localhost', port: 9000 },
- *       protocol: new TcpProto({ schema: 'protocol.proto' }),
- *     }),
- *   ],
+ * const server = new Server('backend', {
+ *   listenAddress: { host: 'localhost', port: 9000 },
+ *   protocol: new TcpAdapter({ schema: 'protocol.proto' }),
  * });
  * ```
  */

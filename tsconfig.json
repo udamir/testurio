@@ -29,9 +29,9 @@
     "skipLibCheck": true,
     "paths": {
       "testurio": ["./packages/core/src"],
-      "@testurio/adapter-grpc": ["./packages/adapter-grpc/src"],
-      "@testurio/adapter-ws": ["./packages/adapter-ws/src"],
-      "@testurio/adapter-tcp": ["./packages/adapter-tcp/src"],
+      "@testurio/protocol-grpc": ["./packages/protocol-grpc/src"],
+      "@testurio/protocol-ws": ["./packages/protocol-ws/src"],
+      "@testurio/protocol-tcp": ["./packages/protocol-tcp/src"],
       "@testurio/reporter-allure": ["./packages/reporter-allure/src"]
     }
   },

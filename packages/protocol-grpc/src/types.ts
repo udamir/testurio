@@ -1,10 +1,35 @@
 /**
- * gRPC Adapter Types
+ * gRPC Protocol Types
  *
- * Type definitions for gRPC adapters (unary and streaming).
+ * Type definitions for gRPC protocols (unary and streaming).
+ * 
+ * @example Service Definition
+ * ```typescript
+ * interface MyGrpcService {
+ *   GetUser: {
+ *     request: { payload: { user_id: number }; metadata?: GrpcMetadata };
+ *     response: { payload: { name: string; email: string }; metadata?: GrpcMetadata };
+ *   };
+ *   CreateOrder: {
+ *     request: { payload: CreateOrderPayload; metadata?: GrpcMetadata };
+ *     response: { payload: CreateOrderResponse; metadata?: GrpcMetadata };
+ *   };
+ * }
+ * ```
+ * 
+ * @example Usage
+ * ```typescript
+ * const client = new Client('api', {
+ *   protocol: new GrpcUnaryProtocol<MyGrpcService>({ schema: 'service.proto' }),
+ *   targetAddress: { host: 'localhost', port: 50051 },
+ * });
+ * 
+ * // In test case - metadata in payload
+ * api.request('GetUser', { payload: { user_id: 42 }, metadata: { authorization: 'Bearer token' } });
+ * ```
  */
 
-import type { AdapterTypeMarker, SyncRequestOptions } from "testurio";
+import type { SyncRequestOptions } from "testurio";
 
 /**
  * gRPC-specific message metadata
@@ -35,16 +60,31 @@ export interface GrpcMessageMetadata {
 // =============================================================================
 
 /**
- * gRPC Method definition for type-safe gRPC unary adapters.
- * Maps method names to request/response structures.
+ * gRPC Metadata type for request/response headers
  */
-export interface GrpcMethod {
-	/** Request payload type */
-	request: unknown;
-	/** Response payload type */
-	response: unknown;
-	/** Optional metadata type */
-	metadata?: Record<string, unknown>;
+export type GrpcMetadata<T = object> = {
+	[K in keyof T]?: string | string[];
+};
+
+/**
+ * gRPC Method definition for type-safe gRPC unary adapters.
+ * Maps method names to request/response structures with payload and metadata.
+ * 
+ * @example
+ * ```typescript
+ * interface MyService {
+ *   GetUser: {
+ *     request: { payload: { user_id: number }; metadata?: GrpcMetadata };
+ *     response: { payload: { name: string }; metadata?: GrpcMetadata };
+ *   };
+ * }
+ * ```
+ */
+export interface GrpcMethod<TReq = unknown, TRes = unknown> {
+	/** Request with payload and optional metadata */
+	request: { payload: TReq; metadata?: GrpcMetadata };
+	/** Response with payload and optional metadata */
+	response: { payload: TRes; metadata?: GrpcMetadata };
 }
 
 /**
@@ -111,15 +151,19 @@ export interface GrpcRequestOptions extends SyncRequestOptions {
 }
 
 // =============================================================================
-// gRPC Adapter Type Markers
+// gRPC Protocol Type Markers
 // =============================================================================
 
 /**
- * gRPC Unary Adapter type marker
+ * gRPC Unary Protocol type marker
+ * 
+ * Declares the types used by GrpcUnaryProtocol for type inference.
+ * Components use `__types` to extract request/response/service types.
+ * 
  * @template S - gRPC service definition (method name -> { request, response, metadata? })
  */
 // biome-ignore lint/suspicious/noExplicitAny: Required for interface compatibility without index signatures
-export interface GrpcUnaryAdapterTypes<S = any> extends AdapterTypeMarker {
+export interface GrpcUnaryProtocolTypes<S = any> {
 	readonly request: GrpcRequest;
 	readonly response: GrpcResponse;
 	readonly options: GrpcRequestOptions;
@@ -128,15 +172,19 @@ export interface GrpcUnaryAdapterTypes<S = any> extends AdapterTypeMarker {
 }
 
 /**
- * gRPC Stream Adapter type marker
+ * gRPC Stream Protocol type marker
+ * 
+ * Declares the types used by GrpcStreamProtocol for type inference.
+ * 
  * @template S - gRPC stream service definition (method name -> { clientMessage, serverMessage, metadata? })
  */
-export interface GrpcStreamAdapterTypes<
+export interface GrpcStreamProtocolTypes<
 	S extends GrpcStreamServiceDefinition = GrpcStreamServiceDefinition,
-> extends AdapterTypeMarker {
+> {
 	readonly request: never;
 	readonly response: never;
 	readonly options: never;
 	/** Service definition for type-safe streaming */
 	readonly service: S;
 }
+

@@ -1,7 +1,7 @@
 /**
- * TCP Protocol Adapter
+ * TCP Protocol
  *
- * Adapter for TCP with Protocol Buffers supporting:
+ * Protocol for TCP with Protocol Buffers supporting:
  * - Async bidirectional messaging
  * - Client connections (real TCP sockets)
  * - Mock servers (real TCP servers)
@@ -10,7 +10,7 @@
 
 import * as net from "node:net";
 import type {
-	ClientAdapterConfig,
+	ClientProtocolConfig,
 	AdapterClientHandle,
 	ServerAdapterConfig,
 	AdapterServerHandle,

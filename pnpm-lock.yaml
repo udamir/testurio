@@ -36,7 +36,7 @@ importers:
         specifier: ^1.6.0
         version: 1.6.1(@types/node@24.10.4)
 
-  packages/adapter-grpc:
+  packages/protocol-grpc:
     dependencies:
       '@grpc/grpc-js':
         specifier: ^1.14.3
@@ -64,7 +64,7 @@ importers:
         specifier: ^1.6.0
         version: 1.6.1(@types/node@24.10.4)
 
-  packages/adapter-tcp:
+  packages/protocol-tcp:
     devDependencies:
       '@biomejs/biome':
         specifier: ^1.9.4
@@ -85,7 +85,7 @@ importers:
         specifier: ^1.6.0
         version: 1.6.1(@types/node@24.10.4)
 
-  packages/adapter-ws:
+  packages/protocol-ws:
     dependencies:
       ws:
         specifier: ^8.18.3

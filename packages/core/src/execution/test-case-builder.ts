@@ -8,7 +8,7 @@
 
 import type { BaseComponent } from "../components/base/base.component";
 import type { CreateComponentOptions } from "../components/base/base.types";
-import type { AnyAdapter } from "../protocols/base";
+import type { AnyProtocol } from "../protocols/base";
 import type { TestPhase, TestStep } from "./execution.types";
 
 /**
@@ -112,7 +112,7 @@ export class TestCaseBuilder<
 	 * });
 	 * ```
 	 */
-	use<A extends AnyAdapter, TStepBuilder>(component: BaseComponent<A, TStepBuilder>): TStepBuilder {
+	use<A extends AnyProtocol, TStepBuilder>(component: BaseComponent<A, TStepBuilder>): TStepBuilder {
 		// Auto-register component if not already registered (with testCase scope)
 		if (!this.components.has(component.name)) {
 			if (this.componentRegistry) {

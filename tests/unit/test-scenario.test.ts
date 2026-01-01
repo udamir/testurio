@@ -25,36 +25,21 @@ class MockAdapter extends BaseSyncProtocol {
 		bidirectional: false,
 	};
 
-	async startServer(config: { listenAddress: { host: string; port: number } }) {
-		return {
-			id: "mock-server-1",
-			type: "http",
-			address: config.listenAddress,
-			isRunning: true,
-		};
-	}
-
+	async startServer() {}
 	async stopServer() {}
-
-	async createClient(config: { targetAddress: { host: string; port: number } }) {
-		return {
-			id: "mock-client-1",
-			type: "http",
-			address: config.targetAddress,
-			isConnected: true,
-		};
-	}
-
+	async createClient() {}
 	async closeClient() {}
 
 	async request<TRes = unknown>(): Promise<TRes> {
 		return { status: 200, data: "ok" } as TRes;
 	}
+
+	respond(): void {}
 }
 
 // Helper to create type-safe client for tests
 const createTestClient = () => new Client("api", {
-	adapter: new MockAdapter(),
+	protocol: new MockAdapter() as unknown as Parameters<typeof Client.create>[1]["protocol"],
 	targetAddress: { host: "localhost", port: 8080 },
 });
 

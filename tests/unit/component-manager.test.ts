@@ -14,7 +14,7 @@ import {
 import type { ProtocolCharacteristics } from "testurio";
 
 // Mock adapter class implementing SyncAdapter
-class MockAdapter extends BaseSyncProtocol {
+class MockProtocol extends BaseSyncProtocol {
 	readonly type = "http";
 	readonly characteristics: ProtocolCharacteristics = {
 		type: "http",
@@ -26,24 +26,18 @@ class MockAdapter extends BaseSyncProtocol {
 		bidirectional: false,
 	};
 
-	async startServer(config: { listenAddress: { host: string; port: number } }) {
-		return {
-			id: "mock-server-1",
-			type: "http",
-			address: config.listenAddress,
-			isRunning: true,
-		};
+	// Expose protected properties as public to satisfy ISyncProtocol interface
+	public override server = { isRunning: false };
+	public override client = { isConnected: false };
+
+	async startServer(_config: { listenAddress: { host: string; port: number } }): Promise<void> {
+		this.server.isRunning = true;
 	}
 
 	async stopServer() {}
 
-	async createClient(config: { targetAddress: { host: string; port: number } }) {
-		return {
-			id: "mock-client-1",
-			type: "http",
-			address: config.targetAddress,
-			isConnected: true,
-		};
+	async createClient(_config: { targetAddress: { host: string; port: number } }): Promise<void> {
+		this.client.isConnected = true;
 	}
 
 	async closeClient() {}
@@ -51,16 +45,20 @@ class MockAdapter extends BaseSyncProtocol {
 	async request<TRes = unknown>(): Promise<TRes> {
 		return { data: "mock response" } as TRes;
 	}
+
+	respond(_traceId: string, _payload: unknown): void {
+		// Mock implementation - no-op
+	}
 }
 
 // Helper to create components with mock adapter
 const createClient = (name: string, port: number) => new Client(name, {
-	adapter: new MockAdapter(),
+	protocol: new MockProtocol(),
 	targetAddress: { host: "localhost", port },
 });
 
 const createServer = (name: string, port: number) => new Server(name, {
-	protocol: new MockAdapter(),
+	protocol: new MockProtocol(),
 	listenAddress: { host: "localhost", port },
 });
 

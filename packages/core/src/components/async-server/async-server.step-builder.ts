@@ -121,8 +121,7 @@ export class AsyncServerStepBuilder<
 		};
 
 		// Register capture hook
-		const hookRegistry = this.server.getHookRegistry();
-		hookRegistry.registerHook(captureHook);
+		this.server.registerHook(captureHook);
 
 		// Create a step that waits for the message
 		this.testBuilder.registerStep({
@@ -166,7 +165,7 @@ export class AsyncServerStepBuilder<
 	 * In mock mode: Handle incoming messages from clients
 	 * In proxy mode: Handle messages from client (downstream direction)
 	 *
-	 * @param messageType - Message type(s) to match (adapter-level)
+	 * @param messageType - Message type(s) to match (protocol-level)
 	 * @param matcher - Optional payload matcher (traceId string or filter function)
 	 */
 	onMessage<K extends keyof M = keyof M>(
@@ -193,8 +192,7 @@ export class AsyncServerStepBuilder<
 		};
 
 		// Register hook first, then pass to builder
-		const hookRegistry = this.server.getHookRegistry();
-		hookRegistry.registerHook(hook);
+		this.server.registerHook(hook);
 
 		return new AsyncServerHookBuilder<ExtractMessagePayload<M, K>, M>(hook);
 	}
@@ -203,7 +201,7 @@ export class AsyncServerStepBuilder<
 	 * Register event handler for events from target server (proxy mode only)
 	 * Handles messages in upstream direction: target → proxy → client
 	 *
-	 * @param messageType - Message type(s) to match (adapter-level)
+	 * @param messageType - Message type(s) to match (protocol-level)
 	 * @param matcher - Optional payload matcher (traceId string or filter function)
 	 */
 	onEvent<K extends keyof M = keyof M>(
@@ -236,8 +234,7 @@ export class AsyncServerStepBuilder<
 		};
 
 		// Register hook first, then pass to builder
-		const hookRegistry = this.server.getHookRegistry();
-		hookRegistry.registerHook(hook);
+		this.server.registerHook(hook);
 
 		return new AsyncServerHookBuilder<ExtractMessagePayload<M, K>, M>(hook);
 	}
