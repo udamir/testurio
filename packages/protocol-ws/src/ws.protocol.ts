@@ -15,7 +15,6 @@ import type {
 	ServerProtocolConfig,
 	IAsyncProtocol,
 	Message,
-	ProtocolCharacteristics,
 	SchemaDefinition,
 } from "testurio";
 import { BaseAsyncProtocol, generateId } from "testurio";
@@ -53,16 +52,6 @@ export class WebSocketProtocol<S extends WsServiceDefinition = WsServiceDefiniti
 	implements IAsyncProtocol
 {
 	readonly type = "websocket";
-
-	readonly characteristics: ProtocolCharacteristics = {
-		type: "websocket",
-		async: true,
-		supportsProxy: true,
-		supportsMock: true,
-		streaming: true,
-		requiresConnection: true,
-		bidirectional: true,
-	};
 
 	/** Public server/client handles */
 	public server: { isRunning: boolean; ref?: WebSocketServer } = {

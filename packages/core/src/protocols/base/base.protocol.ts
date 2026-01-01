@@ -6,7 +6,6 @@
  */
 
 import type {
-	ProtocolCharacteristics,
 	SchemaDefinition,
 	ClientProtocolConfig,
 	ClientProtocol,
@@ -27,7 +26,6 @@ import type {
  */
 abstract class BaseProtocol<S = unknown, C = unknown> {
 	abstract readonly type: string;
-	abstract readonly characteristics: ProtocolCharacteristics;
 
 	/**
 	 * Hook registry for component-based message handling

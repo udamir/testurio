@@ -35,22 +35,9 @@ describe("HttpAdapter (Protocol API)", () => {
 		}
 	});
 
-	describe("characteristics", () => {
+	describe("type", () => {
 		it("should have correct type", () => {
 			expect(adapter.type).toBe("http");
-		});
-
-		it("should be sync protocol", () => {
-			expect(adapter.characteristics.async).toBe(false);
-		});
-
-		it("should support proxy and mock", () => {
-			expect(adapter.characteristics.supportsProxy).toBe(true);
-			expect(adapter.characteristics.supportsMock).toBe(true);
-		});
-
-		it("should not require connection", () => {
-			expect(adapter.characteristics.requiresConnection).toBe(false);
 		});
 	});
 

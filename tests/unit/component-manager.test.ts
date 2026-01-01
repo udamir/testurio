@@ -11,20 +11,10 @@ import {
 	Client,
 	Server,
 } from "testurio";
-import type { ProtocolCharacteristics } from "testurio";
 
 // Mock adapter class implementing SyncAdapter
 class MockProtocol extends BaseSyncProtocol {
 	readonly type = "http";
-	readonly characteristics: ProtocolCharacteristics = {
-		type: "http",
-		async: false,
-		supportsProxy: true,
-		supportsMock: true,
-		streaming: false,
-		requiresConnection: false,
-		bidirectional: false,
-	};
 
 	// Expose protected properties as public to satisfy ISyncProtocol interface
 	public override server = { isRunning: false };

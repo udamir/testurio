@@ -225,7 +225,6 @@ export interface ISyncProtocol<T extends SyncOperations<T> = SyncOperations, TRe
 	readonly $response: TRes;
 
 	readonly type: string;
-	readonly characteristics: ProtocolCharacteristics;
 
 	loadSchema?(schemaPath: string | string[]): Promise<SchemaDefinition>;
 	setHookRegistry(registry: IHookRegistry): void;
@@ -287,7 +286,6 @@ export interface ISyncProtocol<T extends SyncOperations<T> = SyncOperations, TRe
  */
 export interface IAsyncProtocol {
 	readonly type: string;
-	readonly characteristics: ProtocolCharacteristics;
 	loadSchema?(schemaPath: string | string[]): Promise<SchemaDefinition>;
 	setHookRegistry(registry: IHookRegistry): void;
 	dispose(): Promise<void>;

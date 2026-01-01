@@ -14,7 +14,6 @@ import {
 	Client,
 } from "testurio";
 import type {
-	ProtocolCharacteristics,
 	HttpServiceDefinition,
 } from "testurio";
 
@@ -32,15 +31,6 @@ const componentLifecycle: string[] = [];
 // Mock adapter class that tracks lifecycle
 class MockProtocol extends BaseSyncProtocol<MockServiceDef> {
 	readonly type = "http";
-	readonly characteristics: ProtocolCharacteristics = {
-		type: "http",
-		async: false,
-		supportsProxy: true,
-		supportsMock: true,
-		streaming: false,
-		requiresConnection: false,
-		bidirectional: false,
-	};
 
 	async startServer(config: { listenAddress: { host: string; port: number } }) {
 		componentLifecycle.push(`server-start:${config.listenAddress.port}`);

@@ -13,7 +13,6 @@ import type {
 	ClientProtocol,
 	ServerProtocolConfig,
 	ServerProtocol,
-	ProtocolCharacteristics,
 	SchemaDefinition,
 	ISyncProtocol,
 } from "../base";
@@ -48,16 +47,6 @@ export class HttpProtocol<T extends  { [K in keyof T]?: HttpOperation } = HttpSe
 {
 
 	readonly type = "http";
-
-	readonly characteristics: ProtocolCharacteristics = {
-		type: "http",
-		async: false,
-		supportsProxy: true,
-		supportsMock: true,
-		streaming: false,
-		requiresConnection: false,
-		bidirectional: false,
-	};
 
 	public server: ServerProtocol<http.Server> = { isRunning: false };
 	public client: ClientProtocol<string> = { isConnected: false };

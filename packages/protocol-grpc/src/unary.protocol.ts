@@ -10,7 +10,6 @@ import type {
 	ClientProtocolConfig,
 	ServerProtocolConfig,
 	ISyncProtocol,
-	ProtocolCharacteristics,
 	SchemaDefinition,
 } from "testurio";
 import { BaseSyncProtocol } from "testurio";
@@ -36,16 +35,6 @@ export class GrpcUnaryProtocol<T extends GrpcOperations<T> = GrpcOperations>
 	implements ISyncProtocol<T, GrpcOperationRequest, GrpcOperationResponse>
 {
 	readonly type = "grpc-unary";
-
-	readonly characteristics: ProtocolCharacteristics = {
-		type: "grpc-unary",
-		async: false,
-		supportsProxy: true,
-		supportsMock: true,
-		streaming: false,
-		requiresConnection: true,
-		bidirectional: false,
-	};
 
 	/** Public server/client handles required by ISyncProtocol */
 	public server: { isRunning: boolean; ref?: grpc.Server } = {

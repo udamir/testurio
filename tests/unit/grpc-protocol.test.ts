@@ -25,21 +25,9 @@ describe("GrpcUnaryProtocol", () => {
 		await protocol.dispose();
 	});
 
-	describe("characteristics", () => {
+	describe("type", () => {
 		it("should have correct type", () => {
 			expect(protocol.type).toBe("grpc-unary");
-		});
-
-		it("should have correct characteristics", () => {
-			expect(protocol.characteristics).toEqual({
-				type: "grpc-unary",
-				async: false,
-				supportsProxy: true,
-				supportsMock: true,
-				streaming: false,
-				requiresConnection: true,
-				bidirectional: false,
-			});
 		});
 	});
 
@@ -204,21 +192,9 @@ describe("GrpcStreamProtocol", () => {
 		await protocol.dispose();
 	});
 
-	describe("characteristics", () => {
+	describe("type", () => {
 		it("should have correct type", () => {
 			expect(protocol.type).toBe("grpc-stream");
-		});
-
-		it("should have correct characteristics", () => {
-			expect(protocol.characteristics).toEqual({
-				type: "grpc-stream",
-				async: true,
-				supportsProxy: true,
-				supportsMock: true,
-				streaming: true,
-				requiresConnection: true,
-				bidirectional: true,
-			});
 		});
 	});
 

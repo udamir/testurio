@@ -35,21 +35,9 @@ describe("WebSocketProtocol", () => {
 		await protocol.dispose();
 	});
 
-	describe("characteristics", () => {
+	describe("type", () => {
 		it("should have correct type", () => {
 			expect(protocol.type).toBe("websocket");
-		});
-
-		it("should have correct characteristics", () => {
-			expect(protocol.characteristics).toEqual({
-				type: "websocket",
-				async: true,
-				supportsProxy: true,
-				supportsMock: true,
-				streaming: true,
-				requiresConnection: true,
-				bidirectional: true,
-			});
 		});
 	});
 

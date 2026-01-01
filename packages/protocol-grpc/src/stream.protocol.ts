@@ -11,7 +11,6 @@ import type {
 	ServerProtocolConfig,
 	IAsyncProtocol,
 	Message,
-	ProtocolCharacteristics,
 	SchemaDefinition,
 } from "testurio";
 import { BaseAsyncProtocol, generateId } from "testurio";
@@ -37,16 +36,6 @@ export class GrpcStreamProtocol<
 	implements IAsyncProtocol
 {
 	readonly type = "grpc-stream";
-
-	readonly characteristics: ProtocolCharacteristics = {
-		type: "grpc-stream",
-		async: true,
-		supportsProxy: true,
-		supportsMock: true,
-		streaming: true,
-		requiresConnection: true,
-		bidirectional: true,
-	};
 
 	/** Public server/client handles */
 	public server: { isRunning: boolean; ref?: grpc.Server } = {

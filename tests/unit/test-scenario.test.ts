@@ -15,15 +15,6 @@ import type { TestScenarioConfig } from "testurio";
 // Mock adapter class
 class MockAdapter extends BaseSyncProtocol {
 	readonly type = "http";
-	readonly characteristics = {
-		type: "http",
-		async: false,
-		supportsProxy: true,
-		supportsMock: true,
-		streaming: false,
-		requiresConnection: false,
-		bidirectional: false,
-	};
 
 	async startServer() {}
 	async stopServer() {}
