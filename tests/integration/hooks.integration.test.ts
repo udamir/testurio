@@ -12,7 +12,7 @@
 
 import { describe, expect, it } from "vitest";
 import { TestScenario, testCase, AsyncServer, AsyncClient } from "testurio";
-import { TcpAdapter } from "@testurio/adapter-tcp";
+import { TcpProtocol, type TcpServiceDefinition } from "@testurio/protocol-tcp";
 
 // ============================================================================
 // Message Type Definitions
@@ -58,35 +58,38 @@ interface HandlerRequestResponse {
 	message: string;
 }
 
-type HookMessages = {
-	TestRequest: TestRequest;
-	TestRequestResponse: TestRequestResponse;
-	ProxyTest: ProxyTestRequest;
-	ProxyTestResponse: ProxyTestResponse;
-	LogEvent: LogEvent;
-	OrderRequest: OrderRequest;
-	OrderRequestResponse: OrderRequestResponse;
-	HandlerRequest: HandlerRequest;
-	HandlerRequestResponse: HandlerRequestResponse;
-	[key: string]: unknown;
-};
+interface HookTcpService extends TcpServiceDefinition {
+	clientMessages: {
+		TestRequest: TestRequest;
+		ProxyTest: ProxyTestRequest;
+		LogEvent: LogEvent;
+		OrderRequest: OrderRequest;
+		HandlerRequest: HandlerRequest;
+	};
+	serverMessages: {
+		TestRequestResponse: TestRequestResponse;
+		ProxyTestResponse: ProxyTestResponse;
+		OrderRequestResponse: OrderRequestResponse;
+		HandlerRequestResponse: HandlerRequestResponse;
+	};
+}
 
-// Helper functions for creating TCP components with typed adapters
+// Helper functions for creating TCP components with typed protocols
 const createMockServer = (name: string, port: number) =>
 	new AsyncServer(name, {
-		adapter: new TcpAdapter<HookMessages>(),
+		protocol: new TcpProtocol<HookTcpService>(),
 		listenAddress: { host: "localhost", port },
 	});
 
 const createClient = (name: string, port: number) =>
 	new AsyncClient(name, {
-		adapter: new TcpAdapter<HookMessages>(),
+		protocol: new TcpProtocol<HookTcpService>(),
 		targetAddress: { host: "localhost", port },
 	});
 
 const createProxyServer = (name: string, listenPort: number, targetPort: number) =>
 	new AsyncServer(name, {
-		adapter: new TcpAdapter<HookMessages>(),
+		protocol: new TcpProtocol<HookTcpService>(),
 		listenAddress: { host: "localhost", port: listenPort },
 		targetAddress: { host: "localhost", port: targetPort },
 	});

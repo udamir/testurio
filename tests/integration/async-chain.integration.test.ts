@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from "vitest";
 import { TestScenario, testCase, AsyncServer, AsyncClient } from "testurio";
-import { TcpAdapter } from "@testurio/adapter-tcp";
+import { TcpProtocol, type TcpServiceDefinition } from "@testurio/protocol-tcp";
 
 // ============================================================================
 // Message Type Definitions
@@ -80,35 +80,38 @@ interface ErrorRequest {
 	data: string;
 }
 
-// Message map for type-safe builders
-type AsyncMessages = {
-	InitTest: InitTestRequest;
-	InitTestResponse: InitTestResponse;
-	OrderRequest: OrderRequest;
-	OrderRequestResponse: OrderRequestResponse;
-	LogEvent: LogEvent;
-	Subscribe: SubscribeRequest;
-	SubscribeResponse: SubscribeResponse;
-	ProxyForwardRequest: ProxyForwardRequest;
-	ProxyForwardRequestResponse: ProxyForwardRequestResponse;
-	GetAccount: GetAccountRequest;
-	GetAccountResponse: GetAccountResponse;
-	PayloadRequest: PayloadRequest;
-	PayloadRequestResponse: PayloadRequestResponse;
-	ErrorRequest: ErrorRequest;
-	[key: string]: unknown;
-};
+// Service definition for type-safe builders
+interface AsyncTcpService extends TcpServiceDefinition {
+	clientMessages: {
+		InitTest: InitTestRequest;
+		OrderRequest: OrderRequest;
+		LogEvent: LogEvent;
+		Subscribe: SubscribeRequest;
+		ProxyForwardRequest: ProxyForwardRequest;
+		GetAccount: GetAccountRequest;
+		PayloadRequest: PayloadRequest;
+		ErrorRequest: ErrorRequest;
+	};
+	serverMessages: {
+		InitTestResponse: InitTestResponse;
+		OrderRequestResponse: OrderRequestResponse;
+		SubscribeResponse: SubscribeResponse;
+		ProxyForwardRequestResponse: ProxyForwardRequestResponse;
+		GetAccountResponse: GetAccountResponse;
+		PayloadRequestResponse: PayloadRequestResponse;
+	};
+}
 
-// Helper functions for creating TCP Proto components with type-safe adapters
+// Helper functions for creating TCP Proto components with type-safe protocols
 const createMockServer = (name: string, port: number) =>
 	new AsyncServer(name, {
-		adapter: new TcpAdapter<AsyncMessages>(),
+		protocol: new TcpProtocol<AsyncTcpService>(),
 		listenAddress: { host: "localhost", port },
 	});
 
 const createClient = (name: string, port: number) =>
 	new AsyncClient(name, {
-		adapter: new TcpAdapter<AsyncMessages>(),
+		protocol: new TcpProtocol<AsyncTcpService>(),
 		targetAddress: { host: "localhost", port },
 	});
 
@@ -118,7 +121,7 @@ const createProxyServer = (
 	targetPort: number,
 ) =>
 	new AsyncServer(name, {
-		adapter: new TcpAdapter<AsyncMessages>(),
+		protocol: new TcpProtocol<AsyncTcpService>(),
 		listenAddress: { host: "localhost", port: listenPort },
 		targetAddress: { host: "localhost", port: targetPort },
 	});

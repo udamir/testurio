@@ -5,8 +5,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { TestScenario, testCase, Server, Client, AsyncServer, AsyncClient, HttpAdapter } from "testurio";
-import { WebSocketAdapter } from "@testurio/adapter-ws";
+import { TestScenario, testCase, Server, Client, AsyncServer, AsyncClient, HttpProtocol, type HttpServiceDefinition } from "testurio";
+import { WebSocketProtocol, type WsServiceDefinition } from "@testurio/protocol-ws";
 
 // ============================================================================
 // Message Type Definitions
@@ -20,71 +20,71 @@ interface NeverSentMessage {
 	[key: string]: never;
 }
 
-type ErrorMessages = {
-	Test: Record<string, never>;
-	TestRequest: TestRequest;
-	NeverSent: NeverSentMessage;
-	[key: string]: unknown;
-};
-
-// Type-safe HTTP service definition
-interface HttpServiceDef {
-	getSlow: {
-		request: { method: string; path: string; body?: never };
-		responses: { 200: { body: { delayed: boolean } } };
+interface ErrorWsService extends WsServiceDefinition {
+	clientMessages: {
+		Test: Record<string, never>;
+		TestRequest: TestRequest;
+		NeverSent: NeverSentMessage;
 	};
-	getError: {
-		request: { method: string; path: string; body?: never };
-		responses: { 200: { body: { error: string } } };
-	};
-	getUnknown: {
-		request: { method: string; path: string; body?: never };
-		responses: { 404: { body: { error: string } } };
-	};
-	getPass: {
-		request: { method: string; path: string; body?: never };
-		responses: { 200: { body: { ok: boolean } } };
-	};
-	getFail: {
-		request: { method: string; path: string; body?: never };
-		responses: { 200: { body: { status: string } } };
-	};
-	getPass2: {
-		request: { method: string; path: string; body?: never };
-		responses: { 200: { body: { ok: boolean } } };
-	};
-	getTest: {
-		request: { method: string; path: string; body?: never };
-		responses: { 200: { body: unknown } };
-	};
-	[key: string]: {
-		request: { method: string; path: string; body?: unknown };
-		responses: Record<number, { body?: unknown }>;
+	serverMessages: {
+		TestResponse: { result: string };
 	};
 }
 
-// Helper functions for creating components with typed adapters
+// Type-safe HTTP service definition
+interface ErrorHttpService extends HttpServiceDefinition {
+	getSlow: {
+		request: { method: "GET"; path: "/slow" };
+		response: { code: 200; body: { delayed: boolean } };
+	};
+	getError: {
+		request: { method: "GET"; path: "/error" };
+		response: { code: 200; body: { error: string } };
+	};
+	getUnknown: {
+		request: { method: "GET"; path: "/unknown" };
+		response: { code: 404; body: { error: string } };
+	};
+	getPass: {
+		request: { method: "GET"; path: "/pass" };
+		response: { code: 200; body: { ok: boolean } };
+	};
+	getFail: {
+		request: { method: "GET"; path: "/fail" };
+		response: { code: 200; body: { status: string } };
+	};
+	getPass2: {
+		request: { method: "GET"; path: "/pass2" };
+		response: { code: 200; body: { ok: boolean } };
+	};
+	getTest: {
+		request: { method: "GET"; path: "/test" };
+		response: { code: 200; body: unknown };
+	};
+}
+
+// Helper functions for creating components with typed protocols
 const createHttpMock = (name: string, port: number) =>
 	new Server(name, {
-		protocol: new HttpAdapter<HttpServiceDef>(),
+		protocol: new HttpProtocol<ErrorHttpService>(),
 		listenAddress: { host: "127.0.0.1", port },
 	});
 
 const createHttpClient = (name: string, port: number) =>
 	new Client(name, {
-		adapter: new HttpAdapter<HttpServiceDef>(),
+		protocol: new HttpProtocol<ErrorHttpService>(),
 		targetAddress: { host: "127.0.0.1", port },
 	});
 
 const createWsMock = (name: string, port: number) =>
 	new AsyncServer(name, {
-		adapter: new WebSocketAdapter<ErrorMessages>(),
+		protocol: new WebSocketProtocol<ErrorWsService>(),
 		listenAddress: { host: "127.0.0.1", port },
 	});
 
 const createWsClient = (name: string, port: number) =>
 	new AsyncClient(name, {
-		adapter: new WebSocketAdapter<ErrorMessages>(),
+		protocol: new WebSocketProtocol<ErrorWsService>(),
 		targetAddress: { host: "127.0.0.1", port },
 	});
 
@@ -134,8 +134,7 @@ describe("Error Scenarios Integration Tests", () => {
 
 				api.request("getSlow", { method: "GET", path: "/slow" });
 				backend.onRequest("getSlow", { method: "GET", path: "/slow" }).delay(100).mockResponse(() => ({
-					status: 200,
-					headers: {},
+					code: 200,
 					body: { delayed: true },
 				}));
 				api.onResponse("getSlow");
@@ -191,7 +190,7 @@ describe("Error Scenarios Integration Tests", () => {
 				components: [backendServer, apiClient],
 			});
 
-			let responseData: { error: string } | undefined;
+			let responseData: ErrorHttpService["getError"]["response"] | undefined;
 
 			const tc = testCase("Request with handler error", (test) => {
 				const api = test.use(apiClient);
@@ -209,7 +208,7 @@ describe("Error Scenarios Integration Tests", () => {
 
 			const result = await scenario.run(tc);
 			expect(result.passed).toBe(true);
-			expect(responseData).toMatchObject({
+			expect(responseData?.body).toMatchObject({
 				error: expect.any(String),
 			});
 		});
@@ -228,7 +227,7 @@ describe("Error Scenarios Integration Tests", () => {
 				components: [backendServer, apiClient],
 			});
 
-			let responseData: { error: string } | undefined;
+			let responseData: ErrorHttpService["getUnknown"]["response"] | undefined;
 
 			const tc = testCase("Request to unregistered endpoint", (test) => {
 				const api = test.use(apiClient);
@@ -265,8 +264,7 @@ describe("Error Scenarios Integration Tests", () => {
 
 				api.request("getPass", { method: "GET", path: "/pass" });
 				backend.onRequest("getPass", { method: "GET", path: "/pass" }).mockResponse(() => ({
-					status: 200,
-					headers: {},
+					code: 200,
 					body: { ok: true },
 				}));
 				api.onResponse("getPass");
@@ -278,12 +276,11 @@ describe("Error Scenarios Integration Tests", () => {
 
 				api.request("getFail", { method: "GET", path: "/fail" });
 				backend.onRequest("getFail", { method: "GET", path: "/fail" }).mockResponse(() => ({
-					status: 200,
-					headers: {},
+					code: 200,
 					body: { status: "actual" },
 				}));
 				api.onResponse("getFail").assert((res) => {
-					return res.status === "impossible"; // Will fail
+					return res.body.status === "impossible"; // Will fail
 				});
 			});
 
@@ -293,8 +290,7 @@ describe("Error Scenarios Integration Tests", () => {
 
 				api.request("getPass2", { method: "GET", path: "/pass2" });
 				backend.onRequest("getPass2", { method: "GET", path: "/pass2" }).mockResponse(() => ({
-					status: 200,
-					headers: {},
+					code: 200,
 					body: { ok: true },
 				}));
 				api.onResponse("getPass2");

@@ -1,34 +1,67 @@
 /**
- * TCP Adapter Types
+ * TCP Protocol Types
  *
- * Type definitions for TCP adapters.
+ * Type definitions for TCP protocol.
  */
 
-import type { AdapterTypeMarker } from "testurio";
+import type { Message } from "testurio";
 
 // =============================================================================
-// TCP Protocol Definitions
+// TCP Service Definition
 // =============================================================================
 
 /**
- * TCP/Async Protocol definition - maps message types to payloads
+ * TCP Service definition for bidirectional messaging.
+ * Uses separate clientMessages and serverMessages maps.
+ * 
+ * @example
+ * ```typescript
+ * interface MyTcpService extends TcpServiceDefinition {
+ *   clientMessages: {
+ *     OrderRequest: { orderId: string; quantity: number };
+ *     StatusQuery: { requestId: string };
+ *   };
+ *   serverMessages: {
+ *     OrderResponse: { orderId: string; status: string };
+ *     StatusUpdate: { requestId: string; progress: number };
+ *   };
+ * }
+ * ```
  */
-export type TcpProtocolDefinition = Record<string, unknown>;
+export interface TcpServiceDefinition {
+	/** Messages that can be sent from client to server */
+	clientMessages: Record<string, unknown>;
+	/** Messages that can be sent from server to client */
+	serverMessages: Record<string, unknown>;
+}
 
 // =============================================================================
-// TCP Adapter Type Markers
+// TCP Protocol Options
 // =============================================================================
 
 /**
- * TCP Adapter type marker
- * @template P - Protocol definition (message type -> payload)
+ * TCP protocol options
  */
-export interface TcpAdapterTypes<
-	P extends TcpProtocolDefinition = TcpProtocolDefinition,
-> extends AdapterTypeMarker {
-	readonly request: never;
-	readonly response: never;
-	readonly options: never;
-	/** Protocol definition for type-safe messages */
-	readonly protocol: P;
+export interface TcpProtocolOptions {
+	/** Protocol buffer schema path */
+	schema?: string;
+	/** Connection timeout in milliseconds */
+	timeout?: number;
+	/** Message delimiter (default: "\n") */
+	delimiter?: string;
+}
+
+// =============================================================================
+// Internal Types
+// =============================================================================
+
+/**
+ * Pending message resolver for waitForMessage
+ */
+export interface PendingMessage {
+	resolve: (message: Message) => void;
+	reject: (error: Error) => void;
+	messageType: string | string[];
+	matcher?: string | ((payload: unknown) => boolean);
+	timeout: NodeJS.Timeout;
 }

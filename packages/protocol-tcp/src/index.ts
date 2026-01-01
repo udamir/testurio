@@ -5,17 +5,26 @@
  *
  * @example
  * ```typescript
- * import { TestScenario, Server } from 'testurio';
- * import { TcpAdapter } from '@testurio/protocol-tcp';
+ * import { TestScenario, AsyncServer } from 'testurio';
+ * import { TcpProtocol, type TcpServiceDefinition } from '@testurio/protocol-tcp';
  *
- * const server = new Server('backend', {
+ * interface MyTcpService extends TcpServiceDefinition {
+ *   clientMessages: {
+ *     Request: { data: string };
+ *   };
+ *   serverMessages: {
+ *     Response: { result: string };
+ *   };
+ * }
+ *
+ * const server = AsyncServer.create('backend', {
  *   listenAddress: { host: 'localhost', port: 9000 },
- *   protocol: new TcpAdapter({ schema: 'protocol.proto' }),
+ *   protocol: new TcpProtocol<MyTcpService>(),
  * });
  * ```
  */
 
-export { TcpAdapter } from "./tcp-adapter";
+export { TcpProtocol, createTcpProtocol } from "./tcp.protocol";
 
 // Export TCP-specific types
-export type { TcpProtocolDefinition, TcpAdapterTypes } from "./types";
+export type { TcpServiceDefinition, TcpProtocolOptions } from "./types";
