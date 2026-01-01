@@ -38,12 +38,12 @@ export interface ClientOptions<A extends ISyncProtocol = ISyncProtocol> {
  * });
  * ```
  */
-export class Client<A extends ISyncProtocol = ISyncProtocol> extends BaseComponent<A, SyncClientStepBuilder<A>> {
+export class Client<P extends ISyncProtocol = ISyncProtocol> extends BaseComponent<P, SyncClientStepBuilder<P>> {
 	private _requestTracker?: unknown;
 	private readonly _targetAddress: Address;
 	private readonly _tls?: TlsConfig;
 
-	constructor(name: string, options: ClientOptions<A>) {
+	constructor(name: string, options: ClientOptions<P>) {
 		super(name, options.protocol);
 		this._targetAddress = options.targetAddress;
 		this._tls = options.tls;
@@ -85,8 +85,8 @@ export class Client<A extends ISyncProtocol = ISyncProtocol> extends BaseCompone
 	/**
 	 * Create a step builder for this client component
 	 */
-	createStepBuilder(builder: ITestCaseBuilder): SyncClientStepBuilder<A> {
-		return new SyncClientStepBuilder<A>(this, builder);
+	createStepBuilder(builder: ITestCaseBuilder): SyncClientStepBuilder<P> {
+		return new SyncClientStepBuilder<P>(this, builder);
 	}
 
 	/**
@@ -104,9 +104,9 @@ export class Client<A extends ISyncProtocol = ISyncProtocol> extends BaseCompone
 	 */
 	async request(
 		messageType: string,
-		data?: A["$request"],
+		data?: P["$request"],
 		timeout?: number,
-	): Promise<A["$response"]> {
+	): Promise<P["$response"]> {
 		if (!this.isStarted()) {
 			throw new Error(`Client ${this.name} is not started`);
 		}

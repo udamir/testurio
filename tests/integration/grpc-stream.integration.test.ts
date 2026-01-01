@@ -39,13 +39,20 @@ interface ErrorMessage {
 }
 
 // Service definition for type-safe gRPC streaming
-// Uses { clientMessage, serverMessage } format for bidirectional streaming
+// Uses separate clientMessages and serverMessages maps
 interface GrpcStreamMessages extends GrpcStreamServiceDefinition {
-	ping: { clientMessage: PingMessage; serverMessage: PongMessage };
-	pong: { clientMessage: PongMessage; serverMessage: PingMessage };
-	data: { clientMessage: DataMessage; serverMessage: DataMessage };
-	subscribe: { clientMessage: SubscribeMessage; serverMessage: SubscribeMessage };
-	error: { clientMessage: ErrorMessage; serverMessage: ErrorMessage };
+	clientMessages: {
+		ping: PingMessage;
+		data: DataMessage;
+		subscribe: SubscribeMessage;
+		error: ErrorMessage;
+	};
+	serverMessages: {
+		pong: PongMessage;
+		data: DataMessage;
+		subscribe: SubscribeMessage;
+		error: ErrorMessage;
+	};
 }
 
 // Proto file path for test service

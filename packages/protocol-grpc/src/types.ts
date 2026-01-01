@@ -123,30 +123,6 @@ export interface PendingMessage {
 	timeout: NodeJS.Timeout;
 }
 
-/**
- * gRPC-specific message metadata
- */
-export interface GrpcMessageMetadata {
-	/** Timestamp when message was created/received */
-	timestamp?: number;
-	/** Message direction */
-	direction?: "inbound" | "outbound";
-	/** Component name */
-	componentName?: string;
-	/** gRPC method name */
-	method?: string;
-	/** gRPC service path */
-	path?: string;
-	/** gRPC metadata (headers) for auth etc. */
-	grpcMetadata?: Record<string, string>;
-	/** gRPC status code */
-	grpcStatus?: number;
-	/** gRPC status message */
-	grpcStatusMessage?: string;
-	/** Index signature for compatibility with MessageMetadata */
-	[key: string]: unknown;
-}
-
 // =============================================================================
 // gRPC Service Definitions
 // =============================================================================
@@ -188,21 +164,29 @@ export interface GrpcServiceDefinition {
 }
 
 /**
- * gRPC Stream Method definition for bidirectional streaming.
+ * gRPC Stream Service definition for bidirectional streaming.
+ * Uses separate clientMessages and serverMessages maps.
+ * 
+ * @example
+ * ```typescript
+ * interface MyStreamService extends GrpcStreamServiceDefinition {
+ *   clientMessages: {
+ *     ping: { request_id: string; timestamp: number };
+ *     subscribe: { channel: string };
+ *   };
+ *   serverMessages: {
+ *     pong: { request_id: string; latency: number };
+ *     data: { channel: string; payload: unknown };
+ *   };
+ * }
+ * ```
  */
-export interface GrpcStreamMethod {
-	/** Client-to-server message type */
-	clientMessage: unknown;
-	/** Server-to-client message type */
-	serverMessage: unknown;
-	/** Optional metadata type */
-	metadata?: Record<string, unknown>;
+export interface GrpcStreamServiceDefinition {
+	/** Messages that can be sent from client to server */
+	clientMessages: Record<string, unknown>;
+	/** Messages that can be sent from server to client */
+	serverMessages: Record<string, unknown>;
 }
-
-/**
- * gRPC Stream Service definition - maps method names to stream methods
- */
-export type GrpcStreamServiceDefinition = Record<string, GrpcStreamMethod>;
 
 // =============================================================================
 // gRPC Request/Response Types
@@ -241,42 +225,3 @@ export interface GrpcRequestOptions extends SyncRequestOptions {
 	/** Request metadata */
 	metadata?: Record<string, string>;
 }
-
-// =============================================================================
-// gRPC Protocol Type Markers
-// =============================================================================
-
-/**
- * gRPC Unary Protocol type marker
- * 
- * Declares the types used by GrpcUnaryProtocol for type inference.
- * Components use `__types` to extract request/response/service types.
- * 
- * @template S - gRPC service definition (method name -> { request, response, metadata? })
- */
-// biome-ignore lint/suspicious/noExplicitAny: Required for interface compatibility without index signatures
-export interface GrpcUnaryProtocolTypes<S = any> {
-	readonly request: GrpcRequest;
-	readonly response: GrpcResponse;
-	readonly options: GrpcRequestOptions;
-	/** Service definition for type-safe methods */
-	readonly service: S;
-}
-
-/**
- * gRPC Stream Protocol type marker
- * 
- * Declares the types used by GrpcStreamProtocol for type inference.
- * 
- * @template S - gRPC stream service definition (method name -> { clientMessage, serverMessage, metadata? })
- */
-export interface GrpcStreamProtocolTypes<
-	S extends GrpcStreamServiceDefinition = GrpcStreamServiceDefinition,
-> {
-	readonly request: never;
-	readonly response: never;
-	readonly options: never;
-	/** Service definition for type-safe streaming */
-	readonly service: S;
-}
-

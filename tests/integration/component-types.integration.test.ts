@@ -13,20 +13,45 @@ import {
 	AsyncServer,
 	TestScenario,
 	testCase,
-	HttpAdapter,
+	HttpProtocol,
 } from "testurio";
-import { WebSocketAdapter } from "@testurio/adapter-ws";
+import { WebSocketProtocol, type WsServiceDefinition } from "@testurio/protocol-ws";
+
+// HTTP service type definitions for strict typing
+interface User {
+	id: number;
+	name: string;
+}
+
+interface HttpTestService {
+	getUsers: {
+		request: { method: "GET"; path: "/users" };
+		response: { code: 200; body: User[] };
+	};
+	health: {
+		request: { method: "GET"; path: "/health" };
+		response: { code: 200; body: { status: string } };
+	};
+	createUser: {
+		request: { method: "POST"; path: "/users"; body?: { name: string } };
+		response: { code: 201; body: User };
+	};
+	test: {
+		request: { method: "GET"; path: "/test" };
+		response: { code: 200; body: { ok: boolean } };
+	};
+}
 
 describe("Component Types Integration", () => {
 	describe("7.1 HTTP Client/Server with typed handlers", () => {
 		it("should provide typed step builders via test.use()", async () => {
 			const httpClient = Client.create("api", {
-				adapter: new HttpAdapter(),
+				protocol: new HttpProtocol<HttpTestService>(),
 				targetAddress: { host: "localhost", port: 3100 },
 			});
 
 			const httpServer = Server.create("backend", {
-				protocol: new HttpAdapter(),
+				protocol: new HttpProtocol<HttpTestService>(),
 				listenAddress: { host: "localhost", port: 3100 },
 			});
 
@@ -35,7 +60,7 @@ describe("Component Types Integration", () => {
 				components: [httpClient, httpServer],
 			});
 
-			let responseBody: unknown;
+			let responseData = {} as HttpTestService["getUsers"]["response"];
 
 			const tc = testCase("HTTP request with typed response", (test) => {
 				// Use the component references directly - they're the same instances
@@ -46,34 +71,34 @@ describe("Component Types Integration", () => {
 				backend
 					.onRequest("getUsers", { method: "GET", path: "/users" })
 					.mockResponse(() => ({
-						status: 200,
+						code: 200,
 						body: [{ id: 1, name: "Alice" }],
 					}));
 
 				// Then send request
 				api.request("getUsers", { method: "GET", path: "/users" });
 
-				// Handle response - HttpAdapter.request() returns body directly
+				// Handle response
 				api.onResponse("getUsers").assert((res) => {
-					responseBody = res;
+					responseData = res;
 					return true;
 				});
 			});
 
 			const result = await scenario.run(tc);
 			expect(result.passed).toBe(true);
-			expect(responseBody).toEqual([{ id: 1, name: "Alice" }]);
+			expect(responseData.body).toEqual([{ id: 1, name: "Alice" }]);
 		});
 
 		it("should work with Server.create() factory method", async () => {
 			// Test that Server.create() and Client.create() work with use()
 			const httpClient = Client.create("factory-api", {
-				adapter: new HttpAdapter(),
+				protocol: new HttpProtocol<HttpTestService>(),
 				targetAddress: { host: "localhost", port: 3150 },
 			});
 
 			const httpServer = Server.create("factory-backend", {
-				protocol: new HttpAdapter(),
+				protocol: new HttpProtocol<HttpTestService>(),
 				listenAddress: { host: "localhost", port: 3150 },
 			});
 
@@ -93,7 +118,7 @@ describe("Component Types Integration", () => {
 				backend
 					.onRequest("health", { method: "GET", path: "/health" })
 					.mockResponse(() => ({
-						status: 200,
+						code: 200,
 						body: { status: "ok" },
 					}));
 
@@ -113,21 +138,26 @@ describe("Component Types Integration", () => {
 	});
 
 	// WebSocket message types for type-safe tests
-	type WsTestMessages = {
-		ping: { seq: number };
-		subscribe: { channel: string };
-		[key: string]: unknown;
-	};
+	interface WsTestMessages extends WsServiceDefinition {
+		clientMessages: {
+			ping: { seq: number };
+			subscribe: { channel: string };
+		};
+		serverMessages: {
+			pong: { seq: number };
+			subscribed: { channel: string };
+		};
+	}
 
 	describe("7.3 WebSocket Client/Server with typed messages", () => {
 		it("should provide typed async step builders via test.use()", async () => {
 			const wsServer = AsyncServer.create("ws-backend", {
-				adapter: new WebSocketAdapter<WsTestMessages>(),
+				protocol: new WebSocketProtocol<WsTestMessages>(),
 				listenAddress: { host: "127.0.0.1", port: 8100 },
 			});
 
 			const wsClient = AsyncClient.create("ws-client", {
-				adapter: new WebSocketAdapter<WsTestMessages>(),
+				protocol: new WebSocketProtocol<WsTestMessages>(),
 				targetAddress: { host: "127.0.0.1", port: 8100 },
 			});
 
@@ -163,22 +193,22 @@ describe("Component Types Integration", () => {
 	describe("7.5 Mixed protocol scenario", () => {
 		it("should handle multiple protocols with typed components", async () => {
 			const httpClient = Client.create("http-api", {
-				adapter: new HttpAdapter(),
+				protocol: new HttpProtocol<HttpTestService>(),
 				targetAddress: { host: "localhost", port: 3102 },
 			});
 
 			const httpServer = Server.create("http-backend", {
-				protocol: new HttpAdapter(),
+				protocol: new HttpProtocol<HttpTestService>(),
 				listenAddress: { host: "localhost", port: 3102 },
 			});
 
 			const wsServer = AsyncServer.create("ws-events", {
-				adapter: new WebSocketAdapter<WsTestMessages>(),
+				protocol: new WebSocketProtocol<WsTestMessages>(),
 				listenAddress: { host: "127.0.0.1", port: 8101 },
 			});
 
 			const wsClient = AsyncClient.create("ws-subscriber", {
-				adapter: new WebSocketAdapter<WsTestMessages>(),
+				protocol: new WebSocketProtocol<WsTestMessages>(),
 				targetAddress: { host: "127.0.0.1", port: 8101 },
 			});
 
@@ -203,7 +233,7 @@ describe("Component Types Integration", () => {
 				backend
 					.onRequest("createUser", { method: "POST", path: "/users" })
 					.mockResponse(() => ({
-						status: 201,
+						code: 201,
 						body: { id: 1, name: "Alice" },
 					}));
 
@@ -235,12 +265,12 @@ describe("Component Types Integration", () => {
 	describe("7.6 Component by name access", () => {
 		it("should work with component() method for name-based access", async () => {
 			const httpClient = Client.create("named-api", {
-				adapter: new HttpAdapter(),
+				protocol: new HttpProtocol<HttpTestService>(),
 				targetAddress: { host: "localhost", port: 3103 },
 			});
 
 			const httpServer = Server.create("named-backend", {
-				protocol: new HttpAdapter(),
+				protocol: new HttpProtocol<HttpTestService>(),
 				listenAddress: { host: "localhost", port: 3103 },
 			});
 
@@ -262,7 +292,7 @@ describe("Component Types Integration", () => {
 					backend
 						.onRequest("test", { method: "GET", path: "/test" })
 						.mockResponse(() => ({
-							status: 200,
+							code: 200,
 							body: { ok: true },
 						}));
 

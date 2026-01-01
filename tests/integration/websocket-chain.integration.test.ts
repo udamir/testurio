@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from "vitest";
 import { TestScenario, testCase, AsyncServer, AsyncClient } from "testurio";
-import { WebSocketAdapter } from "@testurio/adapter-ws";
+import { WebSocketProtocol, type WsServiceDefinition } from "@testurio/protocol-ws";
 
 // ============================================================================
 // Message Type Definitions
@@ -43,27 +43,15 @@ interface PingRequest {
 	seq: number;
 }
 
-interface PingResponse {
+interface PongResponse {
 	seq: number;
 	pong: boolean;
 }
 
-interface OrderItem {
-	productId: string;
-	quantity: number;
-	price: number;
-}
-
-interface ShippingAddress {
-	street: string;
-	city: string;
-	zip: string;
-}
-
 interface CreateOrderRequest {
 	customerId: string;
-	items: OrderItem[];
-	shippingAddress: ShippingAddress;
+	items: Array<{ productId: string; quantity: number; price: number }>;
+	shippingAddress: { street: string; city: string; zip: string };
 }
 
 interface GetAccountRequest {
@@ -76,7 +64,9 @@ interface GetAccountResponse {
 	currency: string;
 }
 
-type InitTestRequest = Record<string, never>;
+interface InitTestRequest {
+	init?: boolean;
+}
 
 interface InitTestResponse {
 	initialized: boolean;
@@ -96,35 +86,40 @@ interface SubscribePricesResponse {
 	status: string;
 }
 
-type WsMessages = {
-	GetUserRequest: GetUserRequest;
-	GetUserRequestResponse: GetUserResponse;
-	LogEvent: LogEvent;
-	Subscribe: SubscribeRequest;
-	SubscribeResponse: SubscribeResponse;
-	Ping: PingRequest;
-	PingResponse: PingResponse;
-	CreateOrder: CreateOrderRequest;
-	GetAccount: GetAccountRequest;
-	GetAccountResponse: GetAccountResponse;
-	InitTest: InitTestRequest;
-	InitTestResponse: InitTestResponse;
-	ValidateRequest: ValidateRequest;
-	SubscribePrices: SubscribePricesRequest;
-	SubscribePricesResponse: SubscribePricesResponse;
-	[key: string]: unknown;
-};
+// Service definition for type-safe WebSocket messaging
+// Uses separate clientMessages and serverMessages maps
+interface WsMessages extends WsServiceDefinition {
+	clientMessages: {
+		getUser: GetUserRequest;
+		logEvent: LogEvent;
+		subscribe: SubscribeRequest;
+		ping: PingRequest;
+		createOrder: CreateOrderRequest;
+		getAccount: GetAccountRequest;
+		initTest: InitTestRequest;
+		validateRequest: ValidateRequest;
+		subscribePrices: SubscribePricesRequest;
+	};
+	serverMessages: {
+		user: GetUserResponse;
+		subscribed: SubscribeResponse;
+		pong: PongResponse;
+		account: GetAccountResponse;
+		initTestResponse: InitTestResponse;
+		subscribePricesResponse: SubscribePricesResponse;
+	};
+}
 
-// Helper functions for creating WebSocket components with typed adapters
+// Helper functions for creating WebSocket components with typed protocol
 const createMockServer = (name: string, port: number) =>
 	new AsyncServer(name, {
-		adapter: new WebSocketAdapter<WsMessages>(),
+		protocol: new WebSocketProtocol<WsMessages>(),
 		listenAddress: { host: "127.0.0.1", port },
 	});
 
 const createClient = (name: string, port: number) =>
 	new AsyncClient(name, {
-		adapter: new WebSocketAdapter<WsMessages>(),
+		protocol: new WebSocketProtocol<WsMessages>(),
 		targetAddress: { host: "127.0.0.1", port },
 	});
 
@@ -146,13 +141,13 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 				const api = test.use(apiClient);
 				const backend = test.use(backendServer);
 
-				api.sendMessage("GetUserRequest", { userId: 42 });
+				api.sendMessage("getUser", { userId: 42 });
 
-				backend.onMessage("GetUserRequest").mockEvent("GetUserRequestResponse", (payload) => {
+				backend.onMessage("getUser").mockEvent("user", (payload) => {
 					return { userId: payload.userId, name: "John Doe", email: "john@example.com" };
 				});
 
-				api.onEvent("GetUserRequestResponse").assert((payload) => {
+				api.onEvent("user").assert((payload) => {
 					return payload.userId === 42 && payload.name === "John Doe";
 				});
 			});
@@ -176,14 +171,14 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 				const api = test.use(apiClient);
 				const backend = test.use(backendServer);
 
-				api.sendMessage("LogEvent", {
+				api.sendMessage("logEvent", {
 					level: "info",
 					message: "User logged in",
 					timestamp: Date.now(),
 				});
 
-				backend.waitMessage("LogEvent", { timeout: 1000 }).assert((payload) => {
-					receivedPayload = payload as LogEvent;
+				backend.waitMessage("logEvent", { timeout: 1000 }).assert((payload) => {
+					receivedPayload = payload;
 					return payload.level === "info" && 
 						payload.message === "User logged in" && 
 						typeof payload.timestamp === "number";
@@ -216,15 +211,15 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 				const api = test.use(apiClient);
 				const backend = test.use(backendServer);
 
-				api.sendMessage("Subscribe", { channel: "prices" });
+				api.sendMessage("subscribe", { channel: "prices" });
 
-				backend.onMessage("Subscribe").mockEvent("SubscribeResponse", (payload) => ({
+				backend.onMessage("subscribe").mockEvent("subscribed", (payload) => ({
 					subscriptionId: "sub-123",
 					channel: payload.channel,
 					status: "active",
 				}));
 
-				api.onEvent("SubscribeResponse").assert((payload) => {
+				api.onEvent("subscribed").assert((payload) => {
 					return payload.subscriptionId === "sub-123" && payload.channel === "prices" && payload.status === "active";
 				});
 			});
@@ -246,14 +241,14 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 				const api = test.use(apiClient);
 				const backend = test.use(backendServer);
 
-				api.sendMessage("Ping", { seq: 1 });
+				api.sendMessage("ping", { seq: 1 });
 
-				backend.onMessage("Ping").mockEvent("PingResponse", (payload) => ({
+				backend.onMessage("ping").mockEvent("pong", (payload) => ({
 					seq: payload.seq,
 					pong: true,
 				}));
 
-				api.onEvent("PingResponse").assert((payload) => {
+				api.onEvent("pong").assert((payload) => {
 					return payload.seq === 1 && payload.pong === true;
 				});
 			});
@@ -282,7 +277,7 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 				const api = test.use(apiClient);
 				const backend = test.use(backendServer);
 
-				api.sendMessage("CreateOrder", {
+				api.sendMessage("createOrder", {
 					customerId: "CUST-001",
 					items: [
 						{ productId: "PROD-1", quantity: 2, price: 29.99 },
@@ -295,8 +290,8 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 					},
 				});
 
-				backend.waitMessage("CreateOrder", { timeout: 1000 }).assert((payload) => {
-					receivedPayload = payload as CreateOrderRequest;
+				backend.waitMessage("createOrder", { timeout: 1000 }).assert((payload) => {
+					receivedPayload = payload;
 					return payload.customerId === "CUST-001" && payload.items.length === 2;
 				});
 			});
@@ -327,15 +322,15 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 				const api = test.use(apiClient);
 				const backend = test.use(backendServer);
 
-				api.sendMessage("GetAccount", { accountId: "ACC-001" });
+				api.sendMessage("getAccount", { accountId: "ACC-001" });
 
-				backend.onMessage("GetAccount").mockEvent("GetAccountResponse", () => ({
+				backend.onMessage("getAccount").mockEvent("account", () => ({
 					accountId: "ACC-001",
 					balance: 10000,
 					currency: "USD",
 				}));
 
-				api.onEvent("GetAccountResponse").assert((payload) => {
+				api.onEvent("account").assert((payload) => {
 					return payload.accountId === "ACC-001" && payload.balance === 10000 && payload.currency === "USD";
 				});
 			});
@@ -360,14 +355,14 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 
 			scenario.init((test) => {
 				const backend = test.use(backendServer);
-				backend.onMessage("InitTest").mockEvent("InitTestResponse", () => ({ initialized: true }));
+				backend.onMessage("initTest").mockEvent("initTestResponse", () => ({ initialized: true }));
 			});
 
 			const tc = testCase("Verify init ran", (test) => {
 				const api = test.use(apiClient);
 
-				api.sendMessage("InitTest", {});
-				api.onEvent("InitTestResponse").assert((payload) => {
+				api.sendMessage("initTest", {});
+				api.onEvent("initTestResponse").assert((payload) => {
 					return payload.initialized === true;
 				});
 			});
@@ -397,9 +392,9 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 				const api = test.use(apiClient);
 				const backend = test.use(backendServer);
 
-				api.sendMessage("ValidateRequest", { data: "test" });
+				api.sendMessage("validateRequest", { data: "test" });
 
-				backend.waitMessage("ValidateRequest", { timeout: 1000 }).assert((payload) => {
+				backend.waitMessage("validateRequest", { timeout: 1000 }).assert((payload) => {
 					handlerCalled = true;
 					receivedData = payload.data;
 					return payload.data === "test";
@@ -430,15 +425,15 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 				const api = test.use(apiClient);
 				const backend = test.use(backendServer);
 
-				api.sendMessage("SubscribePrices", { symbols: ["EURUSD", "GBPUSD"] });
+				api.sendMessage("subscribePrices", { symbols: ["EURUSD", "GBPUSD"] });
 
-				backend.onMessage("SubscribePrices").mockEvent("SubscribePricesResponse", (payload) => ({
+				backend.onMessage("subscribePrices").mockEvent("subscribePricesResponse", (payload) => ({
 					subscriptionId: "price-sub-001",
 					symbols: payload.symbols,
 					status: "subscribed",
 				}));
 
-				api.onEvent("SubscribePricesResponse").assert((payload) => {
+				api.onEvent("subscribePricesResponse").assert((payload) => {
 					return payload.subscriptionId === "price-sub-001" && payload.symbols.length === 2;
 				});
 			});

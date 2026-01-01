@@ -15,13 +15,22 @@ import {
 } from "testurio";
 import type {
 	ProtocolCharacteristics,
+	HttpServiceDefinition,
 } from "testurio";
+
+// Mock HTTP service definition for type-safe tests
+interface MockServiceDef extends HttpServiceDefinition {
+	getTest: {
+		request: { method: "GET"; path: "/test" };
+		response: { code: 200; body: { ok: boolean } };
+	};
+}
 
 // Track component lifecycle for testing
 const componentLifecycle: string[] = [];
 
 // Mock adapter class that tracks lifecycle
-class MockAdapter extends BaseSyncProtocol {
+class MockProtocol extends BaseSyncProtocol<MockServiceDef> {
 	readonly type = "http";
 	readonly characteristics: ProtocolCharacteristics = {
 		type: "http",
@@ -71,12 +80,12 @@ class MockAdapter extends BaseSyncProtocol {
 // Helper to create components
 // Cast to ISyncProtocol to bypass protected property mismatch
 const createServer = (name: string, port: number) => new Server(name, {
-	protocol: new MockAdapter() as unknown as Parameters<typeof Server.create>[1]["protocol"],
+	protocol: new MockProtocol() as unknown as Parameters<typeof Server.create>[1]["protocol"],
 	listenAddress: { host: "localhost", port },
 });
 
 const createClient = (name: string, port: number) => new Client(name, {
-	protocol: new MockAdapter() as unknown as Parameters<typeof Client.create>[1]["protocol"],
+	protocol: new MockProtocol() as unknown as Parameters<typeof Client.create>[1]["protocol"],
 	targetAddress: { host: "localhost", port },
 });
 
@@ -130,8 +139,7 @@ describe("Dynamic Component Creation", () => {
 				// This should work because components were added in init
 				api.request("getTest", { method: "GET", path: "/test" });
 				backend.onRequest("getTest", { method: "GET", path: "/test" }).mockResponse(() => ({
-					status: 200,
-					headers: {},
+					code: 200,
 					body: { ok: true },
 				}));
 				api.onResponse("getTest").assert(() => {

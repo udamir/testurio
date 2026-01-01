@@ -6,41 +6,37 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { TestScenario, testCase, Server, Client, HttpProtocol } from "testurio";
+import { TestScenario, testCase, Server, Client, HttpProtocol, type HttpResponse } from "testurio";
 
 // Type-safe HTTP service definition
 interface HttpServiceDef {
 	getDynamic: {
-		request: { method: string; path: string; body?: never };
-		responses: { 200: { body: { created: string } } };
+		request: { method: "GET"; path: "/dynamic" };
+		response: { code: 200; body: { created: string } };
 	};
 	getFirst: {
-		request: { method: string; path: string; body?: never };
-		responses: { 200: { body: { request: number } } };
+		request: { method: "GET"; path: "/first" };
+		response: { code: 200; body: { request: number } };
 	};
 	getSecond: {
-		request: { method: string; path: string; body?: never };
-		responses: { 200: { body: { request: number } } };
+		request: { method: "GET"; path: "/second" };
+		response: { code: 200; body: { request: number } };
 	};
 	postData: {
-		request: { method: string; path: string; body?: never };
-		responses: { 201: { body: { id: number; status: string } } };
+		request: { method: "POST"; path: "/data" };
+		response: { code: 201; body: { id: number; status: string } };
 	};
 	getTest1: {
-		request: { method: string; path: string; body?: never };
-		responses: { 200: { body: { test: number } } };
+		request: { method: "GET"; path: "/test1" };
+		response: { code: 200; body: { test: number } };
 	};
 	getTest2: {
-		request: { method: string; path: string; body?: never };
-		responses: { 200: { body: { test: number } } };
+		request: { method: "GET"; path: "/test2" };
+		response: { code: 200; body: { test: number } };
 	};
 	getMixed: {
-		request: { method: string; path: string; body?: never };
-		responses: { 200: { body: { static: boolean; dynamic: boolean } } };
-	};
-	[key: string]: {
-		request: { method: string; path: string; body?: unknown };
-		responses: Record<number, { body?: unknown }>;
+		request: { method: "GET"; path: "/mixed" };
+		response: { code: 200; body: { static: boolean; dynamic: boolean } };
 	};
 }
 
@@ -66,7 +62,7 @@ describe("Dynamic Component Creation Integration", () => {
 				test.use(apiClient);
 			});
 
-			let responseData: SyncResponse<{ created: string }> | undefined;
+			let responseData: HttpResponse<{ created: string }> | undefined;
 
 			const tc = testCase("Use dynamically created components", (test) => {
 				const api = test.use(apiClient);
@@ -74,8 +70,7 @@ describe("Dynamic Component Creation Integration", () => {
 
 				api.request("getDynamic", { method: "GET", path: "/dynamic" });
 				backend.onRequest("getDynamic", { method: "GET", path: "/dynamic" }).mockResponse(() => ({
-					status: 200,
-					headers: {},
+					code: 200,
 					body: { created: "dynamically" },
 				}));
 				api.onResponse("getDynamic").assert((res) => {
@@ -105,7 +100,7 @@ describe("Dynamic Component Creation Integration", () => {
 				components: [],
 			});
 
-			const responses: Array<SyncResponse<{ request: number }>> = [];
+			const responses: Array<HttpResponse<{ request: number }>> = [];
 
 			const tc1 = testCase("First request", (test) => {
 				const api = test.use(apiClient);
@@ -113,8 +108,7 @@ describe("Dynamic Component Creation Integration", () => {
 
 				api.request("getFirst", { method: "GET", path: "/first" });
 				backend.onRequest("getFirst", { method: "GET", path: "/first" }).mockResponse(() => ({
-					status: 200,
-					headers: {},
+					code: 200,
 					body: { request: 1 },
 				}));
 				api.onResponse("getFirst").assert((res) => {
@@ -129,8 +123,7 @@ describe("Dynamic Component Creation Integration", () => {
 
 				api.request("getSecond", { method: "GET", path: "/second" });
 				backend.onRequest("getSecond", { method: "GET", path: "/second" }).mockResponse(() => ({
-					status: 200,
-					headers: {},
+					code: 200,
 					body: { request: 2 },
 				}));
 				api.onResponse("getSecond").assert((res) => {
@@ -155,7 +148,7 @@ describe("Dynamic Component Creation Integration", () => {
 				components: [],
 			});
 
-			let responseData: SyncResponse<{ id: number; status: string }> | undefined;
+			let responseData: HttpResponse<{ id: number; status: string }> | undefined;
 
 			const tc = testCase("Create and use components in test", (test) => {
 				const backendServer = new Server("test-backend", {
@@ -175,8 +168,7 @@ describe("Dynamic Component Creation Integration", () => {
 
 				api.request("postData", { method: "POST", path: "/data" });
 				backend.onRequest("postData", { method: "POST", path: "/data" }).mockResponse(() => ({
-					status: 201,
-					headers: {},
+					code: 201,
 					body: { id: 123, status: "created" },
 				}));
 				api.onResponse("postData").assert((res) => {
@@ -197,7 +189,7 @@ describe("Dynamic Component Creation Integration", () => {
 				components: [],
 			});
 
-			const responses: Array<SyncResponse<{ test: number }>> = [];
+			const responses: Array<HttpResponse<{ test: number }>> = [];
 
 			const tc1 = testCase("First test with scoped component", (test) => {
 				const backendServer = new Server("temp-backend", {
@@ -217,8 +209,7 @@ describe("Dynamic Component Creation Integration", () => {
 
 				api.request("getTest1", { method: "GET", path: "/test1" });
 				backend.onRequest("getTest1", { method: "GET", path: "/test1" }).mockResponse(() => ({
-					status: 200,
-					headers: {},
+					code: 200,
 					body: { test: 1 },
 				}));
 				api.onResponse("getTest1").assert((res) => {
@@ -245,8 +236,7 @@ describe("Dynamic Component Creation Integration", () => {
 
 				api.request("getTest2", { method: "GET", path: "/test2" });
 				backend.onRequest("getTest2", { method: "GET", path: "/test2" }).mockResponse(() => ({
-					status: 200,
-					headers: {},
+					code: 200,
 					body: { test: 2 },
 				}));
 				api.onResponse("getTest2").assert((res) => {
@@ -285,7 +275,7 @@ describe("Dynamic Component Creation Integration", () => {
 				test.use(apiClient);
 			});
 
-			let responseData: SyncResponse<{ static: boolean; dynamic: boolean }> | undefined;
+			let responseData: HttpResponse<{ static: boolean; dynamic: boolean }> | undefined;
 
 			const tc = testCase("Use static mock with dynamic client", (test) => {
 				const api = test.use(apiClient);
@@ -293,8 +283,7 @@ describe("Dynamic Component Creation Integration", () => {
 
 				api.request("getMixed", { method: "GET", path: "/mixed" });
 				backend.onRequest("getMixed", { method: "GET", path: "/mixed" }).mockResponse(() => ({
-					status: 200,
-					headers: {},
+					code: 200,
 					body: { static: true, dynamic: true },
 				}));
 				api.onResponse("getMixed").assert((res) => {

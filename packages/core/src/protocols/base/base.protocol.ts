@@ -130,12 +130,33 @@ export abstract class BaseSyncProtocol<T extends SyncOperations<T> = SyncOperati
 }
 
 /**
+ * Async protocol messages type - maps message type to payload
+ * For bidirectional streams: { clientMessage, serverMessage }
+ */
+export type AsyncMessages<T = object> = {
+	[K in keyof T]?: {
+		clientMessage: unknown
+		serverMessage: unknown
+	};
+}
+
+/**
  * Base class for async protocol (WebSocket, TCP, gRPC Stream)
  *
  * Provides message handler management for bidirectional message protocols.
  * Use this for protocols with message streams.
+ * 
+ * @template M - Message definition type (message type -> payload or { clientMessage, serverMessage })
  */
-export abstract class BaseAsyncProtocol extends BaseProtocol {
+export abstract class BaseAsyncProtocol<M extends AsyncMessages = AsyncMessages> extends BaseProtocol {
+	/**
+	 * Phantom type property for type inference.
+	 * Used by components to infer message types via ProtocolMessages<A>.
+	 */
+	declare readonly $types: {
+		messages: M;
+	};
+
 	/**
 	 * Message handlers for servers (async protocols)
 	 */

@@ -9,9 +9,8 @@
 import type { ITestCaseBuilder } from "../../execution/execution.types";
 import { generateHookId } from "../base";
 import { AsyncServerHookBuilder } from "./async-server.hook-builder";
-import type { Message } from "../../protocols/base";
+import type { Message, IAsyncProtocol, ProtocolMessages, ClientMessages, ServerMessages } from "../../protocols/base";
 import type { Hook } from "../base";
-import type { ExtractMessagePayload } from "../../protocols/base";
 import type { AsyncServer } from "./async-server.component";
 
 /**
@@ -19,14 +18,13 @@ import type { AsyncServer } from "./async-server.component";
  *
  * Provides declarative API for async message handling.
  * Works for both mock mode and proxy mode.
+ * 
+ * @template P - Protocol type (messages are extracted via ProtocolMessages<P>)
  */
-export class AsyncServerStepBuilder<
-	M extends Record<string, unknown> = Record<string, unknown>,
-	TContext extends Record<string, unknown> = Record<string, unknown>,
-> {
+export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 	constructor(
-		private server: AsyncServer,
-		private testBuilder: ITestCaseBuilder<TContext>,
+		private server: AsyncServer<P>,
+		private testBuilder: ITestCaseBuilder,
 	) {}
 
 	/**
@@ -66,13 +64,13 @@ export class AsyncServerStepBuilder<
 	 * @param messageType - Message type to wait for
 	 * @param options - Optional timeout and matcher
 	 */
-	waitMessage<K extends keyof M = keyof M>(
+	waitMessage<K extends keyof ClientMessages<ProtocolMessages<P>>>(
 		messageType: K,
 		options?: {
 			timeout?: number;
-			matcher?: string | ((payload: ExtractMessagePayload<M, K>) => boolean);
+			matcher?: string | ((payload: ClientMessages<ProtocolMessages<P>>[K]) => boolean);
 		},
-	): AsyncServerHookBuilder<ExtractMessagePayload<M, K>, M> {
+	): AsyncServerHookBuilder<ClientMessages<ProtocolMessages<P>>[K], ProtocolMessages<P>> {
 		const timeout = options?.timeout ?? 5000;
 		const messageTypes = messageType as string;
 
@@ -156,22 +154,22 @@ export class AsyncServerStepBuilder<
 			},
 		});
 
-		return new AsyncServerHookBuilder<ExtractMessagePayload<M, K>, M>(hook);
+		return new AsyncServerHookBuilder<ClientMessages<ProtocolMessages<P>>[K], ProtocolMessages<P>>(hook);
 	}
 
 	/**
-	 * Register message handler (hook)
+	 * Register message handler (hook) for client messages
 	 *
 	 * In mock mode: Handle incoming messages from clients
 	 * In proxy mode: Handle messages from client (downstream direction)
 	 *
-	 * @param messageType - Message type(s) to match (protocol-level)
+	 * @param messageType - Message type(s) to match (from clientMessages)
 	 * @param matcher - Optional payload matcher (traceId string or filter function)
 	 */
-	onMessage<K extends keyof M = keyof M>(
+	onMessage<K extends keyof ClientMessages<ProtocolMessages<P>>>(
 		messageType: K | K[],
-		matcher?: string | ((payload: ExtractMessagePayload<M, K>) => boolean),
-	): AsyncServerHookBuilder<ExtractMessagePayload<M, K>, M> {
+		matcher?: string | ((payload: ClientMessages<ProtocolMessages<P>>[K]) => boolean),
+	): AsyncServerHookBuilder<ClientMessages<ProtocolMessages<P>>[K], ProtocolMessages<P>> {
 		// Convert message types to string or string[]
 		const messageTypes = Array.isArray(messageType)
 			? (messageType as string[])
@@ -194,20 +192,20 @@ export class AsyncServerStepBuilder<
 		// Register hook first, then pass to builder
 		this.server.registerHook(hook);
 
-		return new AsyncServerHookBuilder<ExtractMessagePayload<M, K>, M>(hook);
+		return new AsyncServerHookBuilder<ClientMessages<ProtocolMessages<P>>[K], ProtocolMessages<P>>(hook);
 	}
 
 	/**
 	 * Register event handler for events from target server (proxy mode only)
 	 * Handles messages in upstream direction: target → proxy → client
 	 *
-	 * @param messageType - Message type(s) to match (protocol-level)
+	 * @param messageType - Message type(s) to match (from serverMessages)
 	 * @param matcher - Optional payload matcher (traceId string or filter function)
 	 */
-	onEvent<K extends keyof M = keyof M>(
+	onEvent<K extends keyof ServerMessages<ProtocolMessages<P>>>(
 		messageType: K | K[],
-		matcher?: string | ((payload: ExtractMessagePayload<M, K>) => boolean),
-	): AsyncServerHookBuilder<ExtractMessagePayload<M, K>, M> {
+		matcher?: string | ((payload: ServerMessages<ProtocolMessages<P>>[K]) => boolean),
+	): AsyncServerHookBuilder<ServerMessages<ProtocolMessages<P>>[K], ProtocolMessages<P>> {
 		if (!this.server.isProxy) {
 			throw new Error(
 				`onEvent() is only available in proxy mode. Server "${this.server.name}" is in mock mode.`,
@@ -236,7 +234,7 @@ export class AsyncServerStepBuilder<
 		// Register hook first, then pass to builder
 		this.server.registerHook(hook);
 
-		return new AsyncServerHookBuilder<ExtractMessagePayload<M, K>, M>(hook);
+		return new AsyncServerHookBuilder<ServerMessages<ProtocolMessages<P>>[K], ProtocolMessages<P>>(hook);
 	}
 
 	/**

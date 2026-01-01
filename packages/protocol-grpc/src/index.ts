@@ -17,54 +17,8 @@
  * ```
  */
 
-// Protocol classes
-export {
-	GrpcUnaryProtocol,
-	createGrpcUnaryProtocol,
-} from "./unary.protocol";
-
-export {
-	GrpcStreamProtocol,
-	createGrpcStreamProtocol,
-} from "./stream.protocol";
-
-// Types
-export type {
-	// Protocol options
-	GrpcUnaryProtocolOptions,
-	GrpcStreamProtocolOptions,
-	GrpcUnaryRequestOptions,
-	// Operation types
-	GrpcOperationRequest,
-	GrpcOperationResponse,
-	GrpcOperation,
-	GrpcOperations,
-	// Service definitions
-	GrpcMetadata,
-	GrpcMethod,
-	GrpcServiceDefinition,
-	GrpcStreamMethod,
-	GrpcStreamServiceDefinition,
-	// Request/Response types
-	GrpcRequest,
-	GrpcResponse,
-	GrpcRequestOptions,
-	// Protocol type markers
-	GrpcUnaryProtocolTypes,
-	GrpcStreamProtocolTypes,
-} from "./types";
-
-// Schema utilities (for advanced usage)
-export {
-	loadGrpcSchema,
-	extractServices,
-	getServiceClient,
-	toSchemaDefinition,
-	type LoadedSchema,
-} from "./schema-loader";
-
-// Metadata utilities (for advanced usage)
-export {
-	extractGrpcMetadata,
-	createGrpcMetadata,
-} from "./metadata";
+export * from "./unary.protocol";
+export * from "./stream.protocol";
+export * from "./types";
+export * from "./schema-loader";
+export * from "./metadata";

@@ -1,34 +1,65 @@
 /**
- * WebSocket Adapter Types
+ * WebSocket Protocol Types
  *
- * Type definitions for WebSocket adapters.
+ * Type definitions for WebSocket protocol.
  */
 
-import type { AdapterTypeMarker } from "testurio";
+import type { Message } from "testurio";
 
 // =============================================================================
-// WebSocket Protocol Definitions
+// WebSocket Service Definition
 // =============================================================================
 
 /**
- * WebSocket Protocol definition - maps message types to payloads
+ * WebSocket Service definition for bidirectional messaging.
+ * Uses separate clientMessages and serverMessages maps.
+ * 
+ * @example
+ * ```typescript
+ * interface MyWsService extends WsServiceDefinition {
+ *   clientMessages: {
+ *     ping: { seq: number };
+ *     subscribe: { channel: string };
+ *   };
+ *   serverMessages: {
+ *     pong: { seq: number };
+ *     subscribed: { channel: string; success: boolean };
+ *   };
+ * }
+ * ```
  */
-export type WsProtocolDefinition = Record<string, unknown>;
+export interface WsServiceDefinition {
+	/** Messages that can be sent from client to server */
+	clientMessages: Record<string, unknown>;
+	/** Messages that can be sent from server to client */
+	serverMessages: Record<string, unknown>;
+}
 
 // =============================================================================
-// WebSocket Adapter Type Markers
+// WebSocket Protocol Options
 // =============================================================================
 
 /**
- * WebSocket Adapter type marker
- * @template P - Protocol definition (message type -> payload)
+ * WebSocket protocol options
  */
-export interface WsAdapterTypes<
-	P extends WsProtocolDefinition = WsProtocolDefinition,
-> extends AdapterTypeMarker {
-	readonly request: never;
-	readonly response: never;
-	readonly options: never;
-	/** Protocol definition for type-safe messages */
-	readonly protocol: P;
+export interface WsProtocolOptions {
+	/** Connection timeout in milliseconds */
+	timeout?: number;
+	/** Subprotocols to use */
+	protocols?: string | string[];
+}
+
+// =============================================================================
+// Internal Types
+// =============================================================================
+
+/**
+ * Pending message resolver for waitForMessage
+ */
+export interface PendingMessage {
+	resolve: (message: Message) => void;
+	reject: (error: Error) => void;
+	messageType: string | string[];
+	matcher?: string | ((payload: unknown) => boolean);
+	timeout: NodeJS.Timeout;
 }

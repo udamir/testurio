@@ -7,7 +7,6 @@
  */
 
 import type {
-	ProtocolMessages,
 	IAsyncProtocol,
 	Address,
 	Message,
@@ -47,22 +46,12 @@ export interface AsyncClientOptions<A extends IAsyncProtocol = IAsyncProtocol> {
  * });
  * ```
  */
-export class AsyncClient<
-	A extends IAsyncProtocol = IAsyncProtocol,
-> extends BaseComponent<A, AsyncClientStepBuilder<ProtocolMessages<A>, Record<string, unknown>>> {
-	/**
-	 * Phantom type property for type inference.
-	 * This property is never assigned at runtime - it exists only for TypeScript.
-	 * Used by `test.use(component)` to infer message types.
-	 */
-	declare readonly __types: {
-		messages: ProtocolMessages<A>;
-	};
+export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends BaseComponent<P, AsyncClientStepBuilder<P>> {
 
 	private readonly _targetAddress: Address;
 	private readonly _tls?: TlsConfig;
 
-	constructor(name: string, options: AsyncClientOptions<A>) {
+	constructor(name: string, options: AsyncClientOptions<P>) {
 		super(name, options.protocol);
 		this._targetAddress = options.targetAddress;
 		this._tls = options.tls;
@@ -71,23 +60,18 @@ export class AsyncClient<
 	/**
 	 * Static factory method to create an AsyncClient instance
 	 */
-	static create<A extends IAsyncProtocol>(
+	static create<P extends IAsyncProtocol>(
 		name: string,
-		options: AsyncClientOptions<A>,
-	): AsyncClient<A> {
-		return new AsyncClient<A>(name, options);
+		options: AsyncClientOptions<P>,
+	): AsyncClient<P> {
+		return new AsyncClient<P>(name, options);
 	}
 
 	/**
 	 * Create a step builder for this async client component
 	 */
-	createStepBuilder<TContext extends Record<string, unknown>>(
-		builder: ITestCaseBuilder<TContext>,
-	): AsyncClientStepBuilder<ProtocolMessages<A>, TContext> {
-		return new AsyncClientStepBuilder<ProtocolMessages<A>, TContext>(
-			this,
-			builder,
-		);
+	createStepBuilder(builder: ITestCaseBuilder): AsyncClientStepBuilder<P> {
+		return new AsyncClientStepBuilder<P>(this, builder);
 	}
 
 	/**

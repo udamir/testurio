@@ -349,14 +349,6 @@ export type AnyProtocol = ISyncProtocol | IAsyncProtocol;
 // =============================================================================
 
 /**
- * Extract options type from protocol
- * @template A - Protocol type
- */
-export type ProtocolOptions<A> = A extends { __types: { options: infer O } }
-	? O
-	: SyncRequestOptions;
-
-/**
  * Extract messages type from async adapter.
  * Checks for: messages, protocol, or service (for gRPC streaming)
  * @template A - Protocol type
@@ -387,22 +379,30 @@ export type ProtocolRequestOptions<A> = A extends { $request: infer R }
 	: Record<string, unknown>;
 
 // =============================================================================
-// Async Message Type Extraction
+// Async Message Format Types
 // =============================================================================
 
 /**
- * Extract message payload type from async message definition.
- * For async protocols (WebSocket, TCP, gRPC Stream):
- * - Simple mapping: `M[K]` is the payload type
- * - With clientMessage/serverMessage: Extract appropriately
- *
- * Used for both incoming message payloads and mockEvent response payloads.
- *
- * @template M - Message definition type
- * @template K - Message type key
+ * Base type for async protocol messages.
+ * Defines separate client and server message maps.
  */
-export type ExtractMessagePayload<M, K extends keyof M> = M[K] extends {
-	clientMessage: infer C;
+export interface AsyncMessageDefinition {
+	clientMessages: Record<string, unknown>;
+	serverMessages: Record<string, unknown>;
 }
+
+/**
+ * Extract client messages map from async message definition.
+ * @template M - Message definition type with clientMessages/serverMessages
+ */
+export type ClientMessages<M> = M extends { clientMessages: infer C }
 	? C
-	: M[K];
+	: Record<string, unknown>;
+
+/**
+ * Extract server messages map from async message definition.
+ * @template M - Message definition type with clientMessages/serverMessages
+ */
+export type ServerMessages<M> = M extends { serverMessages: infer S }
+	? S
+	: Record<string, unknown>;

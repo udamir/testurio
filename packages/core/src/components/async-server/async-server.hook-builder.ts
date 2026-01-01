@@ -5,8 +5,7 @@
  * Used for async server components (mock/proxy servers).
  */
 
-import type { Message } from "../../protocols/base";
-import type { ExtractMessagePayload } from "../../protocols/base";
+import type { Message, ServerMessages } from "../../protocols/base";
 import { AsyncClientHookBuilder } from "../async-client/async-client.hook-builder";
 
 /**
@@ -27,15 +26,15 @@ export class AsyncServerHookBuilder<
 	 * In async protocols (TCP, WebSocket, gRPC Stream), responses are independent
 	 * messages with their own type.
 	 *
-	 * @template K - Response message type key (infers response payload from M[K])
+	 * @template K - Response message type key (from serverMessages)
 	 * @param responseType - The message type for the response event
-	 * @param handler - Function that generates the response payload (typed from M[K])
+	 * @param handler - Function that generates the response payload
 	 */
-	mockEvent<K extends keyof M & string>(
+	mockEvent<K extends keyof ServerMessages<M> & string>(
 		responseType: K,
 		handler: (
 			payload: TPayload,
-		) => ExtractMessagePayload<M, K> | Promise<ExtractMessagePayload<M, K>>,
+		) => ServerMessages<M>[K] | Promise<ServerMessages<M>[K]>,
 	): this {
 		this.addHandler({
 			type: "mock",

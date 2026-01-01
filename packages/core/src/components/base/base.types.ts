@@ -4,7 +4,7 @@
  * Types for hook system, handlers, and builders.
  */
 
-import type { ExtractMessagePayload, Message } from "../../protocols/base";
+import type { Message } from "../../protocols/base";
 import type { TestPhase } from "../../execution/execution.types";
 
 // =============================================================================
@@ -131,22 +131,6 @@ export interface BaseHookBuilder<TPayload> {
 	assert(handler: (payload: TPayload) => boolean | Promise<boolean>): this;
 	delay(ms: number | (() => number)): this;
 	drop(): this;
-}
-
-/**
- * Async hook builder for async protocols
- */
-export interface AsyncHookBuilder<
-	TPayload,
-	M extends Record<string, unknown> = Record<string, unknown>,
-> extends BaseHookBuilder<TPayload> {
-	proxy(handler?: (payload: TPayload) => TPayload | Promise<TPayload>): this;
-	mockEvent<K extends keyof M & string>(
-		responseType: K,
-		handler: (
-			payload: TPayload,
-		) => ExtractMessagePayload<M, K> | Promise<ExtractMessagePayload<M, K>>,
-	): this;
 }
 
 /**

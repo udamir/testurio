@@ -8,7 +8,6 @@
 
 import type {
 	IAsyncProtocol,
-	ProtocolMessages,
 	Address,
 	Message,
 	TlsConfig,
@@ -53,23 +52,12 @@ export interface AsyncServerOptions<A extends IAsyncProtocol = IAsyncProtocol> {
  * });
  * ```
  */
-export class AsyncServer<
-	A extends IAsyncProtocol = IAsyncProtocol,
-> extends BaseComponent<A, AsyncServerStepBuilder<ProtocolMessages<A>, Record<string, unknown>>> {
-	/**
-	 * Phantom type property for type inference.
-	 * This property is never assigned at runtime - it exists only for TypeScript.
-	 * Used by `test.use(component)` to infer message types.
-	 */
-	declare readonly __types: {
-		messages: ProtocolMessages<A>;
-	};
-
+export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends BaseComponent<P, AsyncServerStepBuilder<P>> {
 	private readonly _listenAddress: Address;
 	private readonly _targetAddress?: Address;
 	private readonly _tls?: TlsConfig;
 
-	constructor(name: string, options: AsyncServerOptions<A>) {
+	constructor(name: string, options: AsyncServerOptions<P>) {
 		super(name, options.protocol);
 		this._listenAddress = options.listenAddress;
 		this._targetAddress = options.targetAddress;
@@ -79,23 +67,18 @@ export class AsyncServer<
 	/**
 	 * Static factory method to create an AsyncServer instance
 	 */
-	static create<A extends IAsyncProtocol>(
+	static create<P extends IAsyncProtocol>(
 		name: string,
-		options: AsyncServerOptions<A>,
-	): AsyncServer<A> {
-		return new AsyncServer<A>(name, options);
+		options: AsyncServerOptions<P>,
+	): AsyncServer<P> {
+		return new AsyncServer<P>(name, options);
 	}
 
 	/**
 	 * Create a step builder for this async server component
 	 */
-	createStepBuilder<TContext extends Record<string, unknown>>(
-		builder: ITestCaseBuilder<TContext>,
-	): AsyncServerStepBuilder<ProtocolMessages<A>, TContext> {
-		return new AsyncServerStepBuilder<ProtocolMessages<A>, TContext>(
-			this,
-			builder,
-		);
+	createStepBuilder(builder: ITestCaseBuilder): AsyncServerStepBuilder<P> {
+		return new AsyncServerStepBuilder<P>(this, builder);
 	}
 
 	/**

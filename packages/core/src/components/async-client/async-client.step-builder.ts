@@ -7,23 +7,21 @@
 import type { ITestCaseBuilder } from "../../execution/execution.types";
 import { generateHookId } from "../base";
 import { AsyncClientHookBuilder } from "./async-client.hook-builder";
-import type { Message } from "../../protocols/base";
+import type { Message, IAsyncProtocol, ProtocolMessages, ClientMessages, ServerMessages } from "../../protocols/base";
 import type { Hook } from "../base/base.types";
-import type { ExtractMessagePayload } from "../../protocols/base";
 import type { AsyncClient } from "./async-client.component";
 
 /**
  * Async Client Step Builder
  *
  * For async protocols: TCP, WebSocket, gRPC streaming
+ * 
+ * @template P - Protocol type (messages are extracted via ProtocolMessages<P>)
  */
-export class AsyncClientStepBuilder<
-	M extends Record<string, unknown> = Record<string, unknown>,
-	TContext extends Record<string, unknown> = Record<string, unknown>,
-> {
+export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 	constructor(
-		private client: AsyncClient,
-		private testBuilder: ITestCaseBuilder<TContext>,
+		private client: AsyncClient<P>,
+		private testBuilder: ITestCaseBuilder,
 	) {}
 
 	/**
@@ -80,13 +78,13 @@ export class AsyncClientStepBuilder<
 	}
 
 	/**
-	 * Send a message to server
+	 * Send a message to server (from clientMessages)
 	 */
-	sendMessage<K extends keyof M = keyof M>(
+	sendMessage<K extends keyof ClientMessages<ProtocolMessages<P>>>(
 		messageType: K,
 		payload:
-			| ExtractMessagePayload<M, K>
-			| (() => ExtractMessagePayload<M, K> | Promise<ExtractMessagePayload<M, K>>),
+			| ClientMessages<ProtocolMessages<P>>[K]
+			| (() => ClientMessages<ProtocolMessages<P>>[K] | Promise<ClientMessages<ProtocolMessages<P>>[K]>),
 		traceId?: string,
 	): void {
 		this.testBuilder.registerStep({
@@ -98,7 +96,7 @@ export class AsyncClientStepBuilder<
 				const payloadValue =
 					typeof payload === "function"
 						? await Promise.resolve(
-								(payload as () => ExtractMessagePayload<M, K>)(),
+								(payload as () => ClientMessages<ProtocolMessages<P>>[K])(),
 							)
 						: payload;
 				const message: Message = {
@@ -155,16 +153,16 @@ export class AsyncClientStepBuilder<
 	 * Unlike onEvent which just registers a hook, waitEvent creates a step
 	 * that blocks until the event is received or timeout expires.
 	 *
-	 * @param messageType - Message type to wait for
+	 * @param messageType - Message type to wait for (from serverMessages)
 	 * @param options - Optional timeout and matcher
 	 */
-	waitEvent<K extends keyof M = keyof M>(
+	waitEvent<K extends keyof ServerMessages<ProtocolMessages<P>>>(
 		messageType: K,
 		options?: {
 			timeout?: number;
-			matcher?: string | ((payload: ExtractMessagePayload<M, K>) => boolean);
+			matcher?: string | ((payload: ServerMessages<ProtocolMessages<P>>[K]) => boolean);
 		},
-	): AsyncClientHookBuilder<ExtractMessagePayload<M, K>, M> {
+	): AsyncClientHookBuilder<ServerMessages<ProtocolMessages<P>>[K], ProtocolMessages<P>> {
 		const timeout = options?.timeout ?? 5000;
 		const messageTypes = messageType as string;
 
@@ -217,21 +215,21 @@ export class AsyncClientStepBuilder<
 			},
 		});
 
-		return new AsyncClientHookBuilder<ExtractMessagePayload<M, K>, M>(hook);
+		return new AsyncClientHookBuilder<ServerMessages<ProtocolMessages<P>>[K], ProtocolMessages<P>>(hook);
 	}
 
 	/**
-	 * Register event handler (hook)
+	 * Register event handler (hook) for server messages
 	 *
-	 * @param messageType - Message type(s) to match (protocol-level)
+	 * @param messageType - Message type(s) to match (from serverMessages)
 	 * @param matcher - Optional payload matcher (traceId string or filter function)
 	 * @param timeout - Optional timeout in milliseconds
 	 */
-	onEvent<K extends keyof M = keyof M>(
+	onEvent<K extends keyof ServerMessages<ProtocolMessages<P>>>(
 		messageType: K | K[],
-		matcher?: string | ((payload: ExtractMessagePayload<M, K>) => boolean),
+		matcher?: string | ((payload: ServerMessages<ProtocolMessages<P>>[K]) => boolean),
 		timeout?: number,
-	): AsyncClientHookBuilder<ExtractMessagePayload<M, K>, M> {
+	): AsyncClientHookBuilder<ServerMessages<ProtocolMessages<P>>[K], ProtocolMessages<P>> {
 		// Convert message types to string or string[]
 		const messageTypes = Array.isArray(messageType)
 			? (messageType as string[])
@@ -254,7 +252,7 @@ export class AsyncClientStepBuilder<
 		// Register hook first, then pass to builder
 		this.client.registerHook(hook);
 
-		return new AsyncClientHookBuilder<ExtractMessagePayload<M, K>, M>(hook);
+		return new AsyncClientHookBuilder<ServerMessages<ProtocolMessages<P>>[K], ProtocolMessages<P>>(hook);
 	}
 
 	/**

@@ -20,7 +20,6 @@ import { extractGrpcMetadata } from "./metadata";
 import type {
 	GrpcStreamProtocolOptions,
 	GrpcStreamServiceDefinition,
-	GrpcStreamProtocolTypes,
 	PendingMessage,
 } from "./types";
 
@@ -34,15 +33,9 @@ import type {
 export class GrpcStreamProtocol<
 		S extends GrpcStreamServiceDefinition = GrpcStreamServiceDefinition,
 	>
-	extends BaseAsyncProtocol
+	extends BaseAsyncProtocol<S>
 	implements IAsyncProtocol
 {
-	/**
-	 * Phantom type property for type inference.
-	 * Used by components to infer message types.
-	 */
-	declare readonly __types: GrpcStreamProtocolTypes<S>;
-
 	readonly type = "grpc-stream";
 
 	readonly characteristics: ProtocolCharacteristics = {
