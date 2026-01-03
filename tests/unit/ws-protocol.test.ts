@@ -225,4 +225,116 @@ describe("WebSocketProtocol", () => {
 			expect(protocol.client.isConnected).toBe(false);
 		});
 	});
+
+	describe("multiple clients", () => {
+		it("should handle multiple clients sending messages simultaneously", async () => {
+			const protocol1 = new WebSocketProtocol<TestWsService>();
+			const protocol2 = new WebSocketProtocol<TestWsService>();
+			const protocol3 = new WebSocketProtocol<TestWsService>();
+
+			const receivedMessages: Array<{ data: string }> = [];
+
+			// Start server
+			await protocol.startServer({
+				listenAddress: { host: "127.0.0.1", port },
+			});
+
+			protocol.onMessage("TestMessage", async (payload) => {
+				receivedMessages.push(payload as { data: string });
+				return { response: `received-${(payload as { data: string }).data}` };
+			});
+
+			// Connect multiple clients
+			await protocol1.createClient({ targetAddress: { host: "127.0.0.1", port } });
+			await protocol2.createClient({ targetAddress: { host: "127.0.0.1", port } });
+			await protocol3.createClient({ targetAddress: { host: "127.0.0.1", port } });
+
+			// Each client sends a message
+			await protocol1.sendMessage("TestMessage", { data: "client1" });
+			await protocol2.sendMessage("TestMessage", { data: "client2" });
+			await protocol3.sendMessage("TestMessage", { data: "client3" });
+
+			// Wait for messages to be processed
+			await new Promise((resolve) => setTimeout(resolve, 100));
+
+			expect(receivedMessages.length).toBe(3);
+			const messages = receivedMessages.map((m) => m.data);
+			expect(messages).toContain("client1");
+			expect(messages).toContain("client2");
+			expect(messages).toContain("client3");
+
+			await protocol1.dispose();
+			await protocol2.dispose();
+			await protocol3.dispose();
+		});
+
+		it("should route responses to correct clients", async () => {
+			const protocol1 = new WebSocketProtocol<TestWsService>();
+			const protocol2 = new WebSocketProtocol<TestWsService>();
+
+			// Start server
+			await protocol.startServer({
+				listenAddress: { host: "127.0.0.1", port },
+			});
+
+			protocol.onMessage("TestRequest", async (payload) => {
+				const data = (payload as { data: string }).data;
+				return { response: `response-for-${data}` };
+			});
+
+			// Connect clients
+			await protocol1.createClient({ targetAddress: { host: "127.0.0.1", port } });
+			await protocol2.createClient({ targetAddress: { host: "127.0.0.1", port } });
+
+			// Send messages and wait for responses
+			const response1Promise = protocol1.waitForMessage("TestRequestResponse");
+			const response2Promise = protocol2.waitForMessage("TestRequestResponse");
+
+			await protocol1.sendMessage("TestRequest", { data: "msg1" });
+			await protocol2.sendMessage("TestRequest", { data: "msg2" });
+
+			const response1 = await response1Promise;
+			const response2 = await response2Promise;
+
+			// Each client should receive its own response
+			expect((response1.payload as { response: string }).response).toBe("response-for-msg1");
+			expect((response2.payload as { response: string }).response).toBe("response-for-msg2");
+
+			await protocol1.dispose();
+			await protocol2.dispose();
+		});
+
+		it("should handle client disconnection without affecting other clients", async () => {
+			const protocol1 = new WebSocketProtocol<TestWsService>();
+			const protocol2 = new WebSocketProtocol<TestWsService>();
+
+			// Start server
+			await protocol.startServer({
+				listenAddress: { host: "127.0.0.1", port },
+			});
+
+			protocol.onMessage("TestRequest", async (payload) => {
+				const data = (payload as { data: string }).data;
+				return { response: `response-for-${data}` };
+			});
+
+			// Connect clients
+			await protocol1.createClient({ targetAddress: { host: "127.0.0.1", port } });
+			await protocol2.createClient({ targetAddress: { host: "127.0.0.1", port } });
+
+			// Disconnect client1
+			await protocol1.closeClient();
+			await new Promise((resolve) => setTimeout(resolve, 50));
+
+			// client2 should still work
+			const responsePromise = protocol2.waitForMessage("TestRequestResponse");
+			await protocol2.sendMessage("TestRequest", { data: "still-working" });
+			const response = await responsePromise;
+
+			expect((response.payload as { response: string }).response).toBe("response-for-still-working");
+
+			await protocol1.dispose();
+			await protocol2.dispose();
+		});
+	});
 });

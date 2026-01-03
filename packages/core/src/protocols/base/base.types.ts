@@ -130,7 +130,7 @@ export interface Message<T = unknown> {
 /**
  * Server handle for managing server lifecycle
  */
-export interface ServerProtocol<T = unknown> {
+export interface ServerInstance<T = unknown> {
 	isRunning: boolean; // Whether the server is running
 	ref?: T; // Internal server instance (protocol-specific)
 }
@@ -138,7 +138,7 @@ export interface ServerProtocol<T = unknown> {
 /**
  * Client handle for managing client lifecycle
  */
-export interface ClientProtocol<T = unknown> {
+export interface ClientInstance<T = unknown> {
 	isConnected: boolean; // Whether the client is connected
 	ref?: T; // Internal client instance (protocol-specific)
 }
@@ -229,8 +229,8 @@ export interface ISyncProtocol<T extends SyncOperations<T> = SyncOperations, TRe
 	loadSchema?(schemaPath: string | string[]): Promise<SchemaDefinition>;
 	setHookRegistry(registry: IHookRegistry): void;
 
-	client: ClientProtocol;
-	server: ServerProtocol;
+	client: ClientInstance;
+	server: ServerInstance;
 
 	/**
 	 * Dispose of the protocol
@@ -280,11 +280,23 @@ export interface ISyncProtocol<T extends SyncOperations<T> = SyncOperations, TRe
 }
 
 /**
+ * Async protocol messages type - maps message type to payload
+ * For bidirectional streams: { clientMessage, serverMessage }
+ */
+export type AsyncMessages<T = object> = {
+	[K in keyof T]?: {
+		clientMessage: unknown
+		serverMessage: unknown
+	};
+}
+
+/**
  * Async protocol for message-based protocols (WebSocket, TCP, gRPC Stream)
  *
  * Async protocols handle protocols with bidirectional message streams.
  */
-export interface IAsyncProtocol {
+export interface IAsyncProtocol<M extends AsyncMessages = AsyncMessages> {
+	readonly $types: M;
 	readonly type: string;
 	loadSchema?(schemaPath: string | string[]): Promise<SchemaDefinition>;
 	setHookRegistry(registry: IHookRegistry): void;
@@ -293,7 +305,7 @@ export interface IAsyncProtocol {
 	/**
 	 * Start a server (for mocks) or proxy listener
 	 */
-	startServer(config: ServerProtocolConfig): Promise<void>;
+	startServer(config: ServerProtocolConfig, onConnection: (connection: IServerConnection) => void): Promise<void>;
 
 	/**
 	 * Stop a server/proxy
@@ -303,13 +315,10 @@ export interface IAsyncProtocol {
 	/**
 	 * Create a client connection
 	 */
-	createClient(config: ClientProtocolConfig): Promise<void>;
+	connect(config: ClientProtocolConfig): Promise<IServerConnection>;
+}
 
-	/**
-	 * Close a client connection
-	 */
-	closeClient(): Promise<void>;
-
+export interface IClientConnection  {
 	/**
 	 * Register message handler for server/proxy
 	 */
@@ -335,6 +344,27 @@ export interface IAsyncProtocol {
 		matcher?: string | ((payload: T) => boolean),
 		timeout?: number,
 	): Promise<Message>;
+
+	close(): Promise<void>;
+
+	onClose(handler: () => void): void;
+}
+
+export interface IServerConnection {
+	onEvent<T = unknown>(
+		eventType: string,
+		handler: MessageHandler<T>,
+	): void;
+
+	sendEvent<T = unknown>(
+		eventType: string,
+		payload: T,
+		traceId?: string,
+	): Promise<void>;
+
+	close(): Promise<void>;
+
+	onClose(handler: () => void): void;
 }
 
 /**
@@ -351,7 +381,7 @@ export type AnyProtocol = ISyncProtocol | IAsyncProtocol;
  * Checks for: messages, protocol, or service (for gRPC streaming)
  * @template A - Protocol type
  */
-export type ProtocolMessages<A> = A extends { $types: { messages: infer M } }
+export type ProtocolMessages<A> = A extends { $types: infer M  }
 	? M
 	: A extends { $types: { protocol: infer P } }
 		? P
@@ -404,3 +434,18 @@ export type ClientMessages<M> = M extends { clientMessages: infer C }
 export type ServerMessages<M> = M extends { serverMessages: infer S }
 	? S
 	: Record<string, unknown>;
+
+// =============================================================================
+// Async Protocol Common Types
+// =============================================================================
+
+/**
+ * Pending message waiting for response (used by async protocols)
+ */
+export interface PendingMessage {
+	resolve: (message: Message) => void;
+	reject: (error: Error) => void;
+	messageType: string | string[];
+	matcher?: string | ((payload: unknown) => boolean);
+	timeout: ReturnType<typeof setTimeout>;
+}

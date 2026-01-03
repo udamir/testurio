@@ -26,5 +26,11 @@
 
 export { TcpProtocol, createTcpProtocol } from "./tcp.protocol";
 
+// Export TCP client/server classes
+export * from "./tcp.client";
+export * from "./tcp.server";
+export * from "./tcp.socket";
+export * from "./framing";
+
 // Export TCP-specific types
 export type { TcpServiceDefinition, TcpProtocolOptions } from "./types";

@@ -10,9 +10,9 @@
 import * as http from "node:http";
 import type {
 	ClientProtocolConfig,
-	ClientProtocol,
+	ClientInstance,
 	ServerProtocolConfig,
-	ServerProtocol,
+	ServerInstance,
 	SchemaDefinition,
 	ISyncProtocol,
 } from "../base";
@@ -48,8 +48,8 @@ export class HttpProtocol<T extends  { [K in keyof T]?: HttpOperation } = HttpSe
 
 	readonly type = "http";
 
-	public server: ServerProtocol<http.Server> = { isRunning: false };
-	public client: ClientProtocol<string> = { isConnected: false };
+	public server: ServerInstance<http.Server> = { isRunning: false };
+	public client: ClientInstance<string> = { isConnected: false };
 	private pendingRequests = new Map<string, http.ServerResponse>();
 
 	constructor(private options: HttpProtocolOptions = {}) {

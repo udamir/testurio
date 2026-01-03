@@ -18,8 +18,9 @@ import type {
 	SchemaDefinition,
 } from "testurio";
 import { BaseAsyncProtocol, generateId } from "testurio";
-import * as net from "node:net";
-import type { TcpServiceDefinition, TcpProtocolOptions, PendingMessage } from "./types";
+import type { TcpServiceDefinition, TcpProtocolOptions, ISocket } from "./types";
+import { TcpClient } from "./tcp.client";
+import { TcpServer } from "./tcp.server";
 
 /**
  * TCP Protocol
@@ -46,16 +47,16 @@ import type { TcpServiceDefinition, TcpProtocolOptions, PendingMessage } from ".
  * ```
  */
 export class TcpProtocol<S extends TcpServiceDefinition = TcpServiceDefinition>
-	extends BaseAsyncProtocol<S>
+	extends BaseAsyncProtocol<S, TcpClient>
 	implements IAsyncProtocol
 {
 	readonly type = "tcp";
 
 	/** Public server/client handles */
-	public server: { isRunning: boolean; ref?: net.Server } = {
+	public server: { isRunning: boolean } = {
 		isRunning: false,
 	};
-	public client: { isConnected: boolean; ref?: net.Socket } = {
+	public client: { isConnected: boolean } = {
 		isConnected: false,
 	};
 
@@ -63,25 +64,13 @@ export class TcpProtocol<S extends TcpServiceDefinition = TcpServiceDefinition>
 	private protocolOptions: TcpProtocolOptions;
 
 	/** Active TCP server */
-	private tcpServer?: net.Server;
+	private tcpServer?: TcpServer;
 
-	/** Active TCP client socket */
-	private tcpClient?: net.Socket;
+	/** Active TCP client socket (for client mode) */
+	private tcpClient?: TcpClient;
 
-	/** Server connections map */
-	private connections = new Map<string, net.Socket>();
-
-	/** Current client socket (for server to respond) */
-	private currentClientSocket?: net.Socket;
-
-	/** Pending messages waiting for response */
-	private pendingMessages = new Map<string, PendingMessage>();
-
-	/** Message queue for received messages */
-	private messageQueue: Message[] = [];
-
-	/** Buffer for incomplete messages (client side) */
-	private clientBuffer = "";
+	/** Server connections map: socketId -> incoming socket */
+	private connections = new Map<string, ISocket>();
 
 	constructor(options: TcpProtocolOptions = {}) {
 		super();
@@ -119,57 +108,60 @@ export class TcpProtocol<S extends TcpServiceDefinition = TcpServiceDefinition>
 	 * For proxy mode, AsyncServer will also call createClient() to connect to target
 	 */
 	async startServer(config: ServerProtocolConfig): Promise<void> {
-		return new Promise((resolve, reject) => {
-			const server = net.createServer((socket) => {
-				const connId = generateId("conn");
-				this.connections.set(connId, socket);
-				this.currentClientSocket = socket;
+		this.tcpServer = new TcpServer();
 
-				let buffer = "";
+		this.tcpServer.on("connection", (socket) => {
+			this.connections.set(socket.id, socket);
 
-				socket.on("data", async (data) => {
-					buffer += data.toString();
-
-					// Parse delimiter-separated messages
-					while (buffer.length > 0) {
-						const delimiterIndex = buffer.indexOf(this.delimiter);
-						if (delimiterIndex === -1) break;
-
-						const messageStr = buffer.slice(0, delimiterIndex);
-						buffer = buffer.slice(delimiterIndex + this.delimiter.length);
-
-						try {
-							const message = JSON.parse(messageStr) as Message;
-							await this.handleIncomingMessage(message, socket);
-						} catch (_err) {
-							// Failed to parse message
-						}
-					}
+			// In proxy mode, create dedicated outgoing connection for this client
+			if (this.proxyTargetConfig) {
+				const connectionPromise = this.createProxyClientForSocket(socket.id).catch(() => {
+					// Connection to backend failed - close incoming socket
+					socket.close();
 				});
-
-				socket.on("close", () => {
-					this.connections.delete(connId);
-					if (this.currentClientSocket === socket) {
-						this.currentClientSocket = undefined;
-					}
-				});
-
-				socket.on("error", () => {
-					this.connections.delete(connId);
-				});
-			});
-
-			server.on("error", (err) => {
-				reject(err);
-			});
-
-			server.listen(config.listenAddress.port, config.listenAddress.host, () => {
-				this.tcpServer = server;
-				this.server.isRunning = true;
-				this.server.ref = server;
-				resolve();
-			});
+				this.pendingProxyConnections.set(socket.id, connectionPromise);
+			}
 		});
+
+		this.tcpServer.on("message", async (socket, data) => {
+			try {
+				const str = typeof data === "string" ? data : new TextDecoder().decode(data);
+				const message = JSON.parse(str) as Message;
+				await this.handleIncomingMessage(message, socket);
+			} catch (_err) {
+				// Failed to parse message
+			}
+		});
+
+		this.tcpServer.on("disconnect", (socket) => {
+			this.connections.delete(socket.id);
+			this.removeProxyClient(socket.id);
+		});
+
+		this.tcpServer.on("error", (_err, socket) => {
+			if (socket) {
+				this.connections.delete(socket.id);
+				this.removeProxyClient(socket.id);
+			}
+		});
+
+		await this.tcpServer.listen(
+			config.listenAddress.host,
+			config.listenAddress.port,
+			{
+				timeout: this.protocolOptions.timeout,
+				lengthFieldLength: this.protocolOptions.lengthFieldLength ?? 0,
+				maxLength: this.protocolOptions.maxLength,
+				encoding: this.protocolOptions.lengthFieldLength ? "binary" : "utf-8",
+				delimiter: this.protocolOptions.delimiter ?? "\n",
+				tls: config.tls?.enabled,
+				cert: config.tls?.cert,
+				key: config.tls?.key,
+			},
+		);
+
+		this.server.isRunning = true;
+		this.serverListenConfig = { host: config.listenAddress.host, port: config.listenAddress.port };
 	}
 
 	/**
@@ -177,7 +169,7 @@ export class TcpProtocol<S extends TcpServiceDefinition = TcpServiceDefinition>
 	 */
 	private async handleIncomingMessage(
 		message: Message,
-		clientSocket: net.Socket,
+		clientSocket: ISocket,
 	): Promise<void> {
 		// Try hook-based handlers first
 		if (this.hookRegistry) {
@@ -190,7 +182,7 @@ export class TcpProtocol<S extends TcpServiceDefinition = TcpServiceDefinition>
 
 			// Check if hook transformed message into a response
 			if (hookResult.type !== message.type) {
-				this.sendToSocket(clientSocket, hookResult);
+				await this.sendToSocket(clientSocket, hookResult);
 				return;
 			}
 		}
@@ -208,7 +200,7 @@ export class TcpProtocol<S extends TcpServiceDefinition = TcpServiceDefinition>
 							payload: result,
 							traceId: message.traceId,
 						};
-						this.sendToSocket(clientSocket, responseMessage);
+						await this.sendToSocket(clientSocket, responseMessage);
 					}
 				} catch (_error) {
 					// Handler error
@@ -217,19 +209,31 @@ export class TcpProtocol<S extends TcpServiceDefinition = TcpServiceDefinition>
 			return;
 		}
 
-		// If in proxy mode (client connected to target), forward message
-		if (this.client.isConnected && this.tcpClient) {
-			this.sendToSocket(this.tcpClient, message);
+		// If in proxy mode, forward message through the dedicated proxy client
+		await this.waitForProxyConnection(clientSocket.id);
+
+		const proxyClient = this.getProxyClient(clientSocket.id);
+		if (proxyClient) {
+			await this.sendToProxyClient(proxyClient, message);
 		}
 	}
 
 	/**
-	 * Send message to socket (delimiter-separated JSON)
+	 * Send message to socket
 	 */
-	private sendToSocket(socket: net.Socket, message: Message): void {
-		if (!socket.destroyed) {
-			const data = `${JSON.stringify(message)}${this.delimiter}`;
-			socket.write(data);
+	private async sendToSocket(socket: ISocket, message: Message): Promise<void> {
+		if (!socket.connected) return;
+
+		const json = JSON.stringify(message);
+
+		if (this.protocolOptions.lengthFieldLength) {
+			// Binary mode - use framed send
+			const data = new TextEncoder().encode(json);
+			await socket.send(data);
+		} else {
+			// Text mode - add delimiter
+			const data = new TextEncoder().encode(json + this.delimiter);
+			await socket.write(data);
 		}
 	}
 
@@ -241,129 +245,136 @@ export class TcpProtocol<S extends TcpServiceDefinition = TcpServiceDefinition>
 			return;
 		}
 
-		// Close all connections first
-		for (const socket of this.connections.values()) {
-			socket.removeAllListeners();
-			socket.destroy();
-		}
+		await this.tcpServer.close();
 		this.connections.clear();
-		this.currentClientSocket = undefined;
-
-		const server = this.tcpServer;
-		return new Promise<void>((resolve, reject) => {
-			// Prevent new connections
-			server.removeAllListeners("connection");
-
-			server.close((err) => {
-				if (err) {
-					reject(err);
-				} else {
-					this.tcpServer = undefined;
-					this.server.isRunning = false;
-					this.server.ref = undefined;
-					resolve();
-				}
-			});
-		});
+		this.clearProxyState();
+		this.tcpServer = undefined;
+		this.server.isRunning = false;
 	}
 
 	/**
 	 * Create a TCP client connection
+	 * In proxy mode (server already running and connecting to different target),
+	 * this stores config for per-connection clients.
+	 * In client/loopback mode, this creates a single client connection.
 	 */
 	async createClient(config: ClientProtocolConfig): Promise<void> {
-		return new Promise((resolve, reject) => {
-			const socket = net.createConnection(
-				{
-					host: config.targetAddress.host,
-					port: config.targetAddress.port,
-				},
-				() => {
-					this.tcpClient = socket;
-					this.client.isConnected = true;
-					this.client.ref = socket;
+		if (this.isProxyMode(config)) {
+			this.proxyTargetConfig = config;
+			// Create proxy clients for existing connections
+			for (const socketId of this.connections.keys()) {
+				await this.createProxyClientForSocket(socketId);
+			}
+			this.client.isConnected = true;
+			return;
+		}
 
-					// Handle incoming messages
-					socket.on("data", (data) => {
-						this.handleClientData(data);
-					});
+		// Client mode - create single client connection
+		this.tcpClient = new TcpClient();
 
-					socket.on("close", () => {
-						this.client.isConnected = false;
-					});
-
-					socket.on("error", () => {
-						this.client.isConnected = false;
-					});
-
-					resolve();
-				},
-			);
-
-			socket.on("error", (err) => {
-				reject(err);
-			});
-		});
-	}
-
-	/**
-	 * Handle incoming data on client socket
-	 */
-	private handleClientData(data: Buffer): void {
-		this.clientBuffer += data.toString();
-
-		while (this.clientBuffer.length > 0) {
-			const delimiterIndex = this.clientBuffer.indexOf(this.delimiter);
-			if (delimiterIndex === -1) break;
-
-			const messageStr = this.clientBuffer.slice(0, delimiterIndex);
-			this.clientBuffer = this.clientBuffer.slice(delimiterIndex + this.delimiter.length);
-
+		this.tcpClient.on("message", (data) => {
 			try {
-				const message = JSON.parse(messageStr) as Message;
+				const str = typeof data === "string" ? data : new TextDecoder().decode(data);
+				const message = JSON.parse(str) as Message;
 				this.deliverMessageToClient(message);
 			} catch (_err) {
 				// Failed to parse client message
 			}
-		}
+		});
+
+		this.tcpClient.on("error", () => {
+			this.client.isConnected = false;
+		});
+
+		this.tcpClient.on("end", () => {
+			this.client.isConnected = false;
+		});
+
+		await this.tcpClient.connect(
+			config.targetAddress.host,
+			config.targetAddress.port,
+			{
+				timeout: this.protocolOptions.timeout,
+				lengthFieldLength: this.protocolOptions.lengthFieldLength ?? 0,
+				maxLength: this.protocolOptions.maxLength,
+				encoding: this.protocolOptions.lengthFieldLength ? "binary" : "utf-8",
+				delimiter: this.protocolOptions.delimiter ?? "\n",
+				tls: this.protocolOptions.tls,
+				serverName: this.protocolOptions.serverName,
+				insecureSkipVerify: this.protocolOptions.insecureSkipVerify,
+			},
+		);
+
+		this.client.isConnected = true;
 	}
 
 	/**
-	 * Deliver message to client (execute hooks, check pending or queue)
+	 * Close a specific proxy client (implements abstract method)
 	 */
-	private async deliverMessageToClient(incomingMessage: Message): Promise<void> {
-		// Execute hooks first
-		let processedMessage = incomingMessage;
-		if (this.hookRegistry) {
-			const hookResult = await this.hookRegistry.executeHooks(incomingMessage);
-			if (hookResult === null) {
-				// Message was dropped by hook
-				return;
-			}
-			processedMessage = hookResult;
-		}
+	protected closeProxyClient(client: TcpClient): void {
+		client.close();
+	}
 
-		// Check pending messages
-		for (const [pendingId, pending] of Array.from(this.pendingMessages.entries())) {
-			const types = Array.isArray(pending.messageType)
-				? pending.messageType
-				: [pending.messageType];
+	/**
+	 * Create a proxy client for a specific incoming connection
+	 */
+	private async createProxyClientForSocket(socketId: string): Promise<void> {
+		if (!this.proxyTargetConfig) return;
 
-			if (types.includes(processedMessage.type)) {
-				if (this.matchesPending(processedMessage, pending)) {
-					clearTimeout(pending.timeout);
-					this.pendingMessages.delete(pendingId);
-					pending.resolve(processedMessage);
-					return;
+		const proxyClient = new TcpClient();
+		const incomingSocket = this.connections.get(socketId);
+
+		proxyClient.on("message", async (data) => {
+			try {
+				const str = typeof data === "string" ? data : new TextDecoder().decode(data);
+				const message = JSON.parse(str) as Message;
+				// Forward response back to the linked incoming socket
+				if (incomingSocket?.connected) {
+					await this.sendToSocket(incomingSocket, message);
 				}
+			} catch (_err) {
+				// Failed to parse message
 			}
-		}
+		});
 
-		// Add to queue if no pending match
-		this.messageQueue.push(processedMessage);
+		proxyClient.on("error", () => {
+			this.proxyClients.delete(socketId);
+		});
 
-		// In proxy mode, forward to connected clients
-		if (this.server.isRunning && this.currentClientSocket) {
-			this.sendToSocket(this.currentClientSocket, processedMessage);
+		proxyClient.on("end", () => {
+			this.proxyClients.delete(socketId);
+		});
+
+		await proxyClient.connect(
+			this.proxyTargetConfig.targetAddress.host,
+			this.proxyTargetConfig.targetAddress.port,
+			{
+				timeout: this.protocolOptions.timeout,
+				lengthFieldLength: this.protocolOptions.lengthFieldLength ?? 0,
+				maxLength: this.protocolOptions.maxLength,
+				encoding: this.protocolOptions.lengthFieldLength ? "binary" : "utf-8",
+				delimiter: this.protocolOptions.delimiter ?? "\n",
+				tls: this.proxyTargetConfig.tls?.enabled,
+				serverName: this.protocolOptions.serverName,
+				insecureSkipVerify: this.protocolOptions.insecureSkipVerify,
+			},
+		);
+
+		this.proxyClients.set(socketId, proxyClient);
+	}
+
+	/**
+	 * Send message through a proxy client (protocol-specific framing)
+	 */
+	private async sendToProxyClient(proxyClient: TcpClient, message: Message): Promise<void> {
+		const json = JSON.stringify(message);
+
+		if (this.protocolOptions.lengthFieldLength) {
+			const data = new TextEncoder().encode(json);
+			await proxyClient.send(data);
+		} else {
+			const data = new TextEncoder().encode(json + this.delimiter);
+			await proxyClient.write(data);
 		}
 	}
 
@@ -371,25 +382,17 @@ export class TcpProtocol<S extends TcpServiceDefinition = TcpServiceDefinition>
 	 * Close the TCP client
 	 */
 	async closeClient(): Promise<void> {
-		if (!this.tcpClient) {
-			return;
+		this.rejectAllPendingMessages(new Error("Client disconnected"));
+		this.closeAllProxyClients();
+		this.proxyTargetConfig = undefined;
+
+		// Close single client
+		if (this.tcpClient) {
+			this.tcpClient.close();
+			this.tcpClient = undefined;
 		}
 
-		// Reject all pending messages
-		for (const [, pending] of Array.from(this.pendingMessages.entries())) {
-			clearTimeout(pending.timeout);
-			pending.reject(new Error("Client disconnected"));
-		}
-		this.pendingMessages.clear();
-		this.messageQueue = [];
-		this.clientBuffer = "";
-
-		// Remove all listeners and destroy socket
-		this.tcpClient.removeAllListeners();
-		this.tcpClient.destroy();
-		this.tcpClient = undefined;
 		this.client.isConnected = false;
-		this.client.ref = undefined;
 	}
 
 	/**
@@ -414,7 +417,26 @@ export class TcpProtocol<S extends TcpServiceDefinition = TcpServiceDefinition>
 			traceId: traceId || generateId(messageType),
 		};
 
-		this.sendToSocket(this.tcpClient, message);
+		await this.sendToClient(message);
+	}
+
+	/**
+	 * Send message to client socket
+	 */
+	private async sendToClient(message: Message): Promise<void> {
+		if (!this.tcpClient) return;
+
+		const json = JSON.stringify(message);
+
+		if (this.protocolOptions.lengthFieldLength) {
+			// Binary mode - use framed send
+			const data = new TextEncoder().encode(json);
+			await this.tcpClient.send(data);
+		} else {
+			// Text mode - add delimiter
+			const data = new TextEncoder().encode(json + this.delimiter);
+			await this.tcpClient.write(data);
+		}
 	}
 
 	/**
@@ -460,46 +482,6 @@ export class TcpProtocol<S extends TcpServiceDefinition = TcpServiceDefinition>
 				timeout: timeoutHandle,
 			});
 		});
-	}
-
-	/**
-	 * Find message in queue
-	 */
-	private findInQueue(
-		types: string[],
-		matcher?: string | ((payload: unknown) => boolean),
-	): Message | undefined {
-		const index = this.messageQueue.findIndex((msg) => {
-			if (!types.includes(msg.type)) return false;
-
-			if (matcher) {
-				if (typeof matcher === "string") {
-					return msg.traceId === matcher;
-				}
-				return matcher(msg.payload);
-			}
-
-			return true;
-		});
-
-		if (index >= 0) {
-			return this.messageQueue.splice(index, 1)[0];
-		}
-
-		return undefined;
-	}
-
-	/**
-	 * Check if message matches pending request
-	 */
-	private matchesPending(message: Message, pending: PendingMessage): boolean {
-		if (!pending.matcher) return true;
-
-		if (typeof pending.matcher === "string") {
-			return message.traceId === pending.matcher;
-		}
-
-		return pending.matcher(message.payload);
 	}
 
 	/**

@@ -19,7 +19,7 @@ import type {
 } from "testurio";
 import { BaseAsyncProtocol, generateId } from "testurio";
 import { WebSocket, WebSocketServer } from "ws";
-import type { WsServiceDefinition, WsProtocolOptions, PendingMessage } from "./types";
+import type { WsServiceDefinition, WsProtocolOptions } from "./types";
 
 /**
  * WebSocket Protocol
@@ -48,7 +48,7 @@ import type { WsServiceDefinition, WsProtocolOptions, PendingMessage } from "./t
  * ```
  */
 export class WebSocketProtocol<S extends WsServiceDefinition = WsServiceDefinition>
-	extends BaseAsyncProtocol<S>
+	extends BaseAsyncProtocol<S, WebSocket>
 	implements IAsyncProtocol
 {
 	readonly type = "websocket";
@@ -70,17 +70,8 @@ export class WebSocketProtocol<S extends WsServiceDefinition = WsServiceDefiniti
 	/** Active WebSocket client */
 	private wsClient?: WebSocket;
 
-	/** Server connections map */
+	/** Server connections map: connId -> incoming socket */
 	private connections = new Map<string, WebSocket>();
-
-	/** Current client socket (for server to respond) */
-	private currentClientSocket?: WebSocket;
-
-	/** Pending messages waiting for response */
-	private pendingMessages = new Map<string, PendingMessage>();
-
-	/** Message queue for received messages */
-	private messageQueue: Message[] = [];
 
 	constructor(options: WsProtocolOptions = {}) {
 		super();
@@ -120,12 +111,20 @@ export class WebSocketProtocol<S extends WsServiceDefinition = WsServiceDefiniti
 			server.on("connection", (socket) => {
 				const connId = generateId("conn");
 				this.connections.set(connId, socket);
-				this.currentClientSocket = socket;
+
+				// In proxy mode, create dedicated outgoing connection for this client
+				if (this.proxyTargetConfig) {
+					const connectionPromise = this.createProxyClientForSocket(connId, socket).catch(() => {
+						// Connection to backend failed - close incoming socket
+						socket.close();
+					});
+					this.pendingProxyConnections.set(connId, connectionPromise);
+				}
 
 				socket.on("message", async (data) => {
 					try {
 						const message = JSON.parse(data.toString()) as Message;
-						await this.handleIncomingMessage(message, socket);
+						await this.handleIncomingMessage(message, socket, connId);
 					} catch (_err) {
 						// Failed to parse message
 					}
@@ -133,13 +132,12 @@ export class WebSocketProtocol<S extends WsServiceDefinition = WsServiceDefiniti
 
 				socket.on("close", () => {
 					this.connections.delete(connId);
-					if (this.currentClientSocket === socket) {
-						this.currentClientSocket = undefined;
-					}
+					this.removeProxyClient(connId);
 				});
 
 				socket.on("error", () => {
 					this.connections.delete(connId);
+					this.removeProxyClient(connId);
 				});
 			});
 
@@ -151,6 +149,7 @@ export class WebSocketProtocol<S extends WsServiceDefinition = WsServiceDefiniti
 				this.wsServer = server;
 				this.server.isRunning = true;
 				this.server.ref = server;
+				this.serverListenConfig = { host: config.listenAddress.host, port: config.listenAddress.port };
 				resolve();
 			});
 		});
@@ -162,6 +161,7 @@ export class WebSocketProtocol<S extends WsServiceDefinition = WsServiceDefiniti
 	private async handleIncomingMessage(
 		message: Message,
 		clientSocket: WebSocket,
+		connId: string,
 	): Promise<void> {
 		// Try hook-based handlers first
 		if (this.hookRegistry) {
@@ -201,9 +201,12 @@ export class WebSocketProtocol<S extends WsServiceDefinition = WsServiceDefiniti
 			return;
 		}
 
-		// If in proxy mode (client connected to target), forward message
-		if (this.client.isConnected && this.wsClient) {
-			this.sendToSocket(this.wsClient, message);
+		// If in proxy mode, forward message through the dedicated proxy client
+		await this.waitForProxyConnection(connId);
+
+		const proxyClient = this.getProxyClient(connId);
+		if (proxyClient && proxyClient.readyState === WebSocket.OPEN) {
+			this.sendToSocket(proxyClient, message);
 		}
 	}
 
@@ -230,7 +233,7 @@ export class WebSocketProtocol<S extends WsServiceDefinition = WsServiceDefiniti
 			socket.close();
 		}
 		this.connections.clear();
-		this.currentClientSocket = undefined;
+		this.clearProxyState();
 
 		const server = this.wsServer;
 		return new Promise<void>((resolve, reject) => {
@@ -249,8 +252,22 @@ export class WebSocketProtocol<S extends WsServiceDefinition = WsServiceDefiniti
 
 	/**
 	 * Create a WebSocket client connection
+	 * In proxy mode (server already running and connecting to different target), 
+	 * this stores config for per-connection clients.
+	 * In client/loopback mode, this creates a single client connection.
 	 */
 	async createClient(config: ClientProtocolConfig): Promise<void> {
+		if (this.isProxyMode(config)) {
+			this.proxyTargetConfig = config;
+			// Create proxy clients for existing connections
+			for (const [connId, socket] of this.connections.entries()) {
+				await this.createProxyClientForSocket(connId, socket);
+			}
+			this.client.isConnected = true;
+			return;
+		}
+
+		// Client mode (or loopback mode) - create single client connection
 		const protocol = config.tls?.enabled ? "wss" : "ws";
 		const path = config.targetAddress.path || "";
 		const url = `${protocol}://${config.targetAddress.host}:${config.targetAddress.port}${path}`;
@@ -286,6 +303,59 @@ export class WebSocketProtocol<S extends WsServiceDefinition = WsServiceDefiniti
 	}
 
 	/**
+	 * Close a specific proxy client (implements abstract method)
+	 */
+	protected closeProxyClient(client: WebSocket): void {
+		client.close();
+	}
+
+	/**
+	 * Create a proxy client for a specific incoming connection
+	 */
+	private createProxyClientForSocket(connId: string, incomingSocket: WebSocket): Promise<void> {
+		if (!this.proxyTargetConfig) return Promise.resolve();
+
+		const config = this.proxyTargetConfig;
+		const protocol = config.tls?.enabled ? "wss" : "ws";
+		const path = config.targetAddress.path || "";
+		const url = `${protocol}://${config.targetAddress.host}:${config.targetAddress.port}${path}`;
+
+		return new Promise((resolve, reject) => {
+			const proxySocket = new WebSocket(url);
+
+			proxySocket.on("open", () => {
+				this.proxyClients.set(connId, proxySocket);
+
+				// Forward responses back to the linked incoming socket
+				proxySocket.on("message", (data) => {
+					try {
+						const message = JSON.parse(data.toString()) as Message;
+						if (incomingSocket.readyState === WebSocket.OPEN) {
+							this.sendToSocket(incomingSocket, message);
+						}
+					} catch (_err) {
+						// Failed to parse message
+					}
+				});
+
+				proxySocket.on("close", () => {
+					this.proxyClients.delete(connId);
+				});
+
+				proxySocket.on("error", () => {
+					this.proxyClients.delete(connId);
+				});
+
+				resolve();
+			});
+
+			proxySocket.on("error", (err) => {
+				reject(err);
+			});
+		});
+	}
+
+	/**
 	 * Handle incoming message on client
 	 */
 	private async handleClientMessage(data: unknown): Promise<void> {
@@ -298,67 +368,22 @@ export class WebSocketProtocol<S extends WsServiceDefinition = WsServiceDefiniti
 	}
 
 	/**
-	 * Deliver message to client (execute hooks, check pending or queue)
-	 */
-	private async deliverMessageToClient(incomingMessage: Message): Promise<void> {
-		// Execute hooks first
-		let processedMessage = incomingMessage;
-		if (this.hookRegistry) {
-			const hookResult = await this.hookRegistry.executeHooks(incomingMessage);
-			if (hookResult === null) {
-				// Message was dropped by hook
-				return;
-			}
-			processedMessage = hookResult;
-		}
-
-		// Check pending messages
-		for (const [pendingId, pending] of Array.from(this.pendingMessages.entries())) {
-			const types = Array.isArray(pending.messageType)
-				? pending.messageType
-				: [pending.messageType];
-
-			if (types.includes(processedMessage.type)) {
-				if (this.matchesPending(processedMessage, pending)) {
-					clearTimeout(pending.timeout);
-					this.pendingMessages.delete(pendingId);
-					pending.resolve(processedMessage);
-					return;
-				}
-			}
-		}
-
-		// Add to queue if no pending match
-		this.messageQueue.push(processedMessage);
-
-		// In proxy mode, forward to connected clients
-		if (this.server.isRunning && this.currentClientSocket) {
-			this.sendToSocket(this.currentClientSocket, processedMessage);
-		}
-	}
-
-	/**
 	 * Close the WebSocket client
 	 */
 	async closeClient(): Promise<void> {
-		if (!this.wsClient) {
-			return;
+		this.rejectAllPendingMessages(new Error("Client disconnected"));
+		this.closeAllProxyClients();
+		this.proxyTargetConfig = undefined;
+
+		// Close single client
+		if (this.wsClient) {
+			this.wsClient.removeAllListeners();
+			this.wsClient.close();
+			this.wsClient = undefined;
+			this.client.ref = undefined;
 		}
 
-		// Reject all pending messages
-		for (const [, pending] of Array.from(this.pendingMessages.entries())) {
-			clearTimeout(pending.timeout);
-			pending.reject(new Error("Client disconnected"));
-		}
-		this.pendingMessages.clear();
-		this.messageQueue = [];
-
-		// Remove all listeners and close socket
-		this.wsClient.removeAllListeners();
-		this.wsClient.close();
-		this.wsClient = undefined;
 		this.client.isConnected = false;
-		this.client.ref = undefined;
 	}
 
 	/**
@@ -429,46 +454,6 @@ export class WebSocketProtocol<S extends WsServiceDefinition = WsServiceDefiniti
 				timeout: timeoutHandle,
 			});
 		});
-	}
-
-	/**
-	 * Find message in queue
-	 */
-	private findInQueue(
-		types: string[],
-		matcher?: string | ((payload: unknown) => boolean),
-	): Message | undefined {
-		const index = this.messageQueue.findIndex((msg) => {
-			if (!types.includes(msg.type)) return false;
-
-			if (matcher) {
-				if (typeof matcher === "string") {
-					return msg.traceId === matcher;
-				}
-				return matcher(msg.payload);
-			}
-
-			return true;
-		});
-
-		if (index >= 0) {
-			return this.messageQueue.splice(index, 1)[0];
-		}
-
-		return undefined;
-	}
-
-	/**
-	 * Check if message matches pending request
-	 */
-	private matchesPending(message: Message, pending: PendingMessage): boolean {
-		if (!pending.matcher) return true;
-
-		if (typeof pending.matcher === "string") {
-			return message.traceId === pending.matcher;
-		}
-
-		return pending.matcher(message.payload);
 	}
 
 	/**

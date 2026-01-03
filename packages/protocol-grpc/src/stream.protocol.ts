@@ -19,7 +19,6 @@ import { extractGrpcMetadata } from "./metadata";
 import type {
 	GrpcStreamProtocolOptions,
 	GrpcStreamServiceDefinition,
-	PendingMessage,
 } from "./types";
 
 /**
@@ -60,16 +59,18 @@ export class GrpcStreamProtocol<
 	/** Active stream call */
 	private streamCall?: grpc.ClientDuplexStream<unknown, unknown>;
 
-	/** Pending messages waiting for response */
-	private pendingMessages = new Map<string, PendingMessage>();
-
-	/** Message queue for received messages */
-	private messageQueue: Message[] = [];
-
 	constructor(options: GrpcStreamProtocolOptions = {}) {
 		super();
 		this.protocolOptions = options;
 		this.base = new (class extends GrpcBaseProtocol {})();
+	}
+
+	/**
+	 * Close a specific proxy client (implements abstract method)
+	 * gRPC streaming doesn't use proxy mode, so this is a no-op
+	 */
+	protected closeProxyClient(_client: unknown): void {
+		// No-op for gRPC streaming
 	}
 
 	/**
@@ -383,60 +384,15 @@ export class GrpcStreamProtocol<
 			traceId,
 		};
 
-		let processedMessage = message;
-		if (this.hookRegistry) {
-			const hookResult = await this.hookRegistry.executeHooks(message);
-			if (hookResult === null) {
-				return;
-			}
-			processedMessage = hookResult;
-		}
-
-		// Check pending messages
-		for (const [pendingId, pending] of Array.from(
-			this.pendingMessages.entries(),
-		)) {
-			const types = Array.isArray(pending.messageType)
-				? pending.messageType
-				: [pending.messageType];
-
-			if (types.includes(processedMessage.type)) {
-				if (this.matchesPending(processedMessage, pending)) {
-					clearTimeout(pending.timeout);
-					this.pendingMessages.delete(pendingId);
-					pending.resolve(processedMessage);
-					return;
-				}
-			}
-		}
-
-		this.messageQueue.push(processedMessage);
-	}
-
-	/**
-	 * Check if message matches pending request
-	 */
-	private matchesPending(message: Message, pending: PendingMessage): boolean {
-		if (!pending.matcher) return true;
-
-		if (typeof pending.matcher === "string") {
-			return message.traceId === pending.matcher;
-		}
-
-		return pending.matcher(message.payload);
+		// Use base class method for message delivery
+		await this.deliverMessageToClient(message);
 	}
 
 	/**
 	 * Close a gRPC streaming client
 	 */
 	async closeClient(): Promise<void> {
-		// Reject all pending messages
-		for (const [, pending] of Array.from(this.pendingMessages.entries())) {
-			clearTimeout(pending.timeout);
-			pending.reject(new Error("Client disconnected"));
-		}
-		this.pendingMessages.clear();
-		this.messageQueue = [];
+		this.rejectAllPendingMessages(new Error("Client disconnected"));
 
 		if (this.streamCall) {
 			this.streamCall.end();
@@ -516,32 +472,6 @@ export class GrpcStreamProtocol<
 		});
 	}
 
-	/**
-	 * Find message in queue
-	 */
-	private findInQueue(
-		types: string[],
-		matcher?: string | ((payload: unknown) => boolean),
-	): Message | undefined {
-		const index = this.messageQueue.findIndex((msg) => {
-			if (!types.includes(msg.type)) return false;
-
-			if (matcher) {
-				if (typeof matcher === "string") {
-					return msg.traceId === matcher;
-				}
-				return matcher(msg.payload);
-			}
-
-			return true;
-		});
-
-		if (index >= 0) {
-			return this.messageQueue.splice(index, 1)[0];
-		}
-
-		return undefined;
-	}
 }
 
 /**
