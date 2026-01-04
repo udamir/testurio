@@ -21,8 +21,7 @@ import { DropMessageError } from "../base/base.types";
  */
 export class AsyncClientHookBuilder<
 	TPayload,
-	// @ts-expect-error M is kept for API consistency with AsyncServerHookBuilder
-	M extends Record<string, unknown> = Record<string, unknown>,
+	_M = unknown,
 > {
 	/**
 	 * Create a new async client hook builder.

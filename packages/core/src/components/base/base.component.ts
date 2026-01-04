@@ -44,6 +44,8 @@ export abstract class BaseComponent<
 	protected state: ComponentState = "created";
 	protected error?: Error;
 	protected hookRegistry: HookRegistry;
+	/** Unhandled errors from async handlers */
+	protected unhandledErrors: Error[] = [];
 
 	/** Component name */
 	readonly name: string;
@@ -89,6 +91,35 @@ export abstract class BaseComponent<
 	 */
 	getError(): Error | undefined {
 		return this.error;
+	}
+
+	/**
+	 * Get unhandled errors from async handlers
+	 */
+	getUnhandledErrors(): Error[] {
+		return [...this.unhandledErrors];
+	}
+
+	/**
+	 * Check if there are unhandled errors
+	 */
+	hasUnhandledErrors(): boolean {
+		return this.unhandledErrors.length > 0;
+	}
+
+	/**
+	 * Clear unhandled errors
+	 */
+	clearUnhandledErrors(): void {
+		this.unhandledErrors = [];
+	}
+
+	/**
+	 * Track an unhandled error from async handler
+	 * Called by subclasses when async handlers throw
+	 */
+	protected trackUnhandledError(error: Error): void {
+		this.unhandledErrors.push(error);
 	}
 
 	/**

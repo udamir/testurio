@@ -80,10 +80,15 @@ export class TestScenario<
 
 	/**
 	 * Start all components
-	 * Order: servers first, then clients
+	 * Order: servers first (sequentially to handle dependencies), then clients
+	 * 
+	 * Servers are started sequentially in the order they were defined in config.components because:
+	 * - Proxy servers need their target backend to be ready before accepting connections
+	 * - The user defines components in dependency order (backend before proxy)
 	 */
 	private async startComponents(): Promise<void> {
-		const all = Array.from(this.components.values());
+		// Use original config order to preserve dependency order
+		const all = this.config.components;
 
 		// Include both sync and async server/client types
 		const servers = all.filter(
@@ -93,7 +98,12 @@ export class TestScenario<
 			(c) => c instanceof Client || c instanceof AsyncClient,
 		);
 
-		await Promise.all(servers.map((c) => c.start()));
+		// Start servers sequentially (in config order) to handle dependencies
+		for (const server of servers) {
+			await server.start();
+		}
+		
+		// Clients can start in parallel (they connect to already-running servers)
 		await Promise.all(clients.map((c) => c.start()));
 	}
 

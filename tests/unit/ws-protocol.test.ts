@@ -1,11 +1,13 @@
 /**
- * WebSocket Protocol Tests
+ * WebSocket Protocol Tests (v2)
  *
  * Tests use real WebSocket server and client connections.
+ * Updated for v2 API with connection wrappers.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WebSocketProtocol, type WsServiceDefinition } from "@testurio/protocol-ws";
+import type { IServerConnection, IClientConnection } from "testurio";
 
 // Type-safe WebSocket service definition for tests
 interface TestWsService extends WsServiceDefinition {
@@ -60,25 +62,48 @@ describe("WebSocketProtocol", () => {
 
 	describe("startServer", () => {
 		it("should start server with listen address", async () => {
-			await protocol.startServer({
-				listenAddress: { host: "127.0.0.1", port },
-			});
+			const onConnection = vi.fn();
+			await protocol.startServer(
+				{ listenAddress: { host: "127.0.0.1", port } },
+				onConnection,
+			);
 
 			expect(protocol.server.isRunning).toBe(true);
-			expect(protocol.server.ref).toBeDefined();
+		});
+
+		it("should call onConnection when client connects", async () => {
+			const onConnection = vi.fn();
+			await protocol.startServer(
+				{ listenAddress: { host: "127.0.0.1", port } },
+				onConnection,
+			);
+
+			// Connect a client
+			const clientProtocol = new WebSocketProtocol<TestWsService>();
+			await clientProtocol.connect({ targetAddress: { host: "127.0.0.1", port } });
+
+			// Wait for connection callback
+			await new Promise((r) => setTimeout(r, 50));
+
+			expect(onConnection).toHaveBeenCalledTimes(1);
+			const serverConn = onConnection.mock.calls[0][0] as IServerConnection;
+			expect(serverConn.id).toBeDefined();
+			expect(serverConn.isConnected).toBe(true);
+
+			await clientProtocol.dispose();
 		});
 	});
 
 	describe("stopServer", () => {
 		it("should stop running server", async () => {
-			await protocol.startServer({
-				listenAddress: { host: "127.0.0.1", port },
-			});
+			await protocol.startServer(
+				{ listenAddress: { host: "127.0.0.1", port } },
+				() => {},
+			);
 
 			await protocol.stopServer();
 
 			expect(protocol.server.isRunning).toBe(false);
-			expect(protocol.server.ref).toBeUndefined();
 		});
 
 		it("should handle stopping non-existent server gracefully", async () => {
@@ -87,172 +112,183 @@ describe("WebSocketProtocol", () => {
 		});
 	});
 
-	describe("createClient", () => {
-		it("should create client connection", async () => {
-			await protocol.startServer({
-				listenAddress: { host: "127.0.0.1", port },
-			});
+	describe("connect", () => {
+		it("should return IClientConnection", async () => {
+			await protocol.startServer(
+				{ listenAddress: { host: "127.0.0.1", port } },
+				() => {},
+			);
 
-			await protocol.createClient({
+			const clientProtocol = new WebSocketProtocol<TestWsService>();
+			const connection = await clientProtocol.connect({
 				targetAddress: { host: "127.0.0.1", port },
 			});
 
-			expect(protocol.client.isConnected).toBe(true);
-			expect(protocol.client.ref).toBeDefined();
+			expect(connection).toBeDefined();
+			expect(connection.id).toBeDefined();
+			expect(connection.isConnected).toBe(true);
+			expect(typeof connection.sendMessage).toBe("function");
+			expect(typeof connection.onEvent).toBe("function");
+
+			await clientProtocol.dispose();
 		});
 	});
 
-	describe("closeClient", () => {
-		it("should close client connection", async () => {
-			await protocol.startServer({
-				listenAddress: { host: "127.0.0.1", port },
-			});
+	describe("connection.sendMessage", () => {
+		it("should send message to server", async () => {
+			const receivedMessages: unknown[] = [];
 
-			await protocol.createClient({
+			await protocol.startServer(
+				{ listenAddress: { host: "127.0.0.1", port } },
+				(serverConn) => {
+					serverConn.onMessage((message) => {
+						if (message.type === "TestMessage") {
+							receivedMessages.push(message.payload);
+						}
+					});
+				},
+			);
+
+			const clientProtocol = new WebSocketProtocol<TestWsService>();
+			const clientConn = await clientProtocol.connect({
 				targetAddress: { host: "127.0.0.1", port },
 			});
 
-			await protocol.closeClient();
+			await clientConn.sendMessage("TestMessage", { data: "hello" });
 
-			expect(protocol.client.isConnected).toBe(false);
-			expect(protocol.client.ref).toBeUndefined();
-		});
+			// Wait for message to be processed
+			await new Promise((r) => setTimeout(r, 50));
 
-		it("should handle closing non-existent client gracefully", async () => {
-			// Should not throw
-			await protocol.closeClient();
+			expect(receivedMessages).toHaveLength(1);
+			expect(receivedMessages[0]).toEqual({ data: "hello" });
+
+			await clientProtocol.dispose();
 		});
 	});
 
-	describe("sendMessage", () => {
-		it("should throw when client not connected", async () => {
-			await expect(protocol.sendMessage("TestMessage", { data: "test" }))
-				.rejects.toThrow("Client not connected");
-		});
+	describe("connection.onEvent", () => {
+		it("should receive events from server", async () => {
+			let serverConnection: IServerConnection | undefined;
 
-		it("should send message successfully", async () => {
-			await protocol.startServer({
-				listenAddress: { host: "127.0.0.1", port },
-			});
-			await protocol.createClient({
+			await protocol.startServer(
+				{ listenAddress: { host: "127.0.0.1", port } },
+				(conn) => {
+					serverConnection = conn;
+				},
+			);
+
+			const clientProtocol = new WebSocketProtocol<TestWsService>();
+			const clientConn = await clientProtocol.connect({
 				targetAddress: { host: "127.0.0.1", port },
 			});
 
-			// Should not throw
-			await protocol.sendMessage("TestMessage", { data: "test" });
-		});
-	});
-
-	describe("waitForMessage", () => {
-		it("should throw when client not connected", async () => {
-			await expect(protocol.waitForMessage("TestMessage"))
-				.rejects.toThrow("Client not connected");
-		});
-
-		it("should timeout when no message received", async () => {
-			await protocol.startServer({
-				listenAddress: { host: "127.0.0.1", port },
+			const receivedEvents: unknown[] = [];
+			clientConn.onEvent((event) => {
+				if (event.type === "TestMessageResponse") {
+					receivedEvents.push(event.payload);
+				}
 			});
 
-			await protocol.createClient({
-				targetAddress: { host: "127.0.0.1", port },
-			});
+			// Wait for connection to be established
+			await new Promise((r) => setTimeout(r, 50));
 
-			await expect(protocol.waitForMessage("TestMessage", undefined, 50))
-				.rejects.toThrow("Timeout waiting for message type: TestMessage");
+			// Server sends event
+			await serverConnection?.sendEvent("TestMessageResponse", { response: "world" });
+
+			// Wait for event to be received
+			await new Promise((r) => setTimeout(r, 50));
+
+			expect(receivedEvents).toHaveLength(1);
+			expect(receivedEvents[0]).toEqual({ response: "world" });
+
+			await clientProtocol.dispose();
 		});
 	});
 
 	describe("message routing", () => {
-		it("should route message to server handler", async () => {
-			await protocol.startServer({
-				listenAddress: { host: "127.0.0.1", port },
-			});
+		it("should route message to server handler and send response", async () => {
+			await protocol.startServer(
+				{ listenAddress: { host: "127.0.0.1", port } },
+				(serverConn) => {
+					serverConn.onMessage(async (message) => {
+						if (message.type === "Ping") {
+							await serverConn.sendEvent("PingResponse", { pong: true });
+						}
+					});
+				},
+			);
 
-			await protocol.createClient({
+			const clientProtocol = new WebSocketProtocol<TestWsService>();
+			const clientConn = await clientProtocol.connect({
 				targetAddress: { host: "127.0.0.1", port },
 			});
 
-			const handlerFn = vi.fn().mockResolvedValue({ response: "ok" });
-			protocol.onMessage("TestRequest", handlerFn);
-
-			// Start waiting for response before sending (response confirms handler was called)
-			const responsePromise = protocol.waitForMessage("TestRequestResponse");
-
-			await protocol.sendMessage("TestRequest", { data: "test" });
-
-			// Wait for response to ensure handler was called
-			await responsePromise;
-
-			expect(handlerFn).toHaveBeenCalledWith({ data: "test" });
-		});
-
-		it("should route response back to client", async () => {
-			await protocol.startServer({
-				listenAddress: { host: "127.0.0.1", port },
+			const receivedResponses: unknown[] = [];
+			clientConn.onEvent((event) => {
+				if (event.type === "PingResponse") {
+					receivedResponses.push(event.payload);
+				}
 			});
 
-			await protocol.createClient({
-				targetAddress: { host: "127.0.0.1", port },
-			});
+			await clientConn.sendMessage("Ping", {});
 
-			protocol.onMessage("Ping", async () => ({ pong: true }));
+			// Wait for response
+			await new Promise((r) => setTimeout(r, 100));
 
-			// Start waiting for response
-			const responsePromise = protocol.waitForMessage("PingResponse");
+			expect(receivedResponses).toHaveLength(1);
+			expect(receivedResponses[0]).toEqual({ pong: true });
 
-			// Send message
-			await protocol.sendMessage("Ping", {});
-
-			const response = await responsePromise;
-			expect(response.payload).toEqual({ pong: true });
+			await clientProtocol.dispose();
 		});
 	});
 
 	describe("dispose", () => {
 		it("should clean up all resources", async () => {
-			await protocol.startServer({
-				listenAddress: { host: "127.0.0.1", port },
-			});
+			await protocol.startServer(
+				{ listenAddress: { host: "127.0.0.1", port } },
+				() => {},
+			);
 
-			await protocol.createClient({
+			const clientProtocol = new WebSocketProtocol<TestWsService>();
+			await clientProtocol.connect({
 				targetAddress: { host: "127.0.0.1", port },
 			});
 
 			await protocol.dispose();
+			await clientProtocol.dispose();
 
 			expect(protocol.server.isRunning).toBe(false);
-			expect(protocol.client.isConnected).toBe(false);
 		});
 	});
 
 	describe("multiple clients", () => {
 		it("should handle multiple clients sending messages simultaneously", async () => {
-			const protocol1 = new WebSocketProtocol<TestWsService>();
-			const protocol2 = new WebSocketProtocol<TestWsService>();
-			const protocol3 = new WebSocketProtocol<TestWsService>();
-
 			const receivedMessages: Array<{ data: string }> = [];
 
-			// Start server
-			await protocol.startServer({
-				listenAddress: { host: "127.0.0.1", port },
-			});
-
-			protocol.onMessage("TestMessage", async (payload) => {
-				receivedMessages.push(payload as { data: string });
-				return { response: `received-${(payload as { data: string }).data}` };
-			});
+			await protocol.startServer(
+				{ listenAddress: { host: "127.0.0.1", port } },
+				(serverConn) => {
+					serverConn.onMessage((message) => {
+						if (message.type === "TestMessage") {
+							receivedMessages.push(message.payload as { data: string });
+						}
+					});
+				},
+			);
 
 			// Connect multiple clients
-			await protocol1.createClient({ targetAddress: { host: "127.0.0.1", port } });
-			await protocol2.createClient({ targetAddress: { host: "127.0.0.1", port } });
-			await protocol3.createClient({ targetAddress: { host: "127.0.0.1", port } });
+			const client1 = new WebSocketProtocol<TestWsService>();
+			const client2 = new WebSocketProtocol<TestWsService>();
+			const client3 = new WebSocketProtocol<TestWsService>();
+
+			const conn1 = await client1.connect({ targetAddress: { host: "127.0.0.1", port } });
+			const conn2 = await client2.connect({ targetAddress: { host: "127.0.0.1", port } });
+			const conn3 = await client3.connect({ targetAddress: { host: "127.0.0.1", port } });
 
 			// Each client sends a message
-			await protocol1.sendMessage("TestMessage", { data: "client1" });
-			await protocol2.sendMessage("TestMessage", { data: "client2" });
-			await protocol3.sendMessage("TestMessage", { data: "client3" });
+			await conn1.sendMessage("TestMessage", { data: "client1" });
+			await conn2.sendMessage("TestMessage", { data: "client2" });
+			await conn3.sendMessage("TestMessage", { data: "client3" });
 
 			// Wait for messages to be processed
 			await new Promise((resolve) => setTimeout(resolve, 100));
@@ -263,78 +299,53 @@ describe("WebSocketProtocol", () => {
 			expect(messages).toContain("client2");
 			expect(messages).toContain("client3");
 
-			await protocol1.dispose();
-			await protocol2.dispose();
-			await protocol3.dispose();
-		});
-
-		it("should route responses to correct clients", async () => {
-			const protocol1 = new WebSocketProtocol<TestWsService>();
-			const protocol2 = new WebSocketProtocol<TestWsService>();
-
-			// Start server
-			await protocol.startServer({
-				listenAddress: { host: "127.0.0.1", port },
-			});
-
-			protocol.onMessage("TestRequest", async (payload) => {
-				const data = (payload as { data: string }).data;
-				return { response: `response-for-${data}` };
-			});
-
-			// Connect clients
-			await protocol1.createClient({ targetAddress: { host: "127.0.0.1", port } });
-			await protocol2.createClient({ targetAddress: { host: "127.0.0.1", port } });
-
-			// Send messages and wait for responses
-			const response1Promise = protocol1.waitForMessage("TestRequestResponse");
-			const response2Promise = protocol2.waitForMessage("TestRequestResponse");
-
-			await protocol1.sendMessage("TestRequest", { data: "msg1" });
-			await protocol2.sendMessage("TestRequest", { data: "msg2" });
-
-			const response1 = await response1Promise;
-			const response2 = await response2Promise;
-
-			// Each client should receive its own response
-			expect((response1.payload as { response: string }).response).toBe("response-for-msg1");
-			expect((response2.payload as { response: string }).response).toBe("response-for-msg2");
-
-			await protocol1.dispose();
-			await protocol2.dispose();
+			await client1.dispose();
+			await client2.dispose();
+			await client3.dispose();
 		});
 
 		it("should handle client disconnection without affecting other clients", async () => {
-			const protocol1 = new WebSocketProtocol<TestWsService>();
-			const protocol2 = new WebSocketProtocol<TestWsService>();
+			const serverConnections: IServerConnection[] = [];
 
-			// Start server
-			await protocol.startServer({
-				listenAddress: { host: "127.0.0.1", port },
-			});
+			await protocol.startServer(
+				{ listenAddress: { host: "127.0.0.1", port } },
+				(conn) => {
+					serverConnections.push(conn);
+					conn.onMessage(async (message) => {
+						if (message.type === "TestRequest") {
+							const data = (message.payload as { data: string }).data;
+							await conn.sendEvent("TestRequestResponse", { response: `response-for-${data}` });
+						}
+					});
+				},
+			);
 
-			protocol.onMessage("TestRequest", async (payload) => {
-				const data = (payload as { data: string }).data;
-				return { response: `response-for-${data}` };
-			});
+			const client1 = new WebSocketProtocol<TestWsService>();
+			const client2 = new WebSocketProtocol<TestWsService>();
 
-			// Connect clients
-			await protocol1.createClient({ targetAddress: { host: "127.0.0.1", port } });
-			await protocol2.createClient({ targetAddress: { host: "127.0.0.1", port } });
+			const conn1 = await client1.connect({ targetAddress: { host: "127.0.0.1", port } });
+			const conn2 = await client2.connect({ targetAddress: { host: "127.0.0.1", port } });
 
 			// Disconnect client1
-			await protocol1.closeClient();
+			await conn1.close();
 			await new Promise((resolve) => setTimeout(resolve, 50));
 
 			// client2 should still work
-			const responsePromise = protocol2.waitForMessage("TestRequestResponse");
-			await protocol2.sendMessage("TestRequest", { data: "still-working" });
-			const response = await responsePromise;
+			const receivedResponses: unknown[] = [];
+			conn2.onEvent((event) => {
+				if (event.type === "TestRequestResponse") {
+					receivedResponses.push(event.payload);
+				}
+			});
 
-			expect((response.payload as { response: string }).response).toBe("response-for-still-working");
+			await conn2.sendMessage("TestRequest", { data: "still-working" });
+			await new Promise((resolve) => setTimeout(resolve, 100));
 
-			await protocol1.dispose();
-			await protocol2.dispose();
+			expect(receivedResponses).toHaveLength(1);
+			expect((receivedResponses[0] as { response: string }).response).toBe("response-for-still-working");
+
+			await client1.dispose();
+			await client2.dispose();
 		});
 	});
 });

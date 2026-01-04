@@ -5,7 +5,6 @@
 import { describe, expect, it } from "vitest";
 import type { Hook, Message, PayloadMatcher } from "testurio";
 import {
-	calculateHookScore,
 	matchHook,
 	matchMessageType,
 	matchPayload,
@@ -194,31 +193,4 @@ describe("MessageMatcher", () => {
 		});
 	});
 
-	describe("calculateHookScore", () => {
-		it("should give base score for hook without matcher", () => {
-			const hook = createHook("Order");
-			expect(calculateHookScore(hook)).toBe(20);
-		});
-
-		it("should give lower base score to array of message types", () => {
-			const hook = createHook(["Order", "Trade"]);
-			expect(calculateHookScore(hook)).toBe(10);
-		});
-
-		it("should add traceId matcher score", () => {
-			const hook = createHook("Order", { type: "traceId", value: "trace-123" });
-			expect(calculateHookScore(hook)).toBe(120); // 20 + 100
-		});
-
-		it("should add traceId matcher score (duplicate)", () => {
-			// This test duplicates the traceId test above - keeping for coverage
-			const hook = createHook("Order", { type: "traceId", value: "req-123" });
-			expect(calculateHookScore(hook)).toBe(120); // 20 + 100
-		});
-
-		it("should add function matcher score", () => {
-			const hook = createHook("Order", { type: "function", fn: () => true });
-			expect(calculateHookScore(hook)).toBe(40); // 20 + 20
-		});
-	});
 });

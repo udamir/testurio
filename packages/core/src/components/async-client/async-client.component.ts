@@ -1,13 +1,13 @@
 /**
- * Async Client Component
+ * Async Client Component (v2)
  *
  * Represents a client for async protocols (WebSocket, TCP, gRPC Stream).
- * Unlike the sync Client, this component is designed for message-based
- * bidirectional communication.
+ * Uses connection wrappers for message handling.
  */
 
 import type {
 	IAsyncProtocol,
+	IClientConnection,
 	Address,
 	Message,
 	TlsConfig,
@@ -26,6 +26,8 @@ export interface AsyncClientOptions<A extends IAsyncProtocol = IAsyncProtocol> {
 	targetAddress: Address;
 	/** TLS configuration */
 	tls?: TlsConfig;
+	/** Timeout for establishing connection (ms). Default: 30000 */
+	connectionTimeout?: number;
 }
 
 /**
@@ -46,15 +48,32 @@ export interface AsyncClientOptions<A extends IAsyncProtocol = IAsyncProtocol> {
  * });
  * ```
  */
+/** Pending message request for waitForMessage */
+interface PendingMessage {
+	types: string[];
+	matcher?: (payload: unknown) => boolean;
+	resolve: (message: Message) => void;
+	reject: (error: Error) => void;
+	timeout: ReturnType<typeof setTimeout>;
+}
+
 export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends BaseComponent<P, AsyncClientStepBuilder<P>> {
 
 	private readonly _targetAddress: Address;
 	private readonly _tls?: TlsConfig;
+	private readonly _connectionTimeout: number;
+
+	/** Client connection wrapper */
+	private _connection?: IClientConnection;
+
+	/** Pending messages waiting for response */
+	private pendingMessages: PendingMessage[] = [];
 
 	constructor(name: string, options: AsyncClientOptions<P>) {
 		super(name, options.protocol);
 		this._targetAddress = options.targetAddress;
 		this._tls = options.tls;
+		this._connectionTimeout = options.connectionTimeout ?? 3000;
 	}
 
 	/**
@@ -82,6 +101,13 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 	}
 
 	/**
+	 * Get the client connection
+	 */
+	get connection(): IClientConnection | undefined {
+		return this._connection;
+	}
+
+	/**
 	 * Send a message to server
 	 */
 	async send(message: Message): Promise<void> {
@@ -89,15 +115,15 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 			throw new Error(`AsyncClient ${this.name} is not started`);
 		}
 
-		if (!this.protocol) {
-			throw new Error(`AsyncClient ${this.name} has no protocol`);
+		if (!this._connection) {
+			throw new Error(`AsyncClient ${this.name} has no connection`);
 		}
 
 		// Process message through hooks
 		const processedMessage = await this.hookRegistry.executeHooks(message);
 
-		if (processedMessage && this.protocol.sendMessage) {
-			await this.protocol.sendMessage(
+		if (processedMessage) {
+			await this._connection.sendMessage(
 				processedMessage.type,
 				processedMessage.payload,
 				processedMessage.traceId,
@@ -108,43 +134,86 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 	/**
 	 * Wait for a message from server
 	 */
-	async waitForMessage(
+	waitForMessage(
 		messageType: string | string[],
 		matcher?: (payload: unknown) => boolean,
-		timeout?: number,
+		timeout = 1000,
 	): Promise<Message> {
 		if (!this.isStarted()) {
-			throw new Error(`AsyncClient ${this.name} is not started`);
+			return Promise.reject(new Error(`AsyncClient ${this.name} is not started`));
 		}
 
-		if (!this.protocol) {
-			throw new Error(`AsyncClient ${this.name} has no protocol`);
+		if (!this._connection) {
+			return Promise.reject(new Error(`AsyncClient ${this.name} has no connection`));
 		}
 
-		if (!this.protocol.waitForMessage) {
-			throw new Error(
-				`Protocol for ${this.name} does not support waitForMessage`,
-			);
-		}
+		const types = Array.isArray(messageType) ? messageType : [messageType];
 
-		return this.protocol.waitForMessage(
-			messageType,
-			matcher,
-			timeout,
-		);
+		// Register pending handler - message must arrive after this call
+		return new Promise<Message>((resolve, reject) => {
+			const timeoutHandle = setTimeout(() => {
+				const index = this.pendingMessages.findIndex((p) => p.resolve === resolve);
+				if (index >= 0) {
+					this.pendingMessages.splice(index, 1);
+				}
+				reject(new Error(`Timeout waiting for message type: ${types.join(", ")}`));
+			}, timeout);
+
+			this.pendingMessages.push({
+				types,
+				matcher,
+				resolve,
+				reject,
+				timeout: timeoutHandle,
+			});
+		});
 	}
 
 	/**
 	 * Start the async client
 	 */
 	protected async doStart(): Promise<void> {
-		// Register hook registry with protocol for component-based message handling
-		this.protocol.setHookRegistry(this.hookRegistry);
-
-		// Create client connection
-		await this.protocol.createClient({
+		// Connect with timeout
+		const connectionPromise = this.protocol.connect({
 			targetAddress: this._targetAddress,
 			tls: this._tls,
+		});
+		
+		const timeoutPromise = new Promise<never>((_, reject) =>
+			setTimeout(() => reject(new Error("Connection timeout")), this._connectionTimeout)
+		);
+		
+		this._connection = await Promise.race([connectionPromise, timeoutPromise]);
+
+		// Set up event handler to route through hooks
+		this._connection.onEvent(async (event: Message) => {
+			try {
+				// Process through hooks
+				const processedEvent = await this.hookRegistry.executeHooks(event);
+
+				if (processedEvent) {
+					// Find matching pending handler
+					const pendingIndex = this.pendingMessages.findIndex((pending) => {
+						if (!pending.types.includes(processedEvent.type)) return false;
+						if (!pending.matcher) return true;
+						return pending.matcher(processedEvent.payload);
+					});
+
+					if (pendingIndex >= 0) {
+						const pending = this.pendingMessages.splice(pendingIndex, 1)[0];
+						clearTimeout(pending.timeout);
+						pending.resolve(processedEvent);
+					}
+					// No queue - messages without handlers are discarded
+				}
+			} catch (error) {
+				this.trackUnhandledError(error instanceof Error ? error : new Error(String(error)));
+			}
+		});
+		
+		// Track connection errors
+		this._connection.onError((error) => {
+			this.trackUnhandledError(error);
 		});
 	}
 
@@ -152,7 +221,18 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 	 * Stop the async client
 	 */
 	protected async doStop(): Promise<void> {
-		await this.protocol.closeClient();
+		// Reject all pending messages
+		const error = new Error("Connection closed");
+		for (const pending of this.pendingMessages) {
+			clearTimeout(pending.timeout);
+			pending.reject(error);
+		}
+		this.pendingMessages = [];
+
+		if (this._connection) {
+			await this._connection.close();
+			this._connection = undefined;
+		}
 		await this.protocol.dispose();
 		this.hookRegistry.clear();
 	}

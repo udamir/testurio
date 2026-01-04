@@ -1,11 +1,12 @@
 /**
- * TCP Protocol
+ * TCP Protocol (v2)
  *
  * Implements async bidirectional messaging over TCP.
- * Supports:
- * - Client connections (real TCP sockets)
- * - Mock servers (real TCP servers)
- * - Proxy servers (real TCP proxy)
+ * 
+ * v2 Design:
+ * - Protocol handles transport only (sockets, framing, encoding)
+ * - Connection wrappers handle handler registration and matching
+ * - Components handle hooks, sessions, and business logic
  *
  * @template S - Service definition type with clientMessages/serverMessages
  */
@@ -14,10 +15,12 @@ import type {
 	ClientProtocolConfig,
 	ServerProtocolConfig,
 	IAsyncProtocol,
+	IClientConnection,
+	IServerConnection,
 	Message,
 	SchemaDefinition,
 } from "testurio";
-import { BaseAsyncProtocol, generateId } from "testurio";
+import { BaseAsyncProtocol } from "testurio";
 import type { TcpServiceDefinition, TcpProtocolOptions, ISocket } from "./types";
 import { TcpClient } from "./tcp.client";
 import { TcpServer } from "./tcp.server";
@@ -42,23 +45,25 @@ import { TcpServer } from "./tcp.server";
  * }
  *
  * const protocol = new TcpProtocol<MyTcpService>();
- * const client = new AsyncClient("tcp", { protocol, ... });
- * // client.sendMessage("OrderRequest", { orderId: "123", quantity: 5 }) is now type-safe
+ * 
+ * // Server mode
+ * await protocol.startServer(config, (connection) => {
+ *   connection.onMessage("OrderRequest", undefined, async (payload) => {
+ *     await connection.sendEvent("OrderResponse", { orderId: payload.orderId, status: "ok" });
+ *   });
+ * });
+ * 
+ * // Client mode
+ * const connection = await protocol.connect(config);
+ * connection.onEvent("OrderResponse", undefined, (payload) => console.log(payload));
+ * await connection.sendMessage("OrderRequest", { orderId: "123", quantity: 5 });
  * ```
  */
 export class TcpProtocol<S extends TcpServiceDefinition = TcpServiceDefinition>
-	extends BaseAsyncProtocol<S, TcpClient>
+	extends BaseAsyncProtocol<S, ISocket>
 	implements IAsyncProtocol
 {
 	readonly type = "tcp";
-
-	/** Public server/client handles */
-	public server: { isRunning: boolean } = {
-		isRunning: false,
-	};
-	public client: { isConnected: boolean } = {
-		isConnected: false,
-	};
 
 	/** Protocol options */
 	private protocolOptions: TcpProtocolOptions;
@@ -66,11 +71,15 @@ export class TcpProtocol<S extends TcpServiceDefinition = TcpServiceDefinition>
 	/** Active TCP server */
 	private tcpServer?: TcpServer;
 
-	/** Active TCP client socket (for client mode) */
-	private tcpClient?: TcpClient;
+	/** Raw socket connections map: socketId -> ISocket */
+	private rawConnections = new Map<string, ISocket>();
 
-	/** Server connections map: socketId -> incoming socket */
-	private connections = new Map<string, ISocket>();
+	/** Per-connection handlers for server mode */
+	private connectionHandlers = new Map<string, {
+		onMessage: (message: Message) => void;
+		onClose: () => void;
+		onError: (error: Error) => void;
+	}>();
 
 	constructor(options: TcpProtocolOptions = {}) {
 		super();
@@ -103,45 +112,60 @@ export class TcpProtocol<S extends TcpServiceDefinition = TcpServiceDefinition>
 		};
 	}
 
+	// =========================================================================
+	// IAsyncProtocol Implementation
+	// =========================================================================
+
 	/**
-	 * Start a TCP server (mock mode)
-	 * For proxy mode, AsyncServer will also call createClient() to connect to target
+	 * Start a TCP server
+	 * @param config - Server configuration
+	 * @param onConnection - Callback when client connects
 	 */
-	async startServer(config: ServerProtocolConfig): Promise<void> {
+	async startServer(
+		config: ServerProtocolConfig,
+		onConnection: (connection: IServerConnection) => void,
+	): Promise<void> {
 		this.tcpServer = new TcpServer();
 
 		this.tcpServer.on("connection", (socket) => {
-			this.connections.set(socket.id, socket);
-
-			// In proxy mode, create dedicated outgoing connection for this client
-			if (this.proxyTargetConfig) {
-				const connectionPromise = this.createProxyClientForSocket(socket.id).catch(() => {
-					// Connection to backend failed - close incoming socket
-					socket.close();
-				});
-				this.pendingProxyConnections.set(socket.id, connectionPromise);
-			}
+			// Create connection wrapper and notify component
+			const connection = this.createServerConnection(socket, socket.id);
+			this.rawConnections.set(socket.id, socket);
+			onConnection(connection);
 		});
 
-		this.tcpServer.on("message", async (socket, data) => {
-			try {
-				const str = typeof data === "string" ? data : new TextDecoder().decode(data);
-				const message = JSON.parse(str) as Message;
-				await this.handleIncomingMessage(message, socket);
-			} catch (_err) {
-				// Failed to parse message
+		this.tcpServer.on("message", (socket, data) => {
+			// Dispatch to per-connection handler
+			const handlers = this.connectionHandlers.get(socket.id);
+			if (handlers) {
+				try {
+					const str = typeof data === "string" ? data : new TextDecoder().decode(data);
+					const message = JSON.parse(str) as Message;
+					handlers.onMessage(message);
+				} catch (_err) {
+					// Failed to parse message
+				}
 			}
 		});
 
 		this.tcpServer.on("disconnect", (socket) => {
-			this.connections.delete(socket.id);
-			this.removeProxyClient(socket.id);
+			const handlers = this.connectionHandlers.get(socket.id);
+			if (handlers) {
+				handlers.onClose();
+				this.connectionHandlers.delete(socket.id);
+			}
+			this.rawConnections.delete(socket.id);
 		});
 
-		this.tcpServer.on("error", (_err, socket) => {
+		this.tcpServer.on("error", (err, socket) => {
 			if (socket) {
-				this.connections.delete(socket.id);
-				this.removeProxyClient(socket.id);
+				const handlers = this.connectionHandlers.get(socket.id);
+				if (handlers) {
+					handlers.onError(err);
+					handlers.onClose();
+					this.connectionHandlers.delete(socket.id);
+				}
+				this.rawConnections.delete(socket.id);
 			}
 		});
 
@@ -161,68 +185,98 @@ export class TcpProtocol<S extends TcpServiceDefinition = TcpServiceDefinition>
 		);
 
 		this.server.isRunning = true;
-		this.serverListenConfig = { host: config.listenAddress.host, port: config.listenAddress.port };
 	}
 
 	/**
-	 * Handle incoming message on server
+	 * Stop the TCP server
 	 */
-	private async handleIncomingMessage(
-		message: Message,
-		clientSocket: ISocket,
-	): Promise<void> {
-		// Try hook-based handlers first
-		if (this.hookRegistry) {
-			const hookResult = await this.hookRegistry.executeHooks(message);
-
-			if (hookResult === null) {
-				// Message was dropped by hook
-				return;
-			}
-
-			// Check if hook transformed message into a response
-			if (hookResult.type !== message.type) {
-				await this.sendToSocket(clientSocket, hookResult);
-				return;
-			}
-		}
-
-		// Fall back to direct handlers
-		const handlers = this.messageHandlers.get(message.type);
-
-		if (handlers && handlers.length > 0) {
-			for (const handler of handlers) {
-				try {
-					const result = await handler(message.payload);
-					if (result !== null && result !== undefined) {
-						const responseMessage: Message = {
-							type: `${message.type}Response`,
-							payload: result,
-							traceId: message.traceId,
-						};
-						await this.sendToSocket(clientSocket, responseMessage);
-					}
-				} catch (_error) {
-					// Handler error
-				}
-			}
+	async stopServer(): Promise<void> {
+		if (!this.tcpServer) {
 			return;
 		}
 
-		// If in proxy mode, forward message through the dedicated proxy client
-		await this.waitForProxyConnection(clientSocket.id);
-
-		const proxyClient = this.getProxyClient(clientSocket.id);
-		if (proxyClient) {
-			await this.sendToProxyClient(proxyClient, message);
-		}
+		await this.tcpServer.close();
+		this.rawConnections.clear();
+		this.tcpServer = undefined;
+		this.server.isRunning = false;
 	}
 
 	/**
-	 * Send message to socket
+	 * Connect to a TCP server as a client
+	 * @param config - Client configuration
+	 * @returns IClientConnection for communicating with server
 	 */
-	private async sendToSocket(socket: ISocket, message: Message): Promise<void> {
-		if (!socket.connected) return;
+	async connect(config: ClientProtocolConfig): Promise<IClientConnection> {
+		const tcpClient = new TcpClient();
+
+		await tcpClient.connect(
+			config.targetAddress.host,
+			config.targetAddress.port,
+			{
+				timeout: this.protocolOptions.timeout,
+				lengthFieldLength: this.protocolOptions.lengthFieldLength ?? 0,
+				maxLength: this.protocolOptions.maxLength,
+				encoding: this.protocolOptions.lengthFieldLength ? "binary" : "utf-8",
+				delimiter: this.protocolOptions.delimiter ?? "\n",
+				tls: config.tls?.enabled ?? this.protocolOptions.tls,
+				serverName: this.protocolOptions.serverName,
+				insecureSkipVerify: this.protocolOptions.insecureSkipVerify,
+			},
+		);
+
+		this.client.isConnected = true;
+
+		// Create a mutable socket state wrapper for TcpClient
+		const socketState = { connected: true };
+		const socketWrapper: ISocket = {
+			id: `client-${Date.now()}`,
+			remoteAddress: config.targetAddress.host,
+			remotePort: config.targetAddress.port,
+			get connected() { return socketState.connected; },
+			close: () => tcpClient.close(),
+			send: (data) => tcpClient.send(data),
+			write: (data) => tcpClient.write(data),
+		};
+
+		const connection = this.createClientConnection(socketWrapper);
+
+		// Setup TcpClient event handlers to dispatch to connection wrapper
+		tcpClient.on("message", (data) => {
+			try {
+				const str = typeof data === "string" ? data : new TextDecoder().decode(data);
+				const message = JSON.parse(str) as Message;
+				connection._dispatchEvent(message);
+			} catch (_err) {
+				// Failed to parse message
+			}
+		});
+
+		tcpClient.on("error", (err) => {
+			this.client.isConnected = false;
+			socketState.connected = false;
+			connection._notifyError(err);
+		});
+
+		tcpClient.on("end", () => {
+			this.client.isConnected = false;
+			socketState.connected = false;
+			connection._notifyClose();
+		});
+
+		return connection;
+	}
+
+	// =========================================================================
+	// Abstract Method Implementations (Protocol-Specific)
+	// =========================================================================
+
+	/**
+	 * Send message through TCP socket
+	 */
+	protected async sendToSocket(socket: ISocket, message: Message): Promise<void> {
+		if (!socket.connected) {
+			throw new Error("Socket is not connected");
+		}
 
 		const json = JSON.stringify(message);
 
@@ -238,257 +292,44 @@ export class TcpProtocol<S extends TcpServiceDefinition = TcpServiceDefinition>
 	}
 
 	/**
-	 * Stop the TCP server
+	 * Close a TCP socket
 	 */
-	async stopServer(): Promise<void> {
-		if (!this.tcpServer) {
-			return;
-		}
-
-		await this.tcpServer.close();
-		this.connections.clear();
-		this.clearProxyState();
-		this.tcpServer = undefined;
-		this.server.isRunning = false;
+	protected async closeSocket(socket: ISocket): Promise<void> {
+		socket.close();
 	}
 
 	/**
-	 * Create a TCP client connection
-	 * In proxy mode (server already running and connecting to different target),
-	 * this stores config for per-connection clients.
-	 * In client/loopback mode, this creates a single client connection.
+	 * Check if TCP socket is connected
 	 */
-	async createClient(config: ClientProtocolConfig): Promise<void> {
-		if (this.isProxyMode(config)) {
-			this.proxyTargetConfig = config;
-			// Create proxy clients for existing connections
-			for (const socketId of this.connections.keys()) {
-				await this.createProxyClientForSocket(socketId);
-			}
-			this.client.isConnected = true;
-			return;
-		}
-
-		// Client mode - create single client connection
-		this.tcpClient = new TcpClient();
-
-		this.tcpClient.on("message", (data) => {
-			try {
-				const str = typeof data === "string" ? data : new TextDecoder().decode(data);
-				const message = JSON.parse(str) as Message;
-				this.deliverMessageToClient(message);
-			} catch (_err) {
-				// Failed to parse client message
-			}
-		});
-
-		this.tcpClient.on("error", () => {
-			this.client.isConnected = false;
-		});
-
-		this.tcpClient.on("end", () => {
-			this.client.isConnected = false;
-		});
-
-		await this.tcpClient.connect(
-			config.targetAddress.host,
-			config.targetAddress.port,
-			{
-				timeout: this.protocolOptions.timeout,
-				lengthFieldLength: this.protocolOptions.lengthFieldLength ?? 0,
-				maxLength: this.protocolOptions.maxLength,
-				encoding: this.protocolOptions.lengthFieldLength ? "binary" : "utf-8",
-				delimiter: this.protocolOptions.delimiter ?? "\n",
-				tls: this.protocolOptions.tls,
-				serverName: this.protocolOptions.serverName,
-				insecureSkipVerify: this.protocolOptions.insecureSkipVerify,
-			},
-		);
-
-		this.client.isConnected = true;
+	protected isSocketConnected(socket: ISocket): boolean {
+		return socket.connected;
 	}
 
 	/**
-	 * Close a specific proxy client (implements abstract method)
+	 * Setup TCP socket event handlers
+	 * Note: For server sockets, handlers are stored per-connection and dispatched from global handlers.
+	 * For client connections, handlers are set up in connect() method directly on TcpClient.
 	 */
-	protected closeProxyClient(client: TcpClient): void {
-		client.close();
-	}
-
-	/**
-	 * Create a proxy client for a specific incoming connection
-	 */
-	private async createProxyClientForSocket(socketId: string): Promise<void> {
-		if (!this.proxyTargetConfig) return;
-
-		const proxyClient = new TcpClient();
-		const incomingSocket = this.connections.get(socketId);
-
-		proxyClient.on("message", async (data) => {
-			try {
-				const str = typeof data === "string" ? data : new TextDecoder().decode(data);
-				const message = JSON.parse(str) as Message;
-				// Forward response back to the linked incoming socket
-				if (incomingSocket?.connected) {
-					await this.sendToSocket(incomingSocket, message);
-				}
-			} catch (_err) {
-				// Failed to parse message
-			}
-		});
-
-		proxyClient.on("error", () => {
-			this.proxyClients.delete(socketId);
-		});
-
-		proxyClient.on("end", () => {
-			this.proxyClients.delete(socketId);
-		});
-
-		await proxyClient.connect(
-			this.proxyTargetConfig.targetAddress.host,
-			this.proxyTargetConfig.targetAddress.port,
-			{
-				timeout: this.protocolOptions.timeout,
-				lengthFieldLength: this.protocolOptions.lengthFieldLength ?? 0,
-				maxLength: this.protocolOptions.maxLength,
-				encoding: this.protocolOptions.lengthFieldLength ? "binary" : "utf-8",
-				delimiter: this.protocolOptions.delimiter ?? "\n",
-				tls: this.proxyTargetConfig.tls?.enabled,
-				serverName: this.protocolOptions.serverName,
-				insecureSkipVerify: this.protocolOptions.insecureSkipVerify,
-			},
-		);
-
-		this.proxyClients.set(socketId, proxyClient);
-	}
-
-	/**
-	 * Send message through a proxy client (protocol-specific framing)
-	 */
-	private async sendToProxyClient(proxyClient: TcpClient, message: Message): Promise<void> {
-		const json = JSON.stringify(message);
-
-		if (this.protocolOptions.lengthFieldLength) {
-			const data = new TextEncoder().encode(json);
-			await proxyClient.send(data);
-		} else {
-			const data = new TextEncoder().encode(json + this.delimiter);
-			await proxyClient.write(data);
+	protected setupSocketHandlers(
+		socket: ISocket,
+		handlers: {
+			onMessage: (message: Message) => void;
+			onClose: () => void;
+			onError: (error: Error) => void;
+		},
+	): void {
+		// For server connections, store handlers per-connection
+		// The global handlers in startServer() will dispatch to these
+		if (this.tcpServer) {
+			this.connectionHandlers.set(socket.id, handlers);
 		}
-	}
-
-	/**
-	 * Close the TCP client
-	 */
-	async closeClient(): Promise<void> {
-		this.rejectAllPendingMessages(new Error("Client disconnected"));
-		this.closeAllProxyClients();
-		this.proxyTargetConfig = undefined;
-
-		// Close single client
-		if (this.tcpClient) {
-			this.tcpClient.close();
-			this.tcpClient = undefined;
-		}
-
-		this.client.isConnected = false;
-	}
-
-	/**
-	 * Send message from client
-	 */
-	async sendMessage<T = unknown>(
-		messageType: string,
-		payload: T,
-		traceId?: string,
-	): Promise<void> {
-		if (!this.tcpClient) {
-			throw new Error("Client not connected");
-		}
-
-		if (!this.client.isConnected) {
-			throw new Error("Client is not connected");
-		}
-
-		const message: Message = {
-			type: messageType,
-			payload,
-			traceId: traceId || generateId(messageType),
-		};
-
-		await this.sendToClient(message);
-	}
-
-	/**
-	 * Send message to client socket
-	 */
-	private async sendToClient(message: Message): Promise<void> {
-		if (!this.tcpClient) return;
-
-		const json = JSON.stringify(message);
-
-		if (this.protocolOptions.lengthFieldLength) {
-			// Binary mode - use framed send
-			const data = new TextEncoder().encode(json);
-			await this.tcpClient.send(data);
-		} else {
-			// Text mode - add delimiter
-			const data = new TextEncoder().encode(json + this.delimiter);
-			await this.tcpClient.write(data);
-		}
-	}
-
-	/**
-	 * Wait for message on client
-	 */
-	async waitForMessage<T = unknown>(
-		messageType: string | string[],
-		matcher?: string | ((payload: T) => boolean),
-		timeout = 30000,
-	): Promise<Message> {
-		if (!this.tcpClient) {
-			throw new Error("Client not connected");
-		}
-
-		if (!this.client.isConnected) {
-			throw new Error("Client is not connected");
-		}
-
-		// Check message queue first
-		const types = Array.isArray(messageType) ? messageType : [messageType];
-		const queuedMessage = this.findInQueue(
-			types,
-			matcher as string | ((payload: unknown) => boolean) | undefined,
-		);
-		if (queuedMessage) {
-			return queuedMessage;
-		}
-
-		// Wait for message
-		return new Promise<Message>((resolve, reject) => {
-			const pendingId = generateId("pending");
-
-			const timeoutHandle = setTimeout(() => {
-				this.pendingMessages.delete(pendingId);
-				reject(new Error(`Timeout waiting for message type: ${types.join(", ")}`));
-			}, timeout);
-
-			this.pendingMessages.set(pendingId, {
-				resolve,
-				reject,
-				messageType,
-				matcher: matcher as string | ((payload: unknown) => boolean) | undefined,
-				timeout: timeoutHandle,
-			});
-		});
+		// For client connections, handlers are set up in connect() method directly on TcpClient
 	}
 
 	/**
 	 * Dispose protocol and release all resources
 	 */
 	override async dispose(): Promise<void> {
-		await this.closeClient();
 		await this.stopServer();
 		await super.dispose();
 	}

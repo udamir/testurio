@@ -128,10 +128,7 @@ export class Client<P extends ISyncProtocol = ISyncProtocol> extends BaseCompone
 	 * Connect to target server
 	 */
 	protected async doStart(): Promise<void> {
-		// Register hook registry with protocol for component-based message handling
-		this.protocol.setHookRegistry(this.hookRegistry);
-
-		// Create client - protocol already has protocol configuration
+		// Create client connection
 		await this.protocol.createClient({
 			targetAddress: this._targetAddress,
 			tls: this._tls,

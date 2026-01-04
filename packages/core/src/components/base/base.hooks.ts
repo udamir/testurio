@@ -8,10 +8,9 @@ import type { Message } from "../../protocols/base";
 import type {
 	Hook,
 	HookExecutionResult,
-	HookMatchResult,
 } from "./base.types";
 import { DropMessageError, HookError } from "./base.types";
-import { calculateHookScore, matchHook } from "./message-matcher";
+import { matchHook } from "./message-matcher";
 
 /**
  * Hook Registry - manages all registered hooks
@@ -39,62 +38,35 @@ export class HookRegistry {
 	}
 
 	/**
-	 * Find all hooks matching a message
-	 */
-	findMatchingHooks<T>(message: Message<T>): HookMatchResult<T>[] {
-		const matches: HookMatchResult<T>[] = [];
-
-		for (const hook of this.hooks as Hook<T>[]) {
-			if (matchHook(hook, message)) {
-				matches.push({
-					hook,
-					message,
-					score: calculateHookScore(hook),
-				});
-			}
-		}
-
-		// Sort by score (highest first) for prioritization
-		return matches.sort((a, b) => b.score - a.score);
-	}
-
-	/**
 	 * Execute all matching hooks for a message
 	 * Returns transformed message or null if dropped
 	 */
 	async executeHooks<T, R = T>(message: Message<T>): Promise<Message<T | R> | null> {
-		const matches = this.findMatchingHooks(message);
+		const matchingHooks = (this.hooks as Hook<T>[]).filter((hook) => matchHook(hook, message));
 
-		if (matches.length === 0) {
-			// No hooks matched - return original message
+		if (matchingHooks.length === 0) {
 			return message;
 		}
 
 		let currentMessage = message;
-		const executionResults: HookExecutionResult<T>[] = [];
 
-		// Execute all matching hooks in order
-		for (const match of matches) {
+		for (const hook of matchingHooks) {
 			try {
-				const result = await this.executeHook(match.hook, currentMessage);
-				executionResults.push(result);
+				const result = await this.executeHook(hook, currentMessage);
 
 				if (result.transformedMessage === null) {
-					// Message was dropped
 					return null;
 				}
 
 				currentMessage = result.transformedMessage;
 			} catch (error) {
 				if (error instanceof DropMessageError) {
-					// Message intentionally dropped
 					return null;
 				}
 
-				// Hook execution failed
 				throw new HookError(
-					`Hook execution failed: ${match.hook.id}`,
-					match.hook.id,
+					`Hook execution failed: ${hook.id}`,
+					hook.id,
 					error as Error,
 				);
 			}

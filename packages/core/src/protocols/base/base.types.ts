@@ -227,7 +227,6 @@ export interface ISyncProtocol<T extends SyncOperations<T> = SyncOperations, TRe
 	readonly type: string;
 
 	loadSchema?(schemaPath: string | string[]): Promise<SchemaDefinition>;
-	setHookRegistry(registry: IHookRegistry): void;
 
 	client: ClientInstance;
 	server: ServerInstance;
@@ -299,7 +298,6 @@ export interface IAsyncProtocol<M extends AsyncMessages = AsyncMessages> {
 	readonly $types: M;
 	readonly type: string;
 	loadSchema?(schemaPath: string | string[]): Promise<SchemaDefinition>;
-	setHookRegistry(registry: IHookRegistry): void;
 	dispose(): Promise<void>;
 
 	/**
@@ -315,20 +313,29 @@ export interface IAsyncProtocol<M extends AsyncMessages = AsyncMessages> {
 	/**
 	 * Create a client connection
 	 */
-	connect(config: ClientProtocolConfig): Promise<IServerConnection>;
+	connect(config: ClientProtocolConfig): Promise<IClientConnection>;
 }
 
-export interface IClientConnection  {
-	/**
-	 * Register message handler for server/proxy
-	 */
-	onMessage<T = unknown>(
-		messageType: string,
-		handler: MessageHandler<T>,
-	): void;
+/**
+ * Client-side connection interface
+ * 
+ * Used by:
+ * - AsyncClient to communicate with servers
+ * - AsyncServer (proxy mode) to communicate with backend (as "outgoing")
+ * 
+ * Terminology:
+ * - sendMessage(): Client sends request/command to server
+ * - onEvent(): Client receives push/response from server
+ */
+export interface IClientConnection {
+	/** Unique connection identifier */
+	readonly id: string;
+
+	/** Whether connection is active */
+	readonly isConnected: boolean;
 
 	/**
-	 * Send message from client
+	 * Send a message to the server
 	 */
 	sendMessage<T = unknown>(
 		messageType: string,
@@ -337,34 +344,67 @@ export interface IClientConnection  {
 	): Promise<void>;
 
 	/**
-	 * Wait for message on client
+	 * Register handler for ALL incoming events from server
+	 * Single handler receives full Message object for component-level matching
+	 * @param handler - Handler called for every event
 	 */
-	waitForMessage<T = unknown>(
-		messageType: string | string[],
-		matcher?: string | ((payload: T) => boolean),
-		timeout?: number,
-	): Promise<Message>;
-
-	close(): Promise<void>;
-
-	onClose(handler: () => void): void;
-}
-
-export interface IServerConnection {
 	onEvent<T = unknown>(
-		eventType: string,
-		handler: MessageHandler<T>,
+		handler: (event: Message<T>) => void | Promise<void>,
 	): void;
 
+	/** Close the connection */
+	close(): Promise<void>;
+
+	/** Register close handler */
+	onClose(handler: () => void): void;
+
+	/** Register error handler */
+	onError(handler: (error: Error) => void): void;
+}
+
+/**
+ * Server-side connection interface
+ * 
+ * Used by:
+ * - AsyncServer to handle incoming client connections (as "incoming")
+ * 
+ * Terminology:
+ * - onMessage(): Server receives request/command from client
+ * - sendEvent(): Server sends push/response to client
+ */
+export interface IServerConnection {
+	/** Unique connection identifier */
+	readonly id: string;
+
+	/** Whether connection is active */
+	readonly isConnected: boolean;
+
+	/**
+	 * Register handler for ALL incoming messages from client
+	 * Single handler receives full Message object for component-level matching
+	 * @param handler - Handler called for every message
+	 */
+	onMessage<T = unknown>(
+		handler: (message: Message<T>) => void | Promise<void>,
+	): void;
+
+	/**
+	 * Send an event to the client
+	 */
 	sendEvent<T = unknown>(
 		eventType: string,
 		payload: T,
 		traceId?: string,
 	): Promise<void>;
 
+	/** Close the connection */
 	close(): Promise<void>;
 
+	/** Register close handler */
 	onClose(handler: () => void): void;
+
+	/** Register error handler */
+	onError(handler: (error: Error) => void): void;
 }
 
 /**
@@ -434,18 +474,3 @@ export type ClientMessages<M> = M extends { clientMessages: infer C }
 export type ServerMessages<M> = M extends { serverMessages: infer S }
 	? S
 	: Record<string, unknown>;
-
-// =============================================================================
-// Async Protocol Common Types
-// =============================================================================
-
-/**
- * Pending message waiting for response (used by async protocols)
- */
-export interface PendingMessage {
-	resolve: (message: Message) => void;
-	reject: (error: Error) => void;
-	messageType: string | string[];
-	matcher?: string | ((payload: unknown) => boolean);
-	timeout: ReturnType<typeof setTimeout>;
-}

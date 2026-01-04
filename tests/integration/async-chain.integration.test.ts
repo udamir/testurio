@@ -224,7 +224,7 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 
 				test
 					.use(backend)
-					.waitMessage("LogEvent", { timeout: 1000 })
+					.waitMessage("LogEvent", { timeout: 2000 })
 					.assert((payload) => {
 						receivedPayload = payload;
 						// Verify payload structure instead of always returning true

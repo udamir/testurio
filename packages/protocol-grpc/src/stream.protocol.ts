@@ -10,6 +10,8 @@ import type {
 	ClientProtocolConfig,
 	ServerProtocolConfig,
 	IAsyncProtocol,
+	IClientConnection,
+	IServerConnection,
 	Message,
 	SchemaDefinition,
 } from "testurio";
@@ -21,6 +23,13 @@ import type {
 	GrpcStreamServiceDefinition,
 } from "./types";
 
+/** Socket-like wrapper for gRPC stream */
+interface GrpcStreamSocket {
+	id: string;
+	connected: boolean;
+	call: grpc.ServerDuplexStream<unknown, unknown> | grpc.ClientDuplexStream<unknown, unknown>;
+}
+
 /**
  * gRPC Stream Protocol
  *
@@ -31,18 +40,10 @@ import type {
 export class GrpcStreamProtocol<
 		S extends GrpcStreamServiceDefinition = GrpcStreamServiceDefinition,
 	>
-	extends BaseAsyncProtocol<S>
+	extends BaseAsyncProtocol<S, GrpcStreamSocket>
 	implements IAsyncProtocol
 {
 	readonly type = "grpc-stream";
-
-	/** Public server/client handles */
-	public server: { isRunning: boolean; ref?: grpc.Server } = {
-		isRunning: false,
-	};
-	public client: { isConnected: boolean; ref?: grpc.Client } = {
-		isConnected: false,
-	};
 
 	/** Protocol options */
 	private protocolOptions: GrpcStreamProtocolOptions;
@@ -56,21 +57,13 @@ export class GrpcStreamProtocol<
 	/** Active gRPC client instance */
 	private grpcClient?: grpc.Client;
 
-	/** Active stream call */
-	private streamCall?: grpc.ClientDuplexStream<unknown, unknown>;
+	/** onConnection callback for server mode */
+	private onConnectionCallback?: (connection: IServerConnection) => void;
 
 	constructor(options: GrpcStreamProtocolOptions = {}) {
 		super();
 		this.protocolOptions = options;
 		this.base = new (class extends GrpcBaseProtocol {})();
-	}
-
-	/**
-	 * Close a specific proxy client (implements abstract method)
-	 * gRPC streaming doesn't use proxy mode, so this is a no-op
-	 */
-	protected closeProxyClient(_client: unknown): void {
-		// No-op for gRPC streaming
 	}
 
 	/**
@@ -89,10 +82,21 @@ export class GrpcStreamProtocol<
 		return this.base.getServiceClient(serviceName);
 	}
 
+	// =========================================================================
+	// IAsyncProtocol Implementation
+	// =========================================================================
+
 	/**
 	 * Start a gRPC streaming server
+	 * @param config - Server configuration
+	 * @param onConnection - Callback when client connects
 	 */
-	async startServer(config: ServerProtocolConfig): Promise<void> {
+	async startServer(
+		config: ServerProtocolConfig,
+		onConnection: (connection: IServerConnection) => void,
+	): Promise<void> {
+		this.onConnectionCallback = onConnection;
+
 		// Auto-load schema from options if not already loaded
 		if (!this.base.getServiceClient("") && this.protocolOptions.schema) {
 			await this.loadSchema(this.protocolOptions.schema);
@@ -135,141 +139,6 @@ export class GrpcStreamProtocol<
 	}
 
 	/**
-	 * Create server credentials from TLS config
-	 */
-	private createServerCredentials(tls?: ServerProtocolConfig["tls"]): grpc.ServerCredentials {
-		if (tls) {
-			return grpc.ServerCredentials.createSsl(
-				tls.ca ? Buffer.from(tls.ca) : null,
-				tls.cert && tls.key
-					? [
-							{
-								cert_chain: Buffer.from(tls.cert),
-								private_key: Buffer.from(tls.key),
-							},
-						]
-					: [],
-			);
-		}
-		return grpc.ServerCredentials.createInsecure();
-	}
-
-	/**
-	 * Create streaming service implementation
-	 */
-	private createStreamServiceImplementation(
-		serviceDefinition: grpc.ServiceDefinition,
-	): grpc.UntypedServiceImplementation {
-		const implementation: grpc.UntypedServiceImplementation = {};
-
-		for (const [methodName, methodDefinition] of Object.entries(
-			serviceDefinition,
-		)) {
-			if (methodDefinition.requestStream && methodDefinition.responseStream) {
-				// Bidirectional streaming
-				implementation[methodName] = this.createBidiStreamHandler(methodName);
-			} else if (
-				!methodDefinition.requestStream &&
-				!methodDefinition.responseStream
-			) {
-				// Unary (fallback)
-				implementation[methodName] = this.createUnaryHandler(methodName);
-			}
-		}
-
-		return implementation;
-	}
-
-	/**
-	 * Create bidirectional stream handler
-	 */
-	private createBidiStreamHandler(
-		methodName: string,
-	): grpc.handleBidiStreamingCall<unknown, unknown> {
-		return (call) => {
-			// Extract metadata for potential future use
-			extractGrpcMetadata(call.metadata);
-
-			call.on("data", async (request: unknown) => {
-				const requestObj = request as Record<string, unknown>;
-				const messageType = (requestObj.message_type as string) || methodName;
-				const traceId = generateId(messageType);
-
-				// Try hook-based handlers first
-				if (this.hookRegistry) {
-					const message: Message = {
-						type: messageType,
-						payload: request,
-						traceId,
-					};
-
-					const hookResult = await this.hookRegistry.executeHooks(message);
-
-					if (hookResult === null) {
-						return; // Message dropped
-					}
-
-					if (hookResult.type !== message.type) {
-						call.write(hookResult.payload);
-						return;
-					}
-				}
-
-				// Fall back to message handlers
-				const handlers = this.messageHandlers.get(messageType);
-				if (handlers && handlers.length > 0) {
-					for (const handler of handlers) {
-						try {
-							const result = await handler(request);
-							if (result !== null && result !== undefined) {
-								call.write(result);
-							}
-						} catch (_error) {
-							// Handler error
-						}
-					}
-				}
-			});
-
-			call.on("end", () => {
-				call.end();
-			});
-
-			call.on("error", () => {
-				// Handle error
-			});
-		};
-	}
-
-	/**
-	 * Create unary handler (fallback)
-	 */
-	private createUnaryHandler(
-		methodName: string,
-	): grpc.handleUnaryCall<unknown, unknown> {
-		return async (call, callback) => {
-			const handlers = this.messageHandlers.get(methodName);
-
-			if (handlers && handlers.length > 0) {
-				try {
-					const result = await handlers[0](call.request);
-					callback(null, result);
-				} catch (error) {
-					callback({
-						code: grpc.status.INTERNAL,
-						message: error instanceof Error ? error.message : "Unknown error",
-					});
-				}
-			} else {
-				callback({
-					code: grpc.status.UNIMPLEMENTED,
-					message: `No handler for ${methodName}`,
-				});
-			}
-		};
-	}
-
-	/**
 	 * Stop a gRPC streaming server
 	 */
 	async stopServer(): Promise<void> {
@@ -282,15 +151,18 @@ export class GrpcStreamProtocol<
 			server.tryShutdown(() => {
 				this.grpcServer = undefined;
 				this.server.isRunning = false;
+				this.onConnectionCallback = undefined;
 				resolve();
 			});
 		});
 	}
 
 	/**
-	 * Create a gRPC streaming client
+	 * Connect to a gRPC streaming server as a client
+	 * @param config - Client configuration
+	 * @returns IClientConnection for communicating with server
 	 */
-	async createClient(config: ClientProtocolConfig): Promise<void> {
+	async connect(config: ClientProtocolConfig): Promise<IClientConnection> {
 		// Auto-load schema from options if not already loaded
 		if (!this.base.getServiceClient("") && this.protocolOptions.schema) {
 			await this.loadSchema(this.protocolOptions.schema);
@@ -325,32 +197,128 @@ export class GrpcStreamProtocol<
 			credentials,
 		);
 
-		// If method name is provided, open the stream
-		if (methodName) {
-			const grpcClient = this.grpcClient as unknown as Record<
-				string,
-				() => grpc.ClientDuplexStream<unknown, unknown>
-			>;
-
-			if (typeof grpcClient[methodName] === "function") {
-				const call = grpcClient[methodName]();
-				this.streamCall = call;
-
-				call.on("data", (response: unknown) => {
-					this.handleStreamMessage(response);
-				});
-
-				call.on("error", () => {
-					this.client.isConnected = false;
-				});
-
-				call.on("end", () => {
-					this.client.isConnected = false;
-				});
-			}
+		if (!methodName) {
+			throw new Error("methodName is required in protocol options for streaming");
 		}
 
+		const grpcClient = this.grpcClient as unknown as Record<
+			string,
+			() => grpc.ClientDuplexStream<unknown, unknown>
+		>;
+
+		if (typeof grpcClient[methodName] !== "function") {
+			throw new Error(`Method ${methodName} not found on service`);
+		}
+
+		const call = grpcClient[methodName]();
 		this.client.isConnected = true;
+
+		// Create socket wrapper
+		const socketState = { connected: true };
+		const socket: GrpcStreamSocket = {
+			id: `grpc-client-${Date.now()}`,
+			get connected() { return socketState.connected; },
+			call,
+		};
+
+		const connection = this.createClientConnection(socket);
+
+		// Setup stream event handlers
+		call.on("data", (response: unknown) => {
+			const dataObj = response as Record<string, unknown>;
+			const messageType =
+				(dataObj.message_type as string) || methodName || "unknown";
+			const traceId = generateId(messageType);
+
+			const message: Message = {
+				type: messageType,
+				payload: response,
+				traceId,
+			};
+			connection._dispatchEvent(message);
+		});
+
+		call.on("error", (err) => {
+			this.client.isConnected = false;
+			socketState.connected = false;
+			connection._notifyError(err);
+		});
+
+		call.on("end", () => {
+			this.client.isConnected = false;
+			socketState.connected = false;
+			connection._notifyClose();
+		});
+
+		return connection;
+	}
+
+	// =========================================================================
+	// Abstract Method Implementations (Protocol-Specific)
+	// =========================================================================
+
+	/**
+	 * Send message through gRPC stream
+	 */
+	protected async sendToSocket(socket: GrpcStreamSocket, message: Message): Promise<void> {
+		if (!socket.connected) {
+			throw new Error("Stream is not connected");
+		}
+		socket.call.write(message.payload);
+	}
+
+	/**
+	 * Close a gRPC stream
+	 */
+	protected async closeSocket(socket: GrpcStreamSocket): Promise<void> {
+		socket.call.end();
+	}
+
+	/**
+	 * Check if gRPC stream is connected
+	 */
+	protected isSocketConnected(socket: GrpcStreamSocket): boolean {
+		return socket.connected;
+	}
+
+	/**
+	 * Setup gRPC stream event handlers
+	 * Note: For client streams, handlers are set up in connect() method
+	 */
+	protected setupSocketHandlers(
+		_socket: GrpcStreamSocket,
+		_handlers: {
+			onMessage: (message: Message) => void;
+			onClose: () => void;
+			onError: (error: Error) => void;
+		},
+	): void {
+		// For gRPC, handlers are set up directly on the call object
+		// in createBidiStreamHandler (server) and connect (client)
+	}
+
+	// =========================================================================
+	// Private Helpers
+	// =========================================================================
+
+	/**
+	 * Create server credentials from TLS config
+	 */
+	private createServerCredentials(tls?: ServerProtocolConfig["tls"]): grpc.ServerCredentials {
+		if (tls) {
+			return grpc.ServerCredentials.createSsl(
+				tls.ca ? Buffer.from(tls.ca) : null,
+				tls.cert && tls.key
+					? [
+							{
+								cert_chain: Buffer.from(tls.cert),
+								private_key: Buffer.from(tls.key),
+							},
+						]
+					: [],
+			);
+		}
+		return grpc.ServerCredentials.createInsecure();
 	}
 
 	/**
@@ -368,110 +336,109 @@ export class GrpcStreamProtocol<
 	}
 
 	/**
-	 * Handle incoming stream message
+	 * Create streaming service implementation
 	 */
-	private async handleStreamMessage(data: unknown): Promise<void> {
-		const dataObj = data as Record<string, unknown>;
-		const messageType =
-			(dataObj.message_type as string) ||
-			this.protocolOptions.methodName ||
-			"unknown";
-		const traceId = generateId(messageType);
+	private createStreamServiceImplementation(
+		serviceDefinition: grpc.ServiceDefinition,
+	): grpc.UntypedServiceImplementation {
+		const implementation: grpc.UntypedServiceImplementation = {};
 
-		const message: Message = {
-			type: messageType,
-			payload: data,
-			traceId,
-		};
+		for (const [methodName, methodDefinition] of Object.entries(
+			serviceDefinition,
+		)) {
+			if (methodDefinition.requestStream && methodDefinition.responseStream) {
+				// Bidirectional streaming
+				implementation[methodName] = this.createBidiStreamHandler(methodName);
+			} else if (
+				!methodDefinition.requestStream &&
+				!methodDefinition.responseStream
+			) {
+				// Unary (fallback) - not used in v2 but kept for compatibility
+				implementation[methodName] = this.createUnaryHandler(methodName);
+			}
+		}
 
-		// Use base class method for message delivery
-		await this.deliverMessageToClient(message);
+		return implementation;
 	}
 
 	/**
-	 * Close a gRPC streaming client
+	 * Create bidirectional stream handler
 	 */
-	async closeClient(): Promise<void> {
-		this.rejectAllPendingMessages(new Error("Client disconnected"));
+	private createBidiStreamHandler(
+		methodName: string,
+	): grpc.handleBidiStreamingCall<unknown, unknown> {
+		return (call) => {
+			// Extract metadata for potential future use
+			extractGrpcMetadata(call.metadata);
 
-		if (this.streamCall) {
-			this.streamCall.end();
-			this.streamCall = undefined;
-		}
+			// Create socket wrapper for this stream
+			const socketState = { connected: true };
+			const socket: GrpcStreamSocket = {
+				id: `grpc-server-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+				get connected() { return socketState.connected; },
+				call: call as unknown as grpc.ClientDuplexStream<unknown, unknown>,
+			};
 
+			// Create server connection wrapper
+			const connection = this.createServerConnection(socket, socket.id);
+
+			// Setup stream event handlers
+			call.on("data", (request: unknown) => {
+				const requestObj = request as Record<string, unknown>;
+				const messageType = (requestObj.message_type as string) || methodName;
+				const traceId = generateId(messageType);
+
+				const message: Message = {
+					type: messageType,
+					payload: request,
+					traceId,
+				};
+				connection._dispatchMessage(message);
+			});
+
+			call.on("end", () => {
+				socketState.connected = false;
+				connection._notifyClose();
+			});
+
+			call.on("error", (err) => {
+				socketState.connected = false;
+				connection._notifyError(err);
+			});
+
+			// Notify component of new connection
+			if (this.onConnectionCallback) {
+				this.onConnectionCallback(connection);
+			}
+		};
+	}
+
+	/**
+	 * Create unary handler (fallback for non-streaming methods)
+	 */
+	private createUnaryHandler(
+		methodName: string,
+	): grpc.handleUnaryCall<unknown, unknown> {
+		return async (_call, callback) => {
+			// In v2, unary methods are not supported in stream protocol
+			callback({
+				code: grpc.status.UNIMPLEMENTED,
+				message: `Unary method ${methodName} not supported in stream protocol`,
+			});
+		};
+	}
+
+	/**
+	 * Dispose protocol and release all resources
+	 */
+	override async dispose(): Promise<void> {
 		if (this.grpcClient) {
 			this.grpcClient.close();
 			this.grpcClient = undefined;
 		}
-
-		this.client.isConnected = false;
+		await this.stopServer();
+		await super.dispose();
 	}
-
-	/**
-	 * Send message on stream
-	 */
-	async sendMessage<T = unknown>(
-		_messageType: string,
-		payload: T,
-		_traceId?: string,
-	): Promise<void> {
-		if (!this.client.isConnected) {
-			throw new Error("Client is not connected");
-		}
-
-		if (!this.streamCall) {
-			throw new Error("Client has no active stream");
-		}
-
-		this.streamCall.write(payload);
-	}
-
-	/**
-	 * Wait for message on stream
-	 */
-	async waitForMessage<T = unknown>(
-		messageType: string | string[],
-		matcher?: string | ((payload: T) => boolean),
-		timeout = 30000,
-	): Promise<Message> {
-		if (!this.client.isConnected) {
-			throw new Error("Client is not connected");
-		}
-
-		const types = Array.isArray(messageType) ? messageType : [messageType];
-
-		// Check queue first
-		const queuedMessage = this.findInQueue(
-			types,
-			matcher as string | ((payload: unknown) => boolean) | undefined,
-		);
-		if (queuedMessage) {
-			return queuedMessage;
-		}
-
-		return new Promise<Message>((resolve, reject) => {
-			const pendingId = generateId("pending");
-
-			const timeoutHandle = setTimeout(() => {
-				this.pendingMessages.delete(pendingId);
-				reject(
-					new Error(`Timeout waiting for message type: ${types.join(", ")}`),
-				);
-			}, timeout);
-
-			this.pendingMessages.set(pendingId, {
-				resolve,
-				reject,
-				messageType,
-				matcher: matcher as
-					| string
-					| ((payload: unknown) => boolean)
-					| undefined,
-				timeout: timeoutHandle,
-			});
-		});
-	}
-
 }
 
 /**

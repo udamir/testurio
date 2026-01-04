@@ -153,15 +153,6 @@ export interface SyncHookBuilder<TPayload = unknown, TResponse = unknown>
 // =============================================================================
 
 /**
- * Hook match result
- */
-export interface HookMatchResult<T> {
-	hook: Hook<T>;
-	message: Message<T>;
-	score: number;
-}
-
-/**
  * Hook execution context
  */
 export interface HookExecutionContext<T> {

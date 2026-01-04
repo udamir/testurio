@@ -11,14 +11,16 @@ import type {
 	ClientInstance,
 	ServerProtocolConfig,
 	ServerInstance,
-	MessageHandler,
-	IHookRegistry,
 	SyncRequestCallback,
 	SyncOperations,
 	Message,
-	PendingMessage,
 	AsyncMessages,
+	IClientConnection,
+	IServerConnection,
 } from "./base.types";
+import { ClientConnectionImpl, type ClientConnectionDelegate } from "./client-connection";
+import { ServerConnectionImpl, type ServerConnectionDelegate } from "./server-connection";
+import { generateConnectionId } from "./connection.utils";
 
 
 /**
@@ -30,21 +32,8 @@ import type {
 abstract class BaseProtocol<S = unknown, C = unknown> {
 	abstract readonly type: string;
 
-	/**
-	 * Hook registry for component-based message handling
-	 * Each component owns its own HookRegistry and passes it to its protocol
-	 */
-	protected hookRegistry?: IHookRegistry;
 	protected server: ServerInstance<S> = { isRunning: false };
 	protected client: ClientInstance<C> = { isConnected: false };
-
-	/**
-	 * Set the hook registry for this protocol
-	 * Called by component when protocol is created
-	 */
-	setHookRegistry(registry: IHookRegistry): void {
-		this.hookRegistry = registry;
-	}
 
 	/**
 	 * Load and parse schema files
@@ -59,48 +48,21 @@ abstract class BaseProtocol<S = unknown, C = unknown> {
 	}
 
 	/**
-	 * Start a server (for mocks) or proxy listener
-	 */
-	abstract startServer(config: ServerProtocolConfig): Promise<void>;
-
-	/**
 	 * Stop a server/proxy
 	 */
 	abstract stopServer(): Promise<void>;
 
 	/**
-	 * Create a client connection
-	 */
-	abstract createClient(config: ClientProtocolConfig): Promise<void>;
-
-	/**
-	 * Close a client connection
-	 */
-	abstract closeClient(): Promise<void>;
-
-	/**
 	 * Dispose protocol and release all resources
-	 * Closes all servers, clients, and clears internal state
 	 */
 	async dispose(): Promise<void> {
-		// Stop server
 		try {
 			await this.stopServer();
 		} catch {
 			// Ignore errors during cleanup
 		}
-
-		// Close client
-		try {
-			await this.closeClient();
-		} catch {
-			// Ignore errors during cleanup
-		}
-
-		// Clear all state
 		this.server = { isRunning: false };
 		this.client = { isConnected: false };
-		this.hookRegistry = undefined;
 	}
 }
 
@@ -133,243 +95,194 @@ export abstract class BaseSyncProtocol<T extends SyncOperations<T> = SyncOperati
 /**
  * Base class for async protocol (WebSocket, TCP, gRPC Stream)
  *
- * Provides message handler management for bidirectional message protocols.
- * Use this for protocols with message streams.
+ * Provides common functionality for bidirectional message protocols.
+ * Subclasses implement transport-specific operations.
  * 
- * @template M - Message definition type (message type -> payload or { clientMessage, serverMessage })
- * @template TProxyClient - Type of the outgoing proxy client (e.g., TcpClient, WebSocket)
+ * v2 Design:
+ * - Protocol handles transport only (sockets, framing, encoding)
+ * - Connection wrappers handle handler registration and matching
+ * - Components handle hooks, sessions, and business logic
+ * 
+ * @template M - Message definition type
+ * @template TSocket - Type of the raw socket (e.g., WebSocket, TcpClient)
  */
-export abstract class BaseAsyncProtocol<M extends AsyncMessages = AsyncMessages, TProxyClient = unknown> extends BaseProtocol {
+export abstract class BaseAsyncProtocol<M extends AsyncMessages = AsyncMessages, TSocket = unknown> extends BaseProtocol {
 	/**
 	 * Phantom type property for type inference.
 	 * Used by components to infer message types via ProtocolMessages<A>.
 	 */
 	declare readonly $types: M;
 
-	/**
-	 * Message handlers for servers (async protocols)
-	 */
-	protected messageHandlers = new Map<string, MessageHandler[]>();
-
 	// =========================================================================
-	// Proxy Connection Management
+	// Connection Management (v2)
 	// =========================================================================
 
-	/** Proxy outgoing connections: connectionId -> outgoing client (for proxy mode) */
-	protected proxyClients = new Map<string, TProxyClient>();
+	/** Server connections: connId -> IServerConnection wrapper */
+	protected serverConnections = new Map<string, ServerConnectionImpl>();
 
-	/** Pending proxy connections: connectionId -> Promise (for waiting until connected) */
-	protected pendingProxyConnections = new Map<string, Promise<void>>();
+	/** Client connection (single) */
+	protected clientConnection?: ClientConnectionImpl;
 
-	/** Target config for proxy mode */
-	protected proxyTargetConfig?: ClientProtocolConfig;
+	/** Raw server instance */
+	protected rawServer?: TSocket;
 
-	/** Server listen config (to detect loopback vs proxy mode) */
-	protected serverListenConfig?: { host: string; port: number };
-
-	// =========================================================================
-	// Client Message Management
-	// =========================================================================
-
-	/** Pending messages waiting for response */
-	protected pendingMessages = new Map<string, PendingMessage>();
-
-	/** Message queue for received messages */
-	protected messageQueue: Message[] = [];
-
-	/**
-	 * Register message handler for server/proxy
-	 */
-	onMessage<T = unknown>(
-		messageType: string,
-		handler: MessageHandler<T>,
-	): void {
-		const typeHandlers = this.messageHandlers.get(messageType);
-
-		if (!typeHandlers) {
-			this.messageHandlers.set(messageType, [handler as MessageHandler]);
-		} else {
-			typeHandlers.push(handler as MessageHandler);
-		}
-	}
+	/** Raw client socket */
+	protected rawClientSocket?: TSocket;
 
 	// =========================================================================
-	// Proxy Mode Detection
+	// IAsyncProtocol Implementation
 	// =========================================================================
 
 	/**
-	 * Check if this is proxy mode: server running AND connecting to a different target
+	 * Start server and listen for connections
+	 * @param config - Server configuration
+	 * @param onConnection - Callback when client connects, receives IServerConnection
 	 */
-	protected isProxyMode(targetConfig: ClientProtocolConfig): boolean {
-		return (
-			this.server.isRunning &&
-			!!this.serverListenConfig &&
-			(targetConfig.targetAddress.host !== this.serverListenConfig.host ||
-				targetConfig.targetAddress.port !== this.serverListenConfig.port)
-		);
-	}
+	abstract startServer(
+		config: ServerProtocolConfig,
+		onConnection: (connection: IServerConnection) => void,
+	): Promise<void>;
+
+	/**
+	 * Connect to a server as a client
+	 * @param config - Client configuration
+	 * @returns IClientConnection for communicating with server
+	 */
+	abstract connect(config: ClientProtocolConfig): Promise<IClientConnection>;
 
 	// =========================================================================
-	// Client Message Delivery
+	// Connection Wrapper Factory Methods
 	// =========================================================================
 
 	/**
-	 * Deliver message to client (execute hooks, check pending or queue)
-	 * Called by subclasses when a message is received on the client
+	 * Create a server connection wrapper for an incoming client
+	 * Called by subclasses when a new client connects
 	 */
-	protected async deliverMessageToClient(incomingMessage: Message): Promise<void> {
-		// Execute hooks first
-		let processedMessage = incomingMessage;
-		if (this.hookRegistry) {
-			const hookResult = await this.hookRegistry.executeHooks(incomingMessage);
-			if (hookResult === null) {
-				// Message was dropped by hook
-				return;
-			}
-			processedMessage = hookResult;
-		}
+	protected createServerConnection(
+		socket: TSocket,
+		connId?: string,
+	): ServerConnectionImpl {
+		const id = connId ?? generateConnectionId("server");
+		
+		const delegate: ServerConnectionDelegate = {
+			sendEvent: (eventType, payload, traceId) => 
+				this.sendToSocket(socket, { type: eventType, payload, traceId }),
+			close: () => this.closeSocket(socket),
+			isConnected: () => this.isSocketConnected(socket),
+		};
 
-		// Check pending messages
-		for (const [pendingId, pending] of Array.from(this.pendingMessages.entries())) {
-			const types = Array.isArray(pending.messageType)
-				? pending.messageType
-				: [pending.messageType];
+		const connection = new ServerConnectionImpl(delegate, id);
+		this.serverConnections.set(id, connection);
 
-			if (types.includes(processedMessage.type)) {
-				if (this.matchesPending(processedMessage, pending)) {
-					clearTimeout(pending.timeout);
-					this.pendingMessages.delete(pendingId);
-					pending.resolve(processedMessage);
-					return;
-				}
-			}
-		}
-
-		// Add to queue if no pending match
-		this.messageQueue.push(processedMessage);
-	}
-
-	/**
-	 * Find message in queue matching criteria
-	 */
-	protected findInQueue(
-		types: string[],
-		matcher?: string | ((payload: unknown) => boolean),
-	): Message | undefined {
-		const index = this.messageQueue.findIndex((msg) => {
-			if (!types.includes(msg.type)) return false;
-
-			if (matcher) {
-				if (typeof matcher === "string") {
-					return msg.traceId === matcher;
-				}
-				return matcher(msg.payload);
-			}
-
-			return true;
+		// Setup socket event handlers
+		this.setupSocketHandlers(socket, {
+			onMessage: (message) => connection._dispatchMessage(message),
+			onClose: () => {
+				connection._notifyClose();
+				this.serverConnections.delete(id);
+			},
+			onError: (error) => connection._notifyError(error),
 		});
 
-		if (index >= 0) {
-			return this.messageQueue.splice(index, 1)[0];
-		}
-
-		return undefined;
+		return connection;
 	}
 
 	/**
-	 * Check if message matches pending request
+	 * Create a client connection wrapper
+	 * Called by subclasses when connecting to a server
 	 */
-	protected matchesPending(message: Message, pending: PendingMessage): boolean {
-		if (!pending.matcher) return true;
+	protected createClientConnection(
+		socket: TSocket,
+		connId?: string,
+	): ClientConnectionImpl {
+		const id = connId ?? generateConnectionId("client");
 
-		if (typeof pending.matcher === "string") {
-			return message.traceId === pending.matcher;
-		}
+		const delegate: ClientConnectionDelegate = {
+			sendMessage: (messageType, payload, traceId) =>
+				this.sendToSocket(socket, { type: messageType, payload, traceId }),
+			close: () => this.closeSocket(socket),
+			isConnected: () => this.isSocketConnected(socket),
+		};
 
-		return pending.matcher(message.payload);
-	}
+		const connection = new ClientConnectionImpl(delegate, id);
+		this.clientConnection = connection;
+		this.rawClientSocket = socket;
 
-	// =========================================================================
-	// Proxy Client Management
-	// =========================================================================
+		// Setup socket event handlers
+		this.setupSocketHandlers(socket, {
+			onMessage: (message) => connection._dispatchEvent(message),
+			onClose: () => {
+				connection._notifyClose();
+				this.clientConnection = undefined;
+				this.rawClientSocket = undefined;
+			},
+			onError: (error) => connection._notifyError(error),
+		});
 
-	/**
-	 * Wait for proxy connection to be established before forwarding
-	 */
-	protected async waitForProxyConnection(connectionId: string): Promise<void> {
-		const pendingConnection = this.pendingProxyConnections.get(connectionId);
-		if (pendingConnection) {
-			await pendingConnection;
-			this.pendingProxyConnections.delete(connectionId);
-		}
-	}
-
-	/**
-	 * Get proxy client for a connection
-	 */
-	protected getProxyClient(connectionId: string): TProxyClient | undefined {
-		return this.proxyClients.get(connectionId);
-	}
-
-	/**
-	 * Close a specific proxy client
-	 */
-	protected abstract closeProxyClient(client: TProxyClient): void;
-
-	/**
-	 * Close and remove proxy client for a connection
-	 */
-	protected removeProxyClient(connectionId: string): void {
-		const proxyClient = this.proxyClients.get(connectionId);
-		if (proxyClient) {
-			this.closeProxyClient(proxyClient);
-			this.proxyClients.delete(connectionId);
-		}
-	}
-
-	/**
-	 * Close all proxy clients
-	 */
-	protected closeAllProxyClients(): void {
-		for (const proxyClient of this.proxyClients.values()) {
-			this.closeProxyClient(proxyClient);
-		}
-		this.proxyClients.clear();
-		this.pendingProxyConnections.clear();
+		return connection;
 	}
 
 	// =========================================================================
-	// Pending Message Management
+	// Abstract Methods (Protocol-Specific)
 	// =========================================================================
 
 	/**
-	 * Reject all pending messages (called on disconnect)
+	 * Send message through socket
+	 * Subclasses implement serialization and transport
 	 */
-	protected rejectAllPendingMessages(error: Error): void {
-		for (const [, pending] of Array.from(this.pendingMessages.entries())) {
-			clearTimeout(pending.timeout);
-			pending.reject(error);
-		}
-		this.pendingMessages.clear();
-		this.messageQueue = [];
-	}
+	protected abstract sendToSocket(socket: TSocket, message: Message): Promise<void>;
 
 	/**
-	 * Clear proxy state (called on server/client stop)
+	 * Close a socket
 	 */
-	protected clearProxyState(): void {
-		this.closeAllProxyClients();
-		this.proxyTargetConfig = undefined;
-		this.serverListenConfig = undefined;
-	}
+	protected abstract closeSocket(socket: TSocket): Promise<void>;
+
+	/**
+	 * Check if socket is connected
+	 */
+	protected abstract isSocketConnected(socket: TSocket): boolean;
+
+	/**
+	 * Setup socket event handlers (message, close, error)
+	 * Called when creating connection wrappers
+	 */
+	protected abstract setupSocketHandlers(
+		socket: TSocket,
+		handlers: {
+			onMessage: (message: Message) => void;
+			onClose: () => void;
+			onError: (error: Error) => void;
+		},
+	): void;
+
+	// =========================================================================
+	// Lifecycle
+	// =========================================================================
 
 	/**
 	 * Dispose protocol and release all resources
 	 */
 	override async dispose(): Promise<void> {
+		// Close all server connections
+		for (const connection of this.serverConnections.values()) {
+			try {
+				await connection.close();
+			} catch {
+				// Ignore errors during cleanup
+			}
+		}
+		this.serverConnections.clear();
+
+		// Close client connection
+		if (this.clientConnection) {
+			try {
+				await this.clientConnection.close();
+			} catch {
+				// Ignore errors during cleanup
+			}
+			this.clientConnection = undefined;
+		}
+
 		await super.dispose();
-		this.messageHandlers.clear();
-		this.rejectAllPendingMessages(new Error("Protocol disposed"));
-		this.clearProxyState();
 	}
 }
