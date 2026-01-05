@@ -29,7 +29,7 @@ npm install testurio --save-dev
 ```typescript
 import { TestScenario, testCase, Client, Server, HttpProtocol } from 'testurio';
 
-// Define components with protocol - types are automatically inferred
+// Define components with protocol
 const httpClient = new Client('client', {
   protocol: new HttpProtocol(),
   targetAddress: { host: 'localhost', port: 3000 },
@@ -45,8 +45,8 @@ const scenario = new TestScenario({ name: 'User API Test' });
 
 // Write test cases
 const tc = testCase('Get user by ID', (test) => {
-  const client = test.use(httpClient);      // use "httpClient" in test case
-  const mock = test.use(httpServer);  // use "httpServer" in test case
+  const client = test.use(httpClient);  // use "httpClient" in test case
+  const mock = test.use(httpServer);    // use "httpServer" in test case
 
   // Step 1: Client sends request
   client.request('getUsers', { method: 'GET', path: '/users' });
