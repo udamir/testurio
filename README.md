@@ -79,9 +79,10 @@ console.log(result.passed); // true
 - [ ] **Message Queue Support** - Integration with message brokers
   - [ ] RabbitMQ (AMQP protocol)
   - [ ] Kafka (producer/consumer testing)
+  - [ ] Redis (pub/sub)
 - [ ] **Datasource Support** - Database integrations
   - [ ] SQL (PostgreSQL, MySQL, SQLite)
-  - [ ] Redis (key-value and pub/sub)
+  - [ ] Redis (key-value)
 
 ## Examples
 
