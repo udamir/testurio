@@ -30,12 +30,12 @@ npm install testurio --save-dev
 import { TestScenario, testCase, Client, Server, HttpProtocol } from 'testurio';
 
 // Define components with protocol - types are automatically inferred
-const httpClient = new Client('api', {
+const httpClient = new Client('client', {
   protocol: new HttpProtocol(),
   targetAddress: { host: 'localhost', port: 3000 },
 });
 
-const httpServer = new Server('backend', {
+const httpServer = new Server('mock', {
   protocol: new HttpProtocol(),
   listenAddress: { host: 'localhost', port: 3000 },
 });
