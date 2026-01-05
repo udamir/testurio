@@ -15,7 +15,7 @@
 
 import { describe, expect, it } from "vitest";
 import { TestScenario, testCase, AsyncServer, AsyncClient } from "testurio";
-import { TcpProtocol, type TcpServiceDefinition } from "@testurio/protocol-tcp";
+import { TcpProtocol } from "@testurio/protocol-tcp";
 
 // ============================================================================
 // Message Type Definitions
@@ -60,7 +60,7 @@ interface BroadcastEvent {
 }
 
 // Service definition for type-safe TCP messaging
-interface ProxyTestService extends TcpServiceDefinition {
+interface ProxyTestService {
 	clientMessages: {
 		Login: LoginRequest;
 		Data: DataRequest;
@@ -72,6 +72,12 @@ interface ProxyTestService extends TcpServiceDefinition {
 		Pong: PongResponse;
 		Broadcast: BroadcastEvent;
 	};
+}
+
+// Port counter for this test file (15xxx range)
+let portCounter = 15000;
+function getNextPort(): number {
+	return portCounter++;
 }
 
 // Helper functions for creating TCP components
@@ -100,11 +106,13 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 	// ============================================================================
 	describe("0.1 Connection Management", () => {
 		it("should handle multiple clients connecting simultaneously", async () => {
-			const backend = createMockServer("backend", 5010);
-			const proxy = createProxyServer("proxy", 5011, 5010);
-			const client1 = createClient("client1", 5011);
-			const client2 = createClient("client2", 5011);
-			const client3 = createClient("client3", 5011);
+			const backendPort = getNextPort();
+			const proxyPort = getNextPort();
+			const backend = createMockServer("backend", backendPort);
+			const proxy = createProxyServer("proxy", proxyPort, backendPort);
+			const client1 = createClient("client1", proxyPort);
+			const client2 = createClient("client2", proxyPort);
+			const client3 = createClient("client3", proxyPort);
 
 			const scenario = new TestScenario({
 				name: "Multi-Client Connection Test",
@@ -140,10 +148,12 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 		});
 
 		it("should create separate backend connection per client (1:1 sessions)", async () => {
-			const backend = createMockServer("backend", 5020);
-			const proxy = createProxyServer("proxy", 5021, 5020);
-			const client1 = createClient("client1", 5021);
-			const client2 = createClient("client2", 5021);
+			const backendPort = getNextPort();
+			const proxyPort = getNextPort();
+			const backend = createMockServer("backend", backendPort);
+			const proxy = createProxyServer("proxy", proxyPort, backendPort);
+			const client1 = createClient("client1", proxyPort);
+			const client2 = createClient("client2", proxyPort);
 
 			const scenario = new TestScenario({
 				name: "1:1 Session Test",
@@ -183,10 +193,12 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 		});
 
 		it("should maintain session isolation between clients", async () => {
-			const backend = createMockServer("backend", 5030);
-			const proxy = createProxyServer("proxy", 5031, 5030);
-			const client1 = createClient("client1", 5031);
-			const client2 = createClient("client2", 5031);
+			const backendPort = getNextPort();
+			const proxyPort = getNextPort();
+			const backend = createMockServer("backend", backendPort);
+			const proxy = createProxyServer("proxy", proxyPort, backendPort);
+			const client1 = createClient("client1", proxyPort);
+			const client2 = createClient("client2", proxyPort);
 
 			const scenario = new TestScenario({
 				name: "Session Isolation Test",
@@ -231,9 +243,11 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 	// ============================================================================
 	describe("0.2 Automatic Message Forwarding", () => {
 		it("should forward ALL client messages to backend even without test handlers", async () => {
-			const backend = createMockServer("backend", 5040);
-			const proxy = createProxyServer("proxy", 5041, 5040);
-			const client = createClient("client", 5041);
+			const backendPort = getNextPort();
+			const proxyPort = getNextPort();
+			const backend = createMockServer("backend", backendPort);
+			const proxy = createProxyServer("proxy", proxyPort, backendPort);
+			const client = createClient("client", proxyPort);
 
 			const scenario = new TestScenario({
 				name: "Auto Forward Client Messages",
@@ -259,9 +273,11 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 		});
 
 		it("should forward ALL backend events to client even without test handlers", async () => {
-			const backend = createMockServer("backend", 5050);
-			const proxy = createProxyServer("proxy", 5051, 5050);
-			const client = createClient("client", 5051);
+			const backendPort = getNextPort();
+			const proxyPort = getNextPort();
+			const backend = createMockServer("backend", backendPort);
+			const proxy = createProxyServer("proxy", proxyPort, backendPort);
+			const client = createClient("client", proxyPort);
 
 			const scenario = new TestScenario({
 				name: "Auto Forward Backend Events",
@@ -294,9 +310,11 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 		});
 
 		it("should preserve message type, payload, and traceId during forwarding", async () => {
-			const backend = createMockServer("backend", 5060);
-			const proxy = createProxyServer("proxy", 5061, 5060);
-			const client = createClient("client", 5061);
+			const backendPort = getNextPort();
+			const proxyPort = getNextPort();
+			const backend = createMockServer("backend", backendPort);
+			const proxy = createProxyServer("proxy", proxyPort, backendPort);
+			const client = createClient("client", proxyPort);
 
 			const scenario = new TestScenario({
 				name: "Preserve Message Properties",
@@ -330,9 +348,11 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 	// ============================================================================
 	describe("0.3 Message Integrity", () => {
 		it("should NOT duplicate messages when proxying", async () => {
-			const backend = createMockServer("backend", 5070);
-			const proxy = createProxyServer("proxy", 5071, 5070);
-			const client = createClient("client", 5071);
+			const backendPort = getNextPort();
+			const proxyPort = getNextPort();
+			const backend = createMockServer("backend", backendPort);
+			const proxy = createProxyServer("proxy", proxyPort, backendPort);
+			const client = createClient("client", proxyPort);
 
 			const scenario = new TestScenario({
 				name: "No Duplication Test",
@@ -359,9 +379,11 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 		});
 
 		it("should deliver each message exactly once to backend", async () => {
-			const backend = createMockServer("backend", 5080);
-			const proxy = createProxyServer("proxy", 5081, 5080);
-			const client = createClient("client", 5081);
+			const backendPort = getNextPort();
+			const proxyPort = getNextPort();
+			const backend = createMockServer("backend", backendPort);
+			const proxy = createProxyServer("proxy", proxyPort, backendPort);
+			const client = createClient("client", proxyPort);
 
 			const scenario = new TestScenario({
 				name: "Exactly Once Delivery",
@@ -392,9 +414,11 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 		});
 
 		it("should deliver each event exactly once to client", async () => {
-			const backend = createMockServer("backend", 5090);
-			const proxy = createProxyServer("proxy", 5091, 5090);
-			const client = createClient("client", 5091);
+			const backendPort = getNextPort();
+			const proxyPort = getNextPort();
+			const backend = createMockServer("backend", backendPort);
+			const proxy = createProxyServer("proxy", proxyPort, backendPort);
+			const client = createClient("client", proxyPort);
 
 			const scenario = new TestScenario({
 				name: "Event Exactly Once",
@@ -429,9 +453,11 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 	// ============================================================================
 	describe("0.4 Hook Transformation", () => {
 		it("should apply hook transformations to client→backend messages", async () => {
-			const backend = createMockServer("backend", 5100);
-			const proxy = createProxyServer("proxy", 5101, 5100);
-			const client = createClient("client", 5101);
+			const backendPort = getNextPort();
+			const proxyPort = getNextPort();
+			const backend = createMockServer("backend", backendPort);
+			const proxy = createProxyServer("proxy", proxyPort, backendPort);
+			const client = createClient("client", proxyPort);
 
 			const scenario = new TestScenario({
 				name: "Transform Client Messages",
@@ -465,9 +491,11 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 		});
 
 		it("should apply hook transformations to backend→client events", async () => {
-			const backend = createMockServer("backend", 5110);
-			const proxy = createProxyServer("proxy", 5111, 5110);
-			const client = createClient("client", 5111);
+			const backendPort = getNextPort();
+			const proxyPort = getNextPort();
+			const backend = createMockServer("backend", backendPort);
+			const proxy = createProxyServer("proxy", proxyPort, backendPort);
+			const client = createClient("client", proxyPort);
 
 			const scenario = new TestScenario({
 				name: "Transform Backend Events",
@@ -505,9 +533,11 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 		});
 
 		it("should deliver transformed payload (not original) to destination", async () => {
-			const backend = createMockServer("backend", 5120);
-			const proxy = createProxyServer("proxy", 5121, 5120);
-			const client = createClient("client", 5121);
+			const backendPort = getNextPort();
+			const proxyPort = getNextPort();
+			const backend = createMockServer("backend", backendPort);
+			const proxy = createProxyServer("proxy", proxyPort, backendPort);
+			const client = createClient("client", proxyPort);
 
 			const scenario = new TestScenario({
 				name: "Transformed Payload Delivery",
@@ -545,9 +575,11 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 		it("should close backend connection when client disconnects", async () => {
 			// This test verifies linked disconnect handling
 			// When client disconnects, the corresponding backend connection should close
-			const backend = createMockServer("backend", 5130);
-			const proxy = createProxyServer("proxy", 5131, 5130);
-			const client = createClient("client", 5131);
+			const backendPort = getNextPort();
+			const proxyPort = getNextPort();
+			const backend = createMockServer("backend", backendPort);
+			const proxy = createProxyServer("proxy", proxyPort, backendPort);
+			const client = createClient("client", proxyPort);
 
 			const scenario = new TestScenario({
 				name: "Client Disconnect Closes Backend",
@@ -575,10 +607,12 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 		});
 
 		it("should not affect other sessions when one client disconnects", async () => {
-			const backend = createMockServer("backend", 5140);
-			const proxy = createProxyServer("proxy", 5141, 5140);
-			const client1 = createClient("client1", 5141);
-			const client2 = createClient("client2", 5141);
+			const backendPort = getNextPort();
+			const proxyPort = getNextPort();
+			const backend = createMockServer("backend", backendPort);
+			const proxy = createProxyServer("proxy", proxyPort, backendPort);
+			const client1 = createClient("client1", proxyPort);
+			const client2 = createClient("client2", proxyPort);
 
 			const scenario = new TestScenario({
 				name: "Session Independence",

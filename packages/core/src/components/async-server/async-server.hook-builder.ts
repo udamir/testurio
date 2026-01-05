@@ -5,7 +5,7 @@
  * Used for async server components (mock/proxy servers).
  */
 
-import type { Message, ServerMessages } from "../../protocols/base";
+import type { AsyncMessages, Message, ServerMessages } from "../../protocols/base";
 import { AsyncClientHookBuilder } from "../async-client/async-client.hook-builder";
 
 /**
@@ -18,7 +18,7 @@ import { AsyncClientHookBuilder } from "../async-client/async-client.hook-builde
  */
 export class AsyncServerHookBuilder<
 	TPayload,
-	M extends Record<string, unknown> = Record<string, unknown>,
+	M extends AsyncMessages = AsyncMessages,
 > extends AsyncClientHookBuilder<TPayload, M> {
 	/**
 	 * Add mock event handler (for mock servers in async protocols)

@@ -4,7 +4,7 @@
  * Represents a client that connects to a target server.
  */
 
-import type { ISyncProtocol, Address, TlsConfig } from "../../protocols/base";
+import type { ISyncProtocol, ISyncClientAdapter, Address, TlsConfig } from "../../protocols/base";
 import type { ITestCaseBuilder } from "../../execution/execution.types";
 import { SyncClientStepBuilder } from "./sync-client.step-builder";
 import { BaseComponent } from "../base";
@@ -42,6 +42,9 @@ export class Client<P extends ISyncProtocol = ISyncProtocol> extends BaseCompone
 	private _requestTracker?: unknown;
 	private readonly _targetAddress: Address;
 	private readonly _tls?: TlsConfig;
+
+	/** Client adapter (v3 API) */
+	private _clientAdapter?: ISyncClientAdapter;
 
 	constructor(name: string, options: ClientOptions<P>) {
 		super(name, options.protocol);
@@ -111,36 +114,32 @@ export class Client<P extends ISyncProtocol = ISyncProtocol> extends BaseCompone
 			throw new Error(`Client ${this.name} is not started`);
 		}
 
-		if (!this.protocol) {
-			throw new Error(`Client ${this.name} has no protocol`);
+		if (!this._clientAdapter) {
+			throw new Error(`Client ${this.name} has no client adapter`);
 		}
 
-		// Make request via protocol
-		if (!this.protocol.request) {
-			throw new Error(
-				`Client ${this.name} protocol does not support request operation`,
-			);
-		}
-		return this.protocol.request(messageType, data, timeout);
+		return this._clientAdapter.request(messageType, data, timeout);
 	}
 
 	/**
 	 * Connect to target server
 	 */
 	protected async doStart(): Promise<void> {
-		// Create client connection
-		await this.protocol.createClient({
+		// Create client adapter (v3 API)
+		this._clientAdapter = await this.protocol.createClient({
 			targetAddress: this._targetAddress,
 			tls: this._tls,
 		});
 	}
 
 	/**
-	 * Disconnect from server and dispose protocol
+	 * Disconnect from server
 	 */
 	protected async doStop(): Promise<void> {
-		await this.protocol.closeClient();
-		await this.protocol.dispose();
+		if (this._clientAdapter) {
+			await this._clientAdapter.close();
+			this._clientAdapter = undefined;
+		}
 		this.hookRegistry.clear();
 	}
 }

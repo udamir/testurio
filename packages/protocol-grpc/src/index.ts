@@ -18,7 +18,9 @@
  */
 
 export * from "./unary.protocol";
+export * from "./unary.adapters";
 export * from "./stream.protocol";
+export * from "./stream.adapters";
 export * from "./types";
 export * from "./schema-loader";
 export * from "./metadata";

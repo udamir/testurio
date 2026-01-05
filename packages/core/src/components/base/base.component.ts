@@ -4,7 +4,7 @@
  * Base class for all test components (Client, Mock, Proxy).
  */
 
-import type { BaseProtocol } from "../../protocols/base";
+import type { IBaseProtocol } from "../../protocols/base";
 import type { ITestCaseBuilder } from "../../execution";
 import { HookRegistry } from "./base.hooks";
 import type { Hook } from "./base.types";
@@ -38,7 +38,7 @@ export interface ComponentLifecycleEvents {
  * @typeParam TStepBuilder - Step builder type returned by createStepBuilder
  */
 export abstract class BaseComponent<
-	P extends BaseProtocol = BaseProtocol,
+	P extends IBaseProtocol = IBaseProtocol,
 	TStepBuilder = unknown,
 > {
 	protected state: ComponentState = "created";

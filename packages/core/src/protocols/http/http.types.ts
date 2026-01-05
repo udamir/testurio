@@ -32,7 +32,7 @@
  * ```
  */
 
-import type { SyncRequestOptions } from "../base";
+import type { SyncOperation, SyncRequestOptions } from "../base";
 
 /**
  * HTTP-specific request options
@@ -91,20 +91,12 @@ export interface HttpResponse<TBody = unknown> {
 }
 
 /**
- * HTTP Operation definition for type-safe HTTP protocols.
- * Maps operation IDs to request/response structures.
- */
-export interface HttpOperation {
-	/** Request definition */
-	request: HttpRequest;
-	/** Response type - HttpResponse with body type */
-	response: HttpResponse;
-}
-
-/**
  * HTTP Service definition - maps operation IDs to HTTP operations
+ * This is a constraint type for HttpProtocol generic parameter.
  */
-export type HttpServiceDefinition = Record<string, HttpOperation | undefined>;
+export type HttpOperations<T = object> = {
+	[K in keyof T]?: SyncOperation<HttpRequest, HttpResponse>;
+};
 
 /**
  * HTTP Protocol type marker
@@ -124,9 +116,7 @@ export type HttpServiceDefinition = Record<string, HttpOperation | undefined>;
  * type Request = ExtractRequestData<HttpProtocol<MyService>, 'getUsers'>; // { method, path }
  * ```
  */
-export interface HttpProtocolTypes<
-	S extends HttpServiceDefinition = HttpServiceDefinition,
-> {
+export interface HttpProtocolTypes<S extends HttpOperations = HttpOperations> {
 	readonly request: HttpRequest;
 	readonly response: HttpResponse;
 	readonly options: HttpRequestOptions;

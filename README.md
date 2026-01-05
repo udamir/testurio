@@ -22,19 +22,49 @@ npm install testurio --save-dev
 
 ## Quick Start
 
+### Type Definitions for Type-Safe Payloads
+
+Define service types to get full type safety across your tests:
+
+```typescript
+// HTTP Service Definition
+interface HttpServiceDef {
+  getUsers: {
+    request: { method: 'GET'; path: '/users'; body?: never };
+    response: { code: 200; body: User[] };
+  };
+  createUser: {
+    request: { method: 'POST'; path: '/users'; body: CreateUserPayload };
+    response: { code: 201; body: User };
+  };
+}
+
+// WebSocket/Async Service Definition
+interface WsServiceDef {
+  clientMessages: {
+    getUser: { userId: number };
+    subscribe: { channel: string };
+  };
+  serverMessages: {
+    user: { userId: number; name: string; email: string };
+    subscribed: { subscriptionId: string; status: string };
+  };
+}
+```
+
 ### HTTP Example (Type-Safe)
 
 ```typescript
-import { TestScenario, testCase, Client, Server, HttpAdapter } from 'testurio';
+import { TestScenario, testCase, Client, Server, HttpProtocol } from 'testurio';
 
-// Define components with adapters - types are automatically inferred
-const httpClient = Client.create('api', {
-  adapter: new HttpAdapter(),
+// Define components with protocol - types are automatically inferred
+const httpClient = new Client('api', {
+  protocol: new HttpProtocol<HttpServiceDef>(),
   targetAddress: { host: 'localhost', port: 3000 },
 });
 
-const httpServer = Server.create('backend', {
-  adapter: new HttpAdapter(),
+const httpServer = new Server('backend', {
+  protocol: new HttpProtocol<HttpServiceDef>(),
   listenAddress: { host: 'localhost', port: 3000 },
 });
 
@@ -49,18 +79,18 @@ const tc = testCase('Get user by ID', (test) => {
   const api = test.use(httpClient);      // Fully typed step builder!
   const backend = test.use(httpServer);  // Fully typed step builder!
 
-  // Step 1: Mock handles request (register handler first)
-  backend.onRequest('getUser', { method: 'GET', path: '/users/1' })
+  // Step 1: Client sends request
+  api.request('getUsers', { method: 'GET', path: '/users' });
+
+  // Step 2: Mock handles request
+  backend.onRequest('getUsers', { method: 'GET', path: '/users' })
     .mockResponse(() => ({
-      status: 200,
-      body: { id: 1, name: 'Alice', email: 'alice@example.com' },
+      code: 200,
+      body: [{ id: 1, name: 'Alice', email: 'alice@example.com' }],
     }));
 
-  // Step 2: Client sends request
-  api.request('getUser', { method: 'GET', path: '/users/1' });
-
   // Step 3: Client receives and validates response
-  api.onResponse('getUser').assert((res) => res.id === 1);
+  api.onResponse('getUsers').assert((res) => res.body[0].id === 1);
 });
 
 // Run the test
@@ -71,17 +101,17 @@ console.log(result.passed); // true
 ### gRPC Example
 
 ```typescript
-import { TestScenario, testCase, Client, Server } from 'testurio';
-import { GrpcUnaryAdapter } from '@testurio/adapter-grpc';
+import { TestScenario, testCase, Server, Client } from 'testurio';
+import { GrpcUnaryProtocol } from '@testurio/protocol-grpc';
 
-// Define gRPC components
-const grpcClient = Client.create('api', {
-  adapter: new GrpcUnaryAdapter({ schema: 'user.proto', serviceName: 'UserService' }),
+// Define gRPC components with proto schema
+const grpcClient = new Client('api', {
+  protocol: new GrpcUnaryProtocol({ schema: 'user.proto', serviceName: 'UserService' }),
   targetAddress: { host: 'localhost', port: 5000 },
 });
 
-const grpcServer = Server.create('backend', {
-  adapter: new GrpcUnaryAdapter({ schema: 'user.proto' }),
+const grpcServer = new Server('backend', {
+  protocol: new GrpcUnaryProtocol({ schema: 'user.proto' }),
   listenAddress: { host: 'localhost', port: 5000 },
 });
 
@@ -94,17 +124,17 @@ const tc = testCase('GetUser RPC', (test) => {
   const api = test.use(grpcClient);
   const backend = test.use(grpcServer);
 
-  // Step 1: Mock handles request
+  // Step 1: Send gRPC request
+  api.request('GetUser', { user_id: 42 });
+
+  // Step 2: Mock handles request
   backend.onRequest('GetUser').mockResponse((req) => ({
-    status: 200,
-    body: { user_id: req.payload.user_id, name: 'John Doe' },
+    code: 200,
+    body: { user_id: req.user_id, name: 'John Doe' },
   }));
 
-  // Step 2: Send gRPC request
-  api.request('GetUser', { payload: { user_id: 42 } });
-
   // Step 3: Handle response
-  api.onResponse('GetUser').assert((res) => res.name === 'John Doe');
+  api.onResponse('GetUser').assert((res) => res.body.name === 'John Doe');
 });
 ```
 
@@ -112,16 +142,26 @@ const tc = testCase('GetUser RPC', (test) => {
 
 ```typescript
 import { TestScenario, testCase, AsyncClient, AsyncServer } from 'testurio';
-import { WebSocketAdapter } from '@testurio/adapter-ws';
+import { WebSocketProtocol } from '@testurio/protocol-ws';
 
-// Define WebSocket components
-const wsClient = AsyncClient.create('client', {
-  adapter: new WebSocketAdapter(),
+// Define WebSocket service types
+interface WsMessages {
+  clientMessages: {
+    ping: { seq: number };
+  };
+  serverMessages: {
+    pong: { seq: number; timestamp: number };
+  };
+}
+
+// Define WebSocket components with typed protocol
+const wsClient = new AsyncClient('client', {
+  protocol: new WebSocketProtocol<WsMessages>(),
   targetAddress: { host: 'localhost', port: 4000 },
 });
 
-const wsServer = AsyncServer.create('server', {
-  adapter: new WebSocketAdapter(),
+const wsServer = new AsyncServer('server', {
+  protocol: new WebSocketProtocol<WsMessages>(),
   listenAddress: { host: 'localhost', port: 4000 },
 });
 
@@ -135,16 +175,16 @@ const tc = testCase('Ping-Pong', (test) => {
   const server = test.use(wsServer);
 
   // Step 1: Client sends ping
-  client.sendMessage('Ping', { seq: 1 });
+  client.sendMessage('ping', { seq: 1 });
 
   // Step 2: Server responds with pong
-  server.onMessage('Ping').mockEvent('Pong', (payload) => ({
+  server.onMessage('ping').mockEvent('pong', (payload) => ({
     seq: payload.seq,
     timestamp: Date.now(),
   }));
 
   // Step 3: Client receives pong
-  client.onEvent('Pong').assert((payload) => payload.seq === 1);
+  client.onEvent('pong').assert((payload) => payload.seq === 1);
 });
 ```
 
@@ -152,19 +192,57 @@ const tc = testCase('Ping-Pong', (test) => {
 
 ### Components
 
-- **Client** - Sends requests to a target address
-- **Mock** - Listens for requests and returns configured responses
-- **Proxy** - Intercepts requests, can transform or forward them
+Components are high-level abstractions that own protocol adapters and manage their lifecycle.
+
+| Component       | Protocol Type | Role   | Description                                                    |
+| --------------- | ------------- | ------ | -------------------------------------------------------------- |
+| `Client`        | Sync          | Client | Sends HTTP/gRPC unary requests to a target server              |
+| `Server`        | Sync          | Mock   | Listens for requests and returns configured responses          |
+| `Server`        | Sync          | Proxy  | Intercepts requests, can transform, mock, or forward to target |
+| `AsyncClient`   | Async         | Client | Sends messages over WebSocket/TCP/gRPC streaming connections   |
+| `AsyncServer`   | Async         | Mock   | Listens for messages and sends response events                 |
+| `AsyncServer`   | Async         | Proxy  | Intercepts messages, can transform or forward to target        |
+
+**Server as Proxy**: When a `Server` or `AsyncServer` has both `listenAddress` and `targetAddress`, it acts as a proxy:
+
+```typescript
+// Server acting as mock (no targetAddress)
+const mock = new Server('backend', {
+  protocol: new HttpProtocol<ServiceDef>(),
+  listenAddress: { host: 'localhost', port: 3000 },
+});
+
+// Server acting as proxy (has targetAddress)
+const proxy = new Server('gateway', {
+  protocol: new HttpProtocol<ServiceDef>(),
+  listenAddress: { host: 'localhost', port: 3001 },
+  targetAddress: { host: 'localhost', port: 3000 },  // forwards to backend
+});
+```
 
 ### Protocols
 
-| Protocol | Type | Use Case |
-|----------|------|----------|
-| `Http()` | Sync | REST APIs |
-| `GrpcUnary()` | Sync | gRPC unary calls |
-| `GrpcStream()` | Async | gRPC bidirectional streaming |
-| `WebSocket()` | Async | WebSocket connections |
-| `TcpProto()` | Async | Custom TCP protocols |
+Protocols are stateless adapter factories. Components own the adapters and manage their lifecycle.
+
+| Protocol             | Type  | Package                   | Use Case                     |
+| -------------------- | ----- | ------------------------- | ---------------------------- |
+| `HttpProtocol`       | Sync  | `testurio`                | REST APIs                    |
+| `GrpcUnaryProtocol`  | Sync  | `@testurio/protocol-grpc` | gRPC unary calls             |
+| `GrpcStreamProtocol` | Async | `@testurio/protocol-grpc` | gRPC bidirectional streaming |
+| `WebSocketProtocol`  | Async | `@testurio/protocol-ws`   | WebSocket connections        |
+| `TcpProtocol`        | Async | `@testurio/protocol-tcp`  | Custom TCP protocols         |
+
+```typescript
+// Sync protocols: createServer() / createClient() return adapters
+const httpProtocol = new HttpProtocol<ServiceDef>();
+const serverAdapter = await httpProtocol.createServer({ listenAddress });
+const clientAdapter = await httpProtocol.createClient({ targetAddress });
+
+// Async protocols: same pattern
+const wsProtocol = new WebSocketProtocol<WsMessages>();
+const serverAdapter = await wsProtocol.createServer({ listenAddress });
+const clientAdapter = await wsProtocol.createClient({ targetAddress });
+```
 
 ### Hook Methods
 
@@ -210,17 +288,11 @@ const results = await scenario.runAll([testCase1, testCase2]);
 
 ```typescript
 const tc = testCase('Test name', (test) => {
-  // Type-safe component access (recommended)
+  // Type-safe component access via test.use()
   const api = test.use(httpClient);       // Returns typed SyncClientStepBuilder
   const backend = test.use(httpServer);   // Returns typed SyncServerStepBuilder
   const wsClient = test.use(asyncClient); // Returns typed AsyncClientStepBuilder
   const wsServer = test.use(asyncServer); // Returns typed AsyncServerStepBuilder
-
-  // Legacy methods (deprecated - no type inference)
-  const client = test.client('name');
-  const server = test.server('name');
-  const asyncClient = test.asyncClient<Messages>('name');
-  const asyncServer = test.asyncServer<Messages>('name');
 
   // Utilities
   test.wait(ms);
@@ -284,25 +356,42 @@ graph TB
         C[Client, Server, AsyncClient, AsyncServer]
     end
 
+    subgraph Protocols["PROTOCOLS LAYER"]
+        P[HttpProtocol, GrpcUnaryProtocol,<br/>GrpcStreamProtocol, WebSocketProtocol, TcpProtocol]
+    end
+
     subgraph Adapters["ADAPTERS LAYER"]
-        A[HttpAdapter, GrpcAdapter, WsAdapter, TcpAdapter]
+        A[ISyncServerAdapter, ISyncClientAdapter,<br/>IAsyncServerAdapter, IAsyncClientAdapter]
     end
 
     Execution --> Builders
     Builders --> Hooks
     Hooks --> Components
-    Components --> Adapters
+    Components --> Protocols
+    Protocols --> Adapters
 ```
 
-| Layer | Responsibility |
-|-------|----------------|
-| **Execution** | Orchestrate test execution |
-| **Builders** | Fluent API for building test steps |
-| **Hooks** | Message interception for test steps |
-| **Components** | High-level protocol abstractions |
-| **Adapters** | Protocol-specific I/O operations |
+| Layer          | Responsibility                                               |
+| -------------- | ------------------------------------------------------------ |
+| **Execution**  | Orchestrate test execution                                   |
+| **Builders**   | Fluent API for building test steps                           |
+| **Hooks**      | Message interception for test steps                          |
+| **Components** | High-level abstractions that own adapters and manage state   |
+| **Protocols**  | Stateless adapter factories (`createServer`, `createClient`) |
+| **Adapters**   | Protocol-specific I/O operations (owned by components)       |
 
+## Roadmap
 
+- [ ] **testurio-cli** - Type definition generation from API specifications
+  - [ ] OpenAPI/Swagger → HTTP service definitions
+  - [ ] AsyncAPI → WebSocket/async service definitions
+  - [ ] Protobuf → gRPC service definitions
+- [ ] **Message Queue Support** - Integration with message brokers
+  - [ ] RabbitMQ (AMQP protocol)
+  - [ ] Kafka (producer/consumer testing)
+- [ ] **Datasource Support** - Database integrations
+  - [ ] SQL (PostgreSQL, MySQL, SQLite)
+  - [ ] Redis (key-value and pub/sub)
 
 ## License
 

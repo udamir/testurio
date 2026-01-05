@@ -7,8 +7,8 @@
 
 import type {
 	IAsyncProtocol,
-	IServerConnection,
-	IClientConnection,
+	IAsyncServerAdapter,
+	IAsyncClientAdapter,
 	Address,
 	Message,
 	TlsConfig,
@@ -22,8 +22,8 @@ import { BaseComponent } from "../base";
  */
 interface Session {
 	id: string;
-	incoming: IServerConnection;
-	outgoing?: IClientConnection;
+	incoming: IAsyncClientAdapter;
+	outgoing?: IAsyncClientAdapter;
 	/** Promise that resolves when outgoing connection is established */
 	outgoingConnected?: Promise<boolean>;
 }
@@ -71,6 +71,9 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 	private readonly _targetAddress?: Address;
 	private readonly _tls?: TlsConfig;
 	private readonly _proxyConnectionTimeout: number;
+
+	/** Server adapter */
+	private _serverAdapter?: IAsyncServerAdapter;
 
 	/** Active sessions (1:1 mapping of incoming to outgoing connections) */
 	private _sessions = new Map<string, Session>();
@@ -124,8 +127,8 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 	/**
 	 * Get all active connections
 	 */
-	get connections(): Map<string, IServerConnection> {
-		const connections = new Map<string, IServerConnection>();
+	get connections(): Map<string, IAsyncClientAdapter> {
+		const connections = new Map<string, IAsyncClientAdapter>();
 		for (const session of this._sessions.values()) {
 			connections.set(session.incoming.id, session.incoming);
 		}
@@ -146,11 +149,7 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 		if (processedMessage) {
 			// Send to all connections in parallel
 			const sendPromises = Array.from(this._sessions.values()).map((session) =>
-				session.incoming.sendEvent(
-					processedMessage.type,
-					processedMessage.payload,
-					processedMessage.traceId,
-				).catch(() => {})
+				session.incoming.send(processedMessage).catch(() => {})
 			);
 			await Promise.all(sendPromises);
 		}
@@ -160,14 +159,14 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 	 * Start the async server
 	 */
 	protected async doStart(): Promise<void> {
-		// Start server with connection handler
-		await this.protocol.startServer(
-			{
-				listenAddress: this._listenAddress,
-				tls: this._tls,
-			},
-			(connection) => this.handleConnection(connection),
-		);
+		// Create server adapter (v3 API)
+		this._serverAdapter = await this.protocol.createServer({
+			listenAddress: this._listenAddress,
+			tls: this._tls,
+		});
+
+		// Register connection handler
+		this._serverAdapter.onConnection((connection) => this.handleConnection(connection));
 	}
 
 	/**
@@ -175,7 +174,7 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 	 * Note: This is called synchronously by the protocol, so we set up handlers
 	 * synchronously and do async work (like proxy connection) in the background.
 	 */
-	private handleConnection(connection: IServerConnection): void {
+	private handleConnection(connection: IAsyncClientAdapter): void {
 		// Create session
 		const session: Session = {
 			id: connection.id,
@@ -193,7 +192,7 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 		});
 
 		// Track connection errors
-		connection.onError((error) => {
+		connection.onError((error: Error) => {
 			this.trackUnhandledError(error);
 		});
 
@@ -205,11 +204,7 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 
 				// If hook produced a response (different type), send it back
 				if (processedMessage && processedMessage.type !== message.type) {
-					await connection.sendEvent(
-						processedMessage.type,
-						processedMessage.payload,
-						processedMessage.traceId,
-					);
+					await connection.send(processedMessage);
 					return;
 				}
 
@@ -228,11 +223,7 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 						}
 					}
 					if (session.outgoing) {
-						await session.outgoing.sendMessage(
-							processedMessage.type,
-							processedMessage.payload,
-							processedMessage.traceId,
-						);
+						await session.outgoing.send(processedMessage);
 					}
 				}
 			} catch (error) {
@@ -264,7 +255,7 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 		}
 		
 		// Apply connection timeout
-		const connectionPromise = this.protocol.connect({
+		const connectionPromise = this.protocol.createClient({
 			targetAddress: this._targetAddress,
 			tls: this._tls,
 		});
@@ -276,17 +267,13 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 		session.outgoing = await Promise.race([connectionPromise, timeoutPromise]);
 
 		// Set up backend→client event forwarding
-		session.outgoing.onEvent(async (event: Message) => {
+		session.outgoing.onMessage(async (event: Message) => {
 			// Process through hooks
 			const processedEvent = await this.hookRegistry.executeHooks(event);
 
 			// Forward to client (if not dropped by hooks)
 			if (processedEvent && session.incoming.isConnected) {
-				await session.incoming.sendEvent(
-					processedEvent.type,
-					processedEvent.payload,
-					processedEvent.traceId,
-				);
+				await session.incoming.send(processedEvent);
 			}
 		});
 
@@ -309,11 +296,12 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 			}
 		}
 
-		// Stop server (will close all incoming connections)
-		await this.protocol.stopServer();
+		// Stop server adapter
+		if (this._serverAdapter) {
+			await this._serverAdapter.stop();
+			this._serverAdapter = undefined;
+		}
 		this._sessions.clear();
-
-		await this.protocol.dispose();
 		this.hookRegistry.clear();
 	}
 }

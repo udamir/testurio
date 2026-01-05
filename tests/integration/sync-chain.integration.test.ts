@@ -73,6 +73,12 @@ interface HttpServiceDef {
 	};
 }
 
+// Port counter for this test file (13xxx range)
+let portCounter = 13000;
+function getNextPort(): number {
+	return portCounter++;
+}
+
 // Helper functions for creating HTTP components with typed adapters
 const createMockServer = (name: string, port: number) =>
 	new Server(name, {
@@ -99,9 +105,11 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 	// ============================================================
 	describe("1.1 Basic Request Flow", () => {
 		it("should route GET request through proxy to mock and back", async () => {
-			const backendServer = createMockServer("backend", 3102);
-			const gatewayProxy = createProxyServer("gateway", 3101, 3102);
-			const apiClient = createClient("api", 3101);
+			const backendPort = getNextPort();
+			const proxyPort = getNextPort();
+			const backendServer = createMockServer("backend", backendPort);
+			const gatewayProxy = createProxyServer("gateway", proxyPort, backendPort);
+			const apiClient = createClient("api", proxyPort);
 
 			const scenario = new TestScenario({
 				name: "Basic GET Chain Test",
@@ -155,9 +163,11 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 		});
 
 		it("should handle POST request with payload", async () => {
-			const backendServer = createMockServer("backend", 3102);
-			const gatewayProxy = createProxyServer("gateway", 3101, 3102);
-			const apiClient = createClient("api", 3101);
+			const backendPort = getNextPort();
+			const proxyPort = getNextPort();
+			const backendServer = createMockServer("backend", backendPort);
+			const gatewayProxy = createProxyServer("gateway", proxyPort, backendPort);
+			const apiClient = createClient("api", proxyPort);
 
 			const scenario = new TestScenario({
 				name: "POST Chain Test",
@@ -212,9 +222,11 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 	// ============================================================
 	describe("1.2 Request Transformation", () => {
 		it("should allow proxy to intercept and transform request", async () => {
-			const backendServer = createMockServer("backend", 3102);
-			const gatewayProxy = createProxyServer("gateway", 3101, 3102);
-			const apiClient = createClient("api", 3101);
+			const backendPort = getNextPort();
+			const proxyPort = getNextPort();
+			const backendServer = createMockServer("backend", backendPort);
+			const gatewayProxy = createProxyServer("gateway", proxyPort, backendPort);
+			const apiClient = createClient("api", proxyPort);
 
 			const scenario = new TestScenario({
 				name: "Request Transform Test",
@@ -259,9 +271,11 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 	// ============================================================
 	describe("1.3 Response Transformation", () => {
 		it("should allow proxy to modify response", async () => {
-			const backendServer = createMockServer("backend", 3102);
-			const gatewayProxy = createProxyServer("gateway", 3101, 3102);
-			const apiClient = createClient("api", 3101);
+			const backendPort = getNextPort();
+			const proxyPort = getNextPort();
+			const backendServer = createMockServer("backend", backendPort);
+			const gatewayProxy = createProxyServer("gateway", proxyPort, backendPort);
+			const apiClient = createClient("api", proxyPort);
 
 			const scenario = new TestScenario({
 				name: "Response Transform Test",
@@ -317,9 +331,11 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 	// ============================================================
 	describe("1.4 Request Interception (Drop)", () => {
 		it("should allow proxy to block requests", async () => {
-			const backendServer = createMockServer("backend", 3102);
-			const gatewayProxy = createProxyServer("gateway", 3101, 3102);
-			const apiClient = createClient("api", 3101);
+			const backendPort = getNextPort();
+			const proxyPort = getNextPort();
+			const backendServer = createMockServer("backend", backendPort);
+			const gatewayProxy = createProxyServer("gateway", proxyPort, backendPort);
+			const apiClient = createClient("api", proxyPort);
 
 			const scenario = new TestScenario({
 				name: "Request Block Test",
@@ -368,9 +384,11 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 	// ============================================================
 	describe("1.5 Multiple Endpoints", () => {
 		it("should handle multiple endpoints correctly", async () => {
-			const backendServer = createMockServer("backend", 3102);
-			const gatewayProxy = createProxyServer("gateway", 3101, 3102);
-			const apiClient = createClient("api", 3101);
+			const backendPort = getNextPort();
+			const proxyPort = getNextPort();
+			const backendServer = createMockServer("backend", backendPort);
+			const gatewayProxy = createProxyServer("gateway", proxyPort, backendPort);
+			const apiClient = createClient("api", proxyPort);
 
 			const scenario = new TestScenario({
 				name: "Multiple Endpoints Test",
@@ -441,9 +459,11 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 	// ============================================================
 	describe("1.6 Error Handling", () => {
 		it("should propagate mock errors through proxy to client", async () => {
-			const backendServer = createMockServer("backend", 3102);
-			const gatewayProxy = createProxyServer("gateway", 3101, 3102);
-			const apiClient = createClient("api", 3101);
+			const backendPort = getNextPort();
+			const proxyPort = getNextPort();
+			const backendServer = createMockServer("backend", backendPort);
+			const gatewayProxy = createProxyServer("gateway", proxyPort, backendPort);
+			const apiClient = createClient("api", proxyPort);
 
 			const scenario = new TestScenario({
 				name: "Error Propagation Test",
@@ -489,10 +509,11 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 
 		it("should handle 404 for unregistered endpoints", async () => {
 			// Simplified test: client directly to mock server (no proxy)
-			const backendServer = createMockServer("backend", 3102);
+			const backendPort = getNextPort();
+			const backendServer = createMockServer("backend", backendPort);
 			const apiClient = new Client("api", {
 				protocol: new HttpProtocol<HttpServiceDef>(),
-				targetAddress: { host: "localhost", port: 3102 },
+				targetAddress: { host: "localhost", port: backendPort },
 			});
 
 			const scenario = new TestScenario({

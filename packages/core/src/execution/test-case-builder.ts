@@ -6,9 +6,8 @@
  * and relies on the component's createStepBuilder method for type inference.
  */
 
-import type { BaseComponent } from "../components/base/base.component";
-import type { CreateComponentOptions } from "../components/base/base.types";
-import type { AnyProtocol } from "../protocols/base";
+import type { IBaseProtocol } from "../protocols/base";
+import type { BaseComponent, CreateComponentOptions } from "../components/base";
 import type { TestPhase, TestStep } from "./execution.types";
 
 /**
@@ -112,7 +111,7 @@ export class TestCaseBuilder<
 	 * });
 	 * ```
 	 */
-	use<A extends AnyProtocol, TStepBuilder>(component: BaseComponent<A, TStepBuilder>): TStepBuilder {
+	use<A extends IBaseProtocol, TStepBuilder>(component: BaseComponent<A, TStepBuilder>): TStepBuilder {
 		// Auto-register component if not already registered (with testCase scope)
 		if (!this.components.has(component.name)) {
 			if (this.componentRegistry) {

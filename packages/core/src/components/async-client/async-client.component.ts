@@ -7,12 +7,12 @@
 
 import type {
 	IAsyncProtocol,
-	IClientConnection,
+	IAsyncClientAdapter,
 	Address,
 	Message,
 	TlsConfig,
 } from "../../protocols/base";
-import type { ITestCaseBuilder } from "../../execution/execution.types";
+import type { ITestCaseBuilder } from "../../execution";
 import { AsyncClientStepBuilder } from "./async-client.step-builder";
 import { BaseComponent } from "../base";
 
@@ -63,8 +63,8 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 	private readonly _tls?: TlsConfig;
 	private readonly _connectionTimeout: number;
 
-	/** Client connection wrapper */
-	private _connection?: IClientConnection;
+	/** Client adapter */
+	private _connection?: IAsyncClientAdapter;
 
 	/** Pending messages waiting for response */
 	private pendingMessages: PendingMessage[] = [];
@@ -103,7 +103,7 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 	/**
 	 * Get the client connection
 	 */
-	get connection(): IClientConnection | undefined {
+	get connection(): IAsyncClientAdapter | undefined {
 		return this._connection;
 	}
 
@@ -123,11 +123,7 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 		const processedMessage = await this.hookRegistry.executeHooks(message);
 
 		if (processedMessage) {
-			await this._connection.sendMessage(
-				processedMessage.type,
-				processedMessage.payload,
-				processedMessage.traceId,
-			);
+			await this._connection.send(processedMessage);
 		}
 	}
 
@@ -173,8 +169,8 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 	 * Start the async client
 	 */
 	protected async doStart(): Promise<void> {
-		// Connect with timeout
-		const connectionPromise = this.protocol.connect({
+		// Create client adapter with timeout
+		const connectionPromise = this.protocol.createClient({
 			targetAddress: this._targetAddress,
 			tls: this._tls,
 		});
@@ -185,8 +181,8 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 		
 		this._connection = await Promise.race([connectionPromise, timeoutPromise]);
 
-		// Set up event handler to route through hooks
-		this._connection.onEvent(async (event: Message) => {
+		// Set up message handler to route through hooks
+		this._connection.onMessage(async (event: Message) => {
 			try {
 				// Process through hooks
 				const processedEvent = await this.hookRegistry.executeHooks(event);
@@ -212,7 +208,7 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 		});
 		
 		// Track connection errors
-		this._connection.onError((error) => {
+		this._connection.onError((error: Error) => {
 			this.trackUnhandledError(error);
 		});
 	}
@@ -233,7 +229,6 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 			await this._connection.close();
 			this._connection = undefined;
 		}
-		await this.protocol.dispose();
 		this.hookRegistry.clear();
 	}
 }

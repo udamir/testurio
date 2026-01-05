@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from "vitest";
 import { TestScenario, testCase, AsyncServer, AsyncClient } from "testurio";
-import { WebSocketProtocol, type WsServiceDefinition } from "@testurio/protocol-ws";
+import { WebSocketProtocol } from "@testurio/protocol-ws";
 
 // ============================================================================
 // Message Type Definitions
@@ -88,7 +88,7 @@ interface SubscribePricesResponse {
 
 // Service definition for type-safe WebSocket messaging
 // Uses separate clientMessages and serverMessages maps
-interface WsMessages extends WsServiceDefinition {
+interface WsMessages {
 	clientMessages: {
 		getUser: GetUserRequest;
 		logEvent: LogEvent;

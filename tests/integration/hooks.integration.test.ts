@@ -12,7 +12,7 @@
 
 import { describe, expect, it } from "vitest";
 import { TestScenario, testCase, AsyncServer, AsyncClient } from "testurio";
-import { TcpProtocol, type TcpServiceDefinition } from "@testurio/protocol-tcp";
+import { TcpProtocol } from "@testurio/protocol-tcp";
 
 // ============================================================================
 // Message Type Definitions
@@ -58,7 +58,7 @@ interface HandlerRequestResponse {
 	message: string;
 }
 
-interface HookTcpService extends TcpServiceDefinition {
+interface HookTcpService {
 	clientMessages: {
 		TestRequest: TestRequest;
 		ProxyTest: ProxyTestRequest;

@@ -25,4 +25,5 @@
  */
 
 export * from "./ws.protocol";
+export * from "./ws.adapters";
 export * from "./types";

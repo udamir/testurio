@@ -5,8 +5,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { TestScenario, testCase, Server, Client, AsyncServer, AsyncClient, HttpProtocol, type HttpServiceDefinition } from "testurio";
-import { WebSocketProtocol, type WsServiceDefinition } from "@testurio/protocol-ws";
+import { TestScenario, testCase, Server, Client, AsyncServer, AsyncClient, HttpProtocol } from "testurio";
+import { WebSocketProtocol } from "@testurio/protocol-ws";
 
 // ============================================================================
 // Message Type Definitions
@@ -20,7 +20,7 @@ interface NeverSentMessage {
 	[key: string]: never;
 }
 
-interface ErrorWsService extends WsServiceDefinition {
+interface ErrorWsService {
 	clientMessages: {
 		Test: Record<string, never>;
 		TestRequest: TestRequest;
@@ -32,7 +32,7 @@ interface ErrorWsService extends WsServiceDefinition {
 }
 
 // Type-safe HTTP service definition
-interface ErrorHttpService extends HttpServiceDefinition {
+interface ErrorHttpService {
 	getSlow: {
 		request: { method: "GET"; path: "/slow" };
 		response: { code: 200; body: { delayed: boolean } };

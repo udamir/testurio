@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from "vitest";
 import { TestScenario, testCase, AsyncServer, AsyncClient } from "testurio";
-import { TcpProtocol, type TcpServiceDefinition } from "@testurio/protocol-tcp";
+import { TcpProtocol } from "@testurio/protocol-tcp";
 
 // ============================================================================
 // Message Type Definitions
@@ -81,7 +81,7 @@ interface ErrorRequest {
 }
 
 // Service definition for type-safe builders
-interface AsyncTcpService extends TcpServiceDefinition {
+interface AsyncTcpService {
 	clientMessages: {
 		InitTest: InitTestRequest;
 		OrderRequest: OrderRequest;

@@ -25,6 +25,7 @@
  */
 
 export { TcpProtocol, createTcpProtocol } from "./tcp.protocol";
+export { TcpServerAdapter, TcpClientAdapter } from "./tcp.adapters";
 
 // Export TCP client/server classes
 export * from "./tcp.client";

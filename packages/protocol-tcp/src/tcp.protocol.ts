@@ -15,15 +15,13 @@ import type {
 	ClientProtocolConfig,
 	ServerProtocolConfig,
 	IAsyncProtocol,
-	IClientConnection,
-	IServerConnection,
-	Message,
+	IAsyncServerAdapter,
+	IAsyncClientAdapter,
 	SchemaDefinition,
 } from "testurio";
 import { BaseAsyncProtocol } from "testurio";
-import type { TcpServiceDefinition, TcpProtocolOptions, ISocket } from "./types";
-import { TcpClient } from "./tcp.client";
-import { TcpServer } from "./tcp.server";
+import type { TcpServiceDefinition, TcpProtocolOptions } from "./types";
+import { TcpServerAdapter, TcpClientAdapter } from "./tcp.adapters";
 
 /**
  * TCP Protocol
@@ -60,26 +58,13 @@ import { TcpServer } from "./tcp.server";
  * ```
  */
 export class TcpProtocol<S extends TcpServiceDefinition = TcpServiceDefinition>
-	extends BaseAsyncProtocol<S, ISocket>
-	implements IAsyncProtocol
+	extends BaseAsyncProtocol<S>
+	implements IAsyncProtocol<S>
 {
 	readonly type = "tcp";
 
 	/** Protocol options */
 	private protocolOptions: TcpProtocolOptions;
-
-	/** Active TCP server */
-	private tcpServer?: TcpServer;
-
-	/** Raw socket connections map: socketId -> ISocket */
-	private rawConnections = new Map<string, ISocket>();
-
-	/** Per-connection handlers for server mode */
-	private connectionHandlers = new Map<string, {
-		onMessage: (message: Message) => void;
-		onClose: () => void;
-		onError: (error: Error) => void;
-	}>();
 
 	constructor(options: TcpProtocolOptions = {}) {
 		super();
@@ -94,13 +79,6 @@ export class TcpProtocol<S extends TcpServiceDefinition = TcpServiceDefinition>
 	}
 
 	/**
-	 * Get message delimiter
-	 */
-	private get delimiter(): string {
-		return this.protocolOptions.delimiter ?? "\n";
-	}
-
-	/**
 	 * Load Protobuf schema (optional for TCP)
 	 */
 	async loadSchema(schemaPath: string | string[]): Promise<SchemaDefinition> {
@@ -112,226 +90,32 @@ export class TcpProtocol<S extends TcpServiceDefinition = TcpServiceDefinition>
 		};
 	}
 
-	// =========================================================================
-	// IAsyncProtocol Implementation
-	// =========================================================================
-
 	/**
-	 * Start a TCP server
-	 * @param config - Server configuration
-	 * @param onConnection - Callback when client connects
+	 * Create and start TCP server adapter (v3 API)
+	 * Component owns the returned adapter
 	 */
-	async startServer(
-		config: ServerProtocolConfig,
-		onConnection: (connection: IServerConnection) => void,
-	): Promise<void> {
-		this.tcpServer = new TcpServer();
-
-		this.tcpServer.on("connection", (socket) => {
-			// Create connection wrapper and notify component
-			const connection = this.createServerConnection(socket, socket.id);
-			this.rawConnections.set(socket.id, socket);
-			onConnection(connection);
-		});
-
-		this.tcpServer.on("message", (socket, data) => {
-			// Dispatch to per-connection handler
-			const handlers = this.connectionHandlers.get(socket.id);
-			if (handlers) {
-				try {
-					const str = typeof data === "string" ? data : new TextDecoder().decode(data);
-					const message = JSON.parse(str) as Message;
-					handlers.onMessage(message);
-				} catch (_err) {
-					// Failed to parse message
-				}
-			}
-		});
-
-		this.tcpServer.on("disconnect", (socket) => {
-			const handlers = this.connectionHandlers.get(socket.id);
-			if (handlers) {
-				handlers.onClose();
-				this.connectionHandlers.delete(socket.id);
-			}
-			this.rawConnections.delete(socket.id);
-		});
-
-		this.tcpServer.on("error", (err, socket) => {
-			if (socket) {
-				const handlers = this.connectionHandlers.get(socket.id);
-				if (handlers) {
-					handlers.onError(err);
-					handlers.onClose();
-					this.connectionHandlers.delete(socket.id);
-				}
-				this.rawConnections.delete(socket.id);
-			}
-		});
-
-		await this.tcpServer.listen(
+	async createServer(config: ServerProtocolConfig): Promise<IAsyncServerAdapter> {
+		return TcpServerAdapter.create(
 			config.listenAddress.host,
 			config.listenAddress.port,
-			{
-				timeout: this.protocolOptions.timeout,
-				lengthFieldLength: this.protocolOptions.lengthFieldLength ?? 0,
-				maxLength: this.protocolOptions.maxLength,
-				encoding: this.protocolOptions.lengthFieldLength ? "binary" : "utf-8",
-				delimiter: this.protocolOptions.delimiter ?? "\n",
-				tls: config.tls?.enabled,
-				cert: config.tls?.cert,
-				key: config.tls?.key,
-			},
+			this.protocolOptions,
+			config.tls,
 		);
-
-		this.server.isRunning = true;
 	}
 
 	/**
-	 * Stop the TCP server
+	 * Create TCP client adapter (v3 API)
+	 * Component owns the returned adapter
 	 */
-	async stopServer(): Promise<void> {
-		if (!this.tcpServer) {
-			return;
-		}
-
-		await this.tcpServer.close();
-		this.rawConnections.clear();
-		this.tcpServer = undefined;
-		this.server.isRunning = false;
-	}
-
-	/**
-	 * Connect to a TCP server as a client
-	 * @param config - Client configuration
-	 * @returns IClientConnection for communicating with server
-	 */
-	async connect(config: ClientProtocolConfig): Promise<IClientConnection> {
-		const tcpClient = new TcpClient();
-
-		await tcpClient.connect(
+	async createClient(config: ClientProtocolConfig): Promise<IAsyncClientAdapter> {
+		return TcpClientAdapter.create(
 			config.targetAddress.host,
 			config.targetAddress.port,
 			{
-				timeout: this.protocolOptions.timeout,
-				lengthFieldLength: this.protocolOptions.lengthFieldLength ?? 0,
-				maxLength: this.protocolOptions.maxLength,
-				encoding: this.protocolOptions.lengthFieldLength ? "binary" : "utf-8",
-				delimiter: this.protocolOptions.delimiter ?? "\n",
+				...this.protocolOptions,
 				tls: config.tls?.enabled ?? this.protocolOptions.tls,
-				serverName: this.protocolOptions.serverName,
-				insecureSkipVerify: this.protocolOptions.insecureSkipVerify,
 			},
 		);
-
-		this.client.isConnected = true;
-
-		// Create a mutable socket state wrapper for TcpClient
-		const socketState = { connected: true };
-		const socketWrapper: ISocket = {
-			id: `client-${Date.now()}`,
-			remoteAddress: config.targetAddress.host,
-			remotePort: config.targetAddress.port,
-			get connected() { return socketState.connected; },
-			close: () => tcpClient.close(),
-			send: (data) => tcpClient.send(data),
-			write: (data) => tcpClient.write(data),
-		};
-
-		const connection = this.createClientConnection(socketWrapper);
-
-		// Setup TcpClient event handlers to dispatch to connection wrapper
-		tcpClient.on("message", (data) => {
-			try {
-				const str = typeof data === "string" ? data : new TextDecoder().decode(data);
-				const message = JSON.parse(str) as Message;
-				connection._dispatchEvent(message);
-			} catch (_err) {
-				// Failed to parse message
-			}
-		});
-
-		tcpClient.on("error", (err) => {
-			this.client.isConnected = false;
-			socketState.connected = false;
-			connection._notifyError(err);
-		});
-
-		tcpClient.on("end", () => {
-			this.client.isConnected = false;
-			socketState.connected = false;
-			connection._notifyClose();
-		});
-
-		return connection;
-	}
-
-	// =========================================================================
-	// Abstract Method Implementations (Protocol-Specific)
-	// =========================================================================
-
-	/**
-	 * Send message through TCP socket
-	 */
-	protected async sendToSocket(socket: ISocket, message: Message): Promise<void> {
-		if (!socket.connected) {
-			throw new Error("Socket is not connected");
-		}
-
-		const json = JSON.stringify(message);
-
-		if (this.protocolOptions.lengthFieldLength) {
-			// Binary mode - use framed send
-			const data = new TextEncoder().encode(json);
-			await socket.send(data);
-		} else {
-			// Text mode - add delimiter
-			const data = new TextEncoder().encode(json + this.delimiter);
-			await socket.write(data);
-		}
-	}
-
-	/**
-	 * Close a TCP socket
-	 */
-	protected async closeSocket(socket: ISocket): Promise<void> {
-		socket.close();
-	}
-
-	/**
-	 * Check if TCP socket is connected
-	 */
-	protected isSocketConnected(socket: ISocket): boolean {
-		return socket.connected;
-	}
-
-	/**
-	 * Setup TCP socket event handlers
-	 * Note: For server sockets, handlers are stored per-connection and dispatched from global handlers.
-	 * For client connections, handlers are set up in connect() method directly on TcpClient.
-	 */
-	protected setupSocketHandlers(
-		socket: ISocket,
-		handlers: {
-			onMessage: (message: Message) => void;
-			onClose: () => void;
-			onError: (error: Error) => void;
-		},
-	): void {
-		// For server connections, store handlers per-connection
-		// The global handlers in startServer() will dispatch to these
-		if (this.tcpServer) {
-			this.connectionHandlers.set(socket.id, handlers);
-		}
-		// For client connections, handlers are set up in connect() method directly on TcpClient
-	}
-
-	/**
-	 * Dispose protocol and release all resources
-	 */
-	override async dispose(): Promise<void> {
-		await this.stopServer();
-		await super.dispose();
 	}
 }
 

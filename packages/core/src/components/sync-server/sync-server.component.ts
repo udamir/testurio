@@ -12,6 +12,8 @@
 
 import type {
 	ISyncProtocol,
+	ISyncServerAdapter,
+	ISyncClientAdapter,
 	Address,
 	TlsConfig,
 } from "../../protocols/base";
@@ -59,6 +61,11 @@ export class Server<A extends ISyncProtocol = ISyncProtocol> extends BaseCompone
 	private readonly _listenAddress: Address;
 	private readonly _targetAddress?: Address;
 	private readonly _tls?: TlsConfig;
+
+	/** Server adapter (v3 API) */
+	private _serverAdapter?: ISyncServerAdapter;
+	/** Client adapter for proxy mode (v3 API) */
+	private _clientAdapter?: ISyncClientAdapter;
 
 	constructor(name: string, options: ServerOptions<A>) {
 		super(name, options.protocol);
@@ -109,15 +116,15 @@ export class Server<A extends ISyncProtocol = ISyncProtocol> extends BaseCompone
 	 * Start the server (and client connection if proxy mode)
 	 */
 	protected async doStart(): Promise<void> {
-		// Set request handler to delegate request handling to this component
-		this.protocol.setRequestHandler((messageType, request) => this.handleIncomingRequest(messageType, request));
+		// Create server adapter (v3 API)
+		this._serverAdapter = await this.protocol.createServer({ listenAddress: this._listenAddress, tls: this._tls });
 
-		// Start server
-		await this.protocol.startServer({ listenAddress: this._listenAddress, tls: this._tls });
+		// Set request handler to delegate request handling to this component
+		this._serverAdapter.onRequest((messageType, request) => this.handleIncomingRequest(messageType, request));
 
 		// If proxy mode, create client connection to target
 		if (this._targetAddress) {
-			await this.protocol.createClient({ targetAddress: this._targetAddress, tls: this._tls });
+			this._clientAdapter = await this.protocol.createClient({ targetAddress: this._targetAddress, tls: this._tls });
 		}
 	}
 
@@ -125,16 +132,17 @@ export class Server<A extends ISyncProtocol = ISyncProtocol> extends BaseCompone
 	 * Stop server and dispose protocol
 	 */
 	protected async doStop(): Promise<void> {
-		// Stop server
-		await this.protocol.stopServer();
-
-		// Disconnect client (proxy mode)
-		if (this._targetAddress) {
-			await this.protocol.closeClient();
+		// Stop server adapter
+		if (this._serverAdapter) {
+			await this._serverAdapter.stop();
+			this._serverAdapter = undefined;
 		}
 
-		// Dispose protocol to release all resources
-		await this.protocol.dispose();
+		// Disconnect client adapter (proxy mode)
+		if (this._clientAdapter) {
+			await this._clientAdapter.close();
+			this._clientAdapter = undefined;
+		}
 
 		// Clear hooks
 		this.hookRegistry.clear();
@@ -161,7 +169,7 @@ export class Server<A extends ISyncProtocol = ISyncProtocol> extends BaseCompone
 		// No hook produced a response - check if we're in proxy mode
 		if (this.isProxy) {
 			// Forward to target server
-			return this.forwardRequest(processedMessage.type, processedMessage.payload as A["$request"]);
+			return this.forwardRequest(processedMessage.type, processedMessage.payload);
 		}
 
 		// Mock mode with no handler - return null to let protocol send default 404
@@ -182,16 +190,10 @@ export class Server<A extends ISyncProtocol = ISyncProtocol> extends BaseCompone
 			throw new Error(`Server ${this.name} is not in proxy mode`);
 		}
 
-		if (!this.protocol) {
-			throw new Error(`Server ${this.name} is not started`);
+		if (!this._clientAdapter) {
+			throw new Error(`Server ${this.name} is not started or has no client adapter`);
 		}
 
-		if (!this.protocol.request) {
-			throw new Error(
-				`Server ${this.name} protocol does not support request operation`,
-			);
-		}
-
-		return this.protocol.request(messageType, data);
+		return this._clientAdapter.request(messageType, data);
 	}
 }

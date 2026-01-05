@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from "vitest";
 import { TestScenario, testCase, AsyncServer, AsyncClient } from "testurio";
-import { GrpcStreamProtocol, type GrpcStreamServiceDefinition } from "@testurio/protocol-grpc";
+import { GrpcStreamProtocol } from "@testurio/protocol-grpc";
 
 // ============================================================================
 // Message Type Definitions
@@ -40,7 +40,7 @@ interface ErrorMessage {
 
 // Service definition for type-safe gRPC streaming
 // Uses separate clientMessages and serverMessages maps
-interface GrpcStreamMessages extends GrpcStreamServiceDefinition {
+interface GrpcStreamMessages {
 	clientMessages: {
 		ping: PingMessage;
 		data: DataMessage;
