@@ -22,81 +22,68 @@ npm install testurio --save-dev
 
 ## Quick Start
 
-### Type Definitions for Type-Safe Payloads
-
-Define service types to get full type safety across your tests:
-
-```typescript
-// HTTP Service Definition
-interface HttpServiceDef {
-  getUsers: {
-    request: { method: 'GET'; path: '/users'; body?: never };
-    response: { code: 200; body: User[] };
-  };
-  createUser: {
-    request: { method: 'POST'; path: '/users'; body: CreateUserPayload };
-    response: { code: 201; body: User };
-  };
-}
-
-// WebSocket/Async Service Definition
-interface WsServiceDef {
-  clientMessages: {
-    getUser: { userId: number };
-    subscribe: { channel: string };
-  };
-  serverMessages: {
-    user: { userId: number; name: string; email: string };
-    subscribed: { subscriptionId: string; status: string };
-  };
-}
-```
-
-### HTTP Example (Type-Safe)
+1. Register components of test scenario
+2. Write test-case steps
+3. Run test scenario, generate report
 
 ```typescript
 import { TestScenario, testCase, Client, Server, HttpProtocol } from 'testurio';
 
 // Define components with protocol - types are automatically inferred
 const httpClient = new Client('api', {
-  protocol: new HttpProtocol<HttpServiceDef>(),
+  protocol: new HttpProtocol(),
   targetAddress: { host: 'localhost', port: 3000 },
 });
 
 const httpServer = new Server('backend', {
-  protocol: new HttpProtocol<HttpServiceDef>(),
+  protocol: new HttpProtocol(),
   listenAddress: { host: 'localhost', port: 3000 },
 });
 
-// Create scenario with components
-const scenario = new TestScenario({
-  name: 'User API Test',
-  components: [httpServer, httpClient],
-});
+// Create scenario
+const scenario = new TestScenario({ name: 'User API Test' });
 
-// Write test cases with full type safety via test.use()
+// Write test cases
 const tc = testCase('Get user by ID', (test) => {
-  const api = test.use(httpClient);      // Fully typed step builder!
-  const backend = test.use(httpServer);  // Fully typed step builder!
+  const client = test.use(httpClient);      // use "httpClient" in test case
+  const mock = test.use(httpServer);  // use "httpServer" in test case
 
   // Step 1: Client sends request
-  api.request('getUsers', { method: 'GET', path: '/users' });
+  client.request('getUsers', { method: 'GET', path: '/users' });
 
   // Step 2: Mock handles request
-  backend.onRequest('getUsers', { method: 'GET', path: '/users' })
+  mock
+    .onRequest('getUsers', { method: 'GET', path: '/users' })
     .mockResponse(() => ({
       code: 200,
       body: [{ id: 1, name: 'Alice', email: 'alice@example.com' }],
     }));
 
   // Step 3: Client receives and validates response
-  api.onResponse('getUsers').assert((res) => res.body[0].id === 1);
+  client
+    .onResponse('getUsers')
+    .assert((res) => res.body[0].id === 1);
 });
 
 // Run the test
 const result = await scenario.run(tc);
 console.log(result.passed); // true
 ```
+
+## Roadmap
+
+- [ ] **testurio-cli** - Type definition generation from API specifications
+  - [ ] OpenAPI/Swagger → HTTP service definitions
+  - [ ] AsyncAPI → WebSocket/async service definitions
+  - [ ] Protobuf → gRPC service definitions
+- [ ] **Message Queue Support** - Integration with message brokers
+  - [ ] RabbitMQ (AMQP protocol)
+  - [ ] Kafka (producer/consumer testing)
+- [ ] **Datasource Support** - Database integrations
+  - [ ] SQL (PostgreSQL, MySQL, SQLite)
+  - [ ] Redis (key-value and pub/sub)
+
+## Examples
 
 ### gRPC Example
 
@@ -186,6 +173,78 @@ const tc = testCase('Ping-Pong', (test) => {
   // Step 3: Client receives pong
   client.onEvent('pong').assert((payload) => payload.seq === 1);
 });
+```
+
+### Type-Safe HTTP Example
+
+Define service types to get full type safety across your tests:
+
+```typescript
+import { TestScenario, testCase, Client, Server, HttpProtocol } from 'testurio';
+
+// HTTP Service Definition
+interface HttpServiceDef {
+  getUsers: {
+    request: { method: 'GET'; path: '/users'; body?: never };
+    response: { code: 200; body: User[] };
+  };
+  createUser: {
+    request: { method: 'POST'; path: '/users'; body: CreateUserPayload };
+    response: { code: 201; body: User };
+  };
+}
+
+// WebSocket/Async Service Definition
+interface WsServiceDef {
+  clientMessages: {
+    getUser: { userId: number };
+    subscribe: { channel: string };
+  };
+  serverMessages: {
+    user: { userId: number; name: string; email: string };
+    subscribed: { subscriptionId: string; status: string };
+  };
+}
+
+// Define components with protocol - types are automatically inferred
+const httpClient = new Client('api', {
+  protocol: new HttpProtocol<HttpServiceDef>(),
+  targetAddress: { host: 'localhost', port: 3000 },
+});
+
+const httpServer = new Server('backend', {
+  protocol: new HttpProtocol<HttpServiceDef>(),
+  listenAddress: { host: 'localhost', port: 3000 },
+});
+
+// Create scenario with components
+const scenario = new TestScenario({
+  name: 'User API Test',
+  components: [httpServer, httpClient],
+});
+
+// Write test cases with full type safety via test.use()
+const tc = testCase('Get user by ID', (test) => {
+  const api = test.use(httpClient);      // Fully typed step builder!
+  const backend = test.use(httpServer);  // Fully typed step builder!
+
+  // Step 1: Client sends request
+  api.request('getUsers', { method: 'GET', path: '/users' });
+
+  // Step 2: Mock handles request
+  backend.onRequest('getUsers', { method: 'GET', path: '/users' })
+    .mockResponse(() => ({
+      code: 200,
+      body: [{ id: 1, name: 'Alice', email: 'alice@example.com' }],
+    }));
+
+  // Step 3: Client receives and validates response
+  api.onResponse('getUsers').assert((res) => res.body[0].id === 1);
+});
+
+// Run the test
+const result = await scenario.run(tc);
+console.log(result.passed); // true
 ```
 
 ## Core Concepts
@@ -379,19 +438,6 @@ graph TB
 | **Components** | High-level abstractions that own adapters and manage state   |
 | **Protocols**  | Stateless adapter factories (`createServer`, `createClient`) |
 | **Adapters**   | Protocol-specific I/O operations (owned by components)       |
-
-## Roadmap
-
-- [ ] **testurio-cli** - Type definition generation from API specifications
-  - [ ] OpenAPI/Swagger → HTTP service definitions
-  - [ ] AsyncAPI → WebSocket/async service definitions
-  - [ ] Protobuf → gRPC service definitions
-- [ ] **Message Queue Support** - Integration with message brokers
-  - [ ] RabbitMQ (AMQP protocol)
-  - [ ] Kafka (producer/consumer testing)
-- [ ] **Datasource Support** - Database integrations
-  - [ ] SQL (PostgreSQL, MySQL, SQLite)
-  - [ ] Redis (key-value and pub/sub)
 
 ## License
 
