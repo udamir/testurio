@@ -24,14 +24,14 @@
  * ```
  */
 
-export { TcpProtocol, createTcpProtocol } from "./tcp.protocol";
-export { TcpServerAdapter, TcpClientAdapter } from "./tcp.adapters";
+export * from "./framing";
+export { TcpClientAdapter, TcpServerAdapter } from "./tcp.adapters";
 
 // Export TCP client/server classes
 export * from "./tcp.client";
+export { createTcpProtocol, TcpProtocol } from "./tcp.protocol";
 export * from "./tcp.server";
 export * from "./tcp.socket";
-export * from "./framing";
 
 // Export TCP-specific types
-export type { TcpServiceDefinition, TcpProtocolOptions } from "./types";
+export type { TcpProtocolOptions, TcpServiceDefinition } from "./types";

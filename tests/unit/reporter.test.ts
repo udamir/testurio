@@ -2,14 +2,9 @@
  * Reporter Tests
  */
 
-import { beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import type { TestCaseResult, TestResult, TestStepResult } from "testurio";
-import {
-	CompositeReporter,
-	ConsoleReporter,
-	JsonReporter,
-	SilentReporter,
-} from "testurio";
+import { CompositeReporter, ConsoleReporter, JsonReporter, SilentReporter } from "testurio";
+import { beforeEach, describe, expect, it, type MockInstance, vi } from "vitest";
 
 // Mock test result
 const createTestResult = (overrides?: Partial<TestResult>): TestResult => ({
@@ -37,9 +32,7 @@ const createTestResult = (overrides?: Partial<TestResult>): TestResult => ({
 	...overrides,
 });
 
-const createTestCaseResult = (
-	overrides?: Partial<TestCaseResult>,
-): TestCaseResult => ({
+const createTestCaseResult = (overrides?: Partial<TestCaseResult>): TestCaseResult => ({
 	name: "Test Case",
 	passed: true,
 	duration: 50,
@@ -52,9 +45,7 @@ const createTestCaseResult = (
 	...overrides,
 });
 
-const createStepResult = (
-	overrides?: Partial<TestStepResult>,
-): TestStepResult => ({
+const createStepResult = (overrides?: Partial<TestStepResult>): TestStepResult => ({
 	stepNumber: 1,
 	type: "wait",
 	passed: true,

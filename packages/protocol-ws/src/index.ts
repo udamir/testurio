@@ -24,6 +24,6 @@
  * ```
  */
 
-export * from "./ws.protocol";
-export * from "./ws.adapters";
 export * from "./types";
+export * from "./ws.adapters";
+export * from "./ws.protocol";

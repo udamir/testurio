@@ -21,9 +21,7 @@ export interface LoadedSchema {
 /**
  * Load Protobuf schema from .proto files using @grpc/proto-loader
  */
-export async function loadGrpcSchema(
-	schemaPath: string | string[],
-): Promise<LoadedSchema> {
+export async function loadGrpcSchema(schemaPath: string | string[]): Promise<LoadedSchema> {
 	const inputPaths = Array.isArray(schemaPath) ? schemaPath : [schemaPath];
 	const paths = inputPaths.map((p) => path.resolve(p));
 
@@ -63,7 +61,7 @@ export async function loadGrpcSchema(
 export function extractServices(
 	obj: grpc.GrpcObject,
 	services: Map<string, grpc.ServiceDefinition>,
-	prefix = "",
+	prefix = ""
 ): void {
 	for (const [key, value] of Object.entries(obj)) {
 		const fullName = prefix ? `${prefix}.${key}` : key;
@@ -81,10 +79,7 @@ export function extractServices(
 /**
  * Get service client constructor by name from loaded schema
  */
-export function getServiceClient(
-	schema: LoadedSchema,
-	serviceName: string,
-): grpc.ServiceClientConstructor | undefined {
+export function getServiceClient(schema: LoadedSchema, serviceName: string): grpc.ServiceClientConstructor | undefined {
 	const parts = serviceName.split(".");
 	let current: unknown = schema.grpcObject;
 

@@ -5,9 +5,9 @@
  * Using async (streaming) gRPC protocol with real connections.
  */
 
-import { describe, expect, it } from "vitest";
-import { TestScenario, testCase, AsyncServer, AsyncClient } from "testurio";
 import { GrpcStreamProtocol } from "@testurio/protocol-grpc";
+import { AsyncClient, AsyncServer, TestScenario, testCase } from "testurio";
+import { describe, expect, it } from "vitest";
 
 // ============================================================================
 // Message Type Definitions
@@ -296,8 +296,7 @@ describe("gRPC Streaming Protocol Chain: Client → Mock", () => {
 					ping: { timestamp: 1234567890 },
 				});
 				api.onEvent("pong").assert((payload) => {
-					return payload.request_id === "init-test" && 
-						payload.pong?.timestamp === 1234567890;
+					return payload.request_id === "init-test" && payload.pong?.timestamp === 1234567890;
 				});
 			});
 
@@ -336,9 +335,11 @@ describe("gRPC Streaming Protocol Chain: Client → Mock", () => {
 
 				// Verify the response correlates with the request by checking echoed request_id
 				api.onEvent("error").assert((payload) => {
-					return payload.request_id === "ERR-001" && 
+					return (
+						payload.request_id === "ERR-001" &&
 						payload.error?.code === 400 &&
-						payload.error?.message === "Invalid request";
+						payload.error?.message === "Invalid request"
+					);
 				});
 			});
 
@@ -453,9 +454,11 @@ describe("gRPC Streaming Protocol Chain: Client → Proxy → Mock", () => {
 				}));
 
 				api.onEvent("subscribe").assert((payload) => {
-					return payload.request_id === "SUB-PROXY-001" && 
-						payload.subscribe?.channel === "prices" && 
-						payload.subscribe?.success === true;
+					return (
+						payload.request_id === "SUB-PROXY-001" &&
+						payload.subscribe?.channel === "prices" &&
+						payload.subscribe?.success === true
+					);
 				});
 			});
 

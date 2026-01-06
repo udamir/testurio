@@ -6,15 +6,10 @@
  * and relies on the component's createStepBuilder method for type inference.
  */
 
-import type { IBaseProtocol } from "../protocols/base";
 import type { BaseComponent, CreateComponentOptions } from "../components/base";
+import type { IBaseProtocol } from "../protocols/base";
 import type { TestPhase, TestStep } from "./execution.types";
 
-/**
- * Test Case Builder
- *
- * Provides fluent API for building test cases.
- */
 /**
  * Pending component to be started
  */
@@ -23,18 +18,18 @@ export interface PendingComponent {
 	options: CreateComponentOptions;
 }
 
-export class TestCaseBuilder<
-	TContext extends Record<string, unknown> = Record<string, unknown>,
-> {
+/**
+ * Test Case Builder
+ *
+ * Provides fluent API for building test cases.
+ */
+export class TestCaseBuilder {
 	private steps: TestStep[] = [];
 	private currentPhase: TestPhase = "test";
 	private pendingComponents: PendingComponent[] = [];
 	private componentRegistry?: Map<string, BaseComponent>;
 
-	constructor(
-		private components: Map<string, BaseComponent>,
-		public context: TContext,
-	) {}
+	constructor(private components: Map<string, BaseComponent>) {}
 
 	/**
 	 * Set component registry for dynamic component registration
@@ -145,10 +140,7 @@ export class TestCaseBuilder<
 	/**
 	 * Wait until a condition is met
 	 */
-	waitUntil(
-		condition: () => boolean | Promise<boolean>,
-		options?: { timeout?: number; interval?: number },
-	): void {
+	waitUntil(condition: () => boolean | Promise<boolean>, options?: { timeout?: number; interval?: number }): void {
 		const timeout = options?.timeout || 5000;
 		const interval = options?.interval || 100;
 

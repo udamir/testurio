@@ -64,7 +64,6 @@ export interface SchemaDefinition {
 	validationOptions?: ValidationOptions;
 }
 
-
 // =============================================================================
 // Message Types
 // =============================================================================
@@ -81,6 +80,31 @@ export interface Message<T = unknown> {
 	traceId?: string;
 }
 
+// =============================================================================
+// Timeout Configuration
+// =============================================================================
+
+/**
+ * Timeout configuration for protocols
+ * All timeouts are in milliseconds.
+ */
+export interface TimeoutConfig {
+	/** Connection establishment timeout (default: 5000ms) */
+	connectionTimeout?: number;
+	/** Request/response timeout (default: 30000ms) */
+	requestTimeout?: number;
+	/** Idle connection timeout (default: 60000ms) */
+	idleTimeout?: number;
+}
+
+/**
+ * Default timeout values in milliseconds
+ */
+export const DEFAULT_TIMEOUTS: Required<TimeoutConfig> = {
+	connectionTimeout: 5000,
+	requestTimeout: 30000,
+	idleTimeout: 60000,
+};
 
 // =============================================================================
 // Protocol Handles
@@ -92,6 +116,7 @@ export interface Message<T = unknown> {
 export type ServerProtocolConfig = {
 	listenAddress: Address; // Address to listen on
 	tls?: TlsConfig; // TLS configuration
+	timeouts?: TimeoutConfig; // Timeout configuration
 };
 
 /**
@@ -100,6 +125,7 @@ export type ServerProtocolConfig = {
 export type ClientProtocolConfig = {
 	targetAddress: Address; // Target address to connect to
 	tls?: TlsConfig; // TLS configuration
+	timeouts?: TimeoutConfig; // Timeout configuration
 };
 
 /**
@@ -140,10 +166,10 @@ export type SyncOperations<T = object> = Operations<T>;
 export type AsyncMessages<T = object> = {
 	clientMessages: {
 		[K in keyof T]?: Record<string, unknown>;
-	}
+	};
 	serverMessages: {
 		[K in keyof T]?: Record<string, unknown>;
-	}
+	};
 };
 
 // =============================================================================
@@ -152,16 +178,12 @@ export type AsyncMessages<T = object> = {
 
 /**
  * Base protocol interface - common for sync and async protocols
- * 
+ *
  * @template M - Message/operation definition type
  * @template TServerAdapter - Server adapter type returned by createServer
  * @template TClientAdapter - Client adapter type returned by createClient
  */
-export interface IBaseProtocol<
-	M = unknown,
-	TServerAdapter = unknown,
-	TClientAdapter = unknown,
-> {
+export interface IBaseProtocol<M = unknown, TServerAdapter = unknown, TClientAdapter = unknown> {
 	/** Protocol type identifier (e.g., "http", "tcp", "websocket") */
 	readonly type: string;
 
@@ -184,7 +206,7 @@ export interface IBaseProtocol<
 
 /**
  * Sync protocol interface for request/response protocols
- * 
+ *
  * @template M - Operations definition type
  * @template TReq - Request type (for phantom type)
  * @template TRes - Response type (for phantom type)
@@ -205,7 +227,7 @@ export interface ISyncProtocol<M extends SyncOperations = SyncOperations, TReq =
 export interface ISyncServerAdapter {
 	/** Register request handler */
 	onRequest<TReq = unknown, TRes = unknown>(
-		handler: (messageType: string, request: TReq) => Promise<TRes | null>,
+		handler: (messageType: string, request: TReq) => Promise<TRes | null>
 	): void;
 
 	/** Stop server */
@@ -218,11 +240,7 @@ export interface ISyncServerAdapter {
  */
 export interface ISyncClientAdapter {
 	/** Send request and wait for response */
-	request<TReq = unknown, TRes = unknown>(
-		messageType: string,
-		data: TReq,
-		timeout?: number,
-	): Promise<TRes>;
+	request<TReq = unknown, TRes = unknown>(messageType: string, data: TReq, timeout?: number): Promise<TRes>;
 
 	/** Close client connection */
 	close(): Promise<void>;
@@ -279,7 +297,6 @@ export interface IAsyncClientAdapter {
 	onError(handler: (error: Error) => void): void;
 }
 
-
 // =============================================================================
 // Type Extraction Helpers
 // =============================================================================
@@ -289,7 +306,7 @@ export interface IAsyncClientAdapter {
  * Checks for: messages, protocol, or service (for gRPC streaming)
  * @template A - Protocol type
  */
-export type ProtocolMessages<A> = A extends { $types: infer M  }
+export type ProtocolMessages<A> = A extends { $types: infer M }
 	? M
 	: A extends { $types: { protocol: infer P } }
 		? P
@@ -302,16 +319,16 @@ export type ProtocolMessages<A> = A extends { $types: infer M  }
  * Uses $types phantom type from BaseSyncProtocol
  * @template A - Protocol type
  */
-export type ProtocolService<A> = A extends { $types: infer T }
-	? T
-	: Record<string, unknown>;
+export type ProtocolService<A> = A extends { $types: infer T } ? T : Record<string, unknown>;
 
 /**
  * Extract request options type from protocol (HTTP, gRPC Unary)
  * @template A - Protocol type
  */
 export type ProtocolRequestOptions<A> = A extends { $request: infer R }
-	? R extends Record<string, unknown> ? R : Record<string, unknown>
+	? R extends Record<string, unknown>
+		? R
+		: Record<string, unknown>
 	: Record<string, unknown>;
 
 // =============================================================================
@@ -322,14 +339,10 @@ export type ProtocolRequestOptions<A> = A extends { $request: infer R }
  * Extract client messages map from async message definition.
  * @template M - Message definition type with clientMessages/serverMessages
  */
-export type ClientMessages<M> = M extends { clientMessages: infer C }
-	? C
-	: Record<string, unknown>;
+export type ClientMessages<M> = M extends { clientMessages: infer C } ? C : Record<string, unknown>;
 
 /**
  * Extract server messages map from async message definition.
  * @template M - Message definition type with clientMessages/serverMessages
  */
-export type ServerMessages<M> = M extends { serverMessages: infer S }
-	? S
-	: Record<string, unknown>;
+export type ServerMessages<M> = M extends { serverMessages: infer S } ? S : Record<string, unknown>;

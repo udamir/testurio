@@ -13,7 +13,7 @@ import type { Message } from "testurio";
 /**
  * TCP Service definition for bidirectional messaging.
  * Uses separate clientMessages and serverMessages maps.
- * 
+ *
  * @example
  * ```typescript
  * interface MyTcpService extends TcpServiceDefinition {
@@ -49,7 +49,7 @@ export interface TcpProtocolOptions {
 	timeout?: number;
 	/** Message delimiter (default: "\n") - only used when lengthFieldLength is 0 */
 	delimiter?: string;
-	/** 
+	/**
 	 * Length field size for binary framing (0 = no length prefix).
 	 * - 0: No length prefix, use delimiter for text protocols (default)
 	 * - 1: 1-byte length prefix (max 255 bytes)
@@ -87,7 +87,7 @@ export interface PendingMessage {
 // Tcp Client/Server Types
 // =============================================================================
 
-export type DataEncoding = 'utf-8' | 'binary'
+export type DataEncoding = "utf-8" | "binary";
 
 export interface ISocket {
 	readonly id: string;

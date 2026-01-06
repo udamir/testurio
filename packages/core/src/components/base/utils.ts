@@ -32,8 +32,6 @@ export function generateRequestId(): string {
 	return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
-
-
 /**
  * Match HTTP path with support for path parameters
  * Supports both {id} (OpenAPI) and :id (Express) formats
@@ -43,46 +41,40 @@ export function generateRequestId(): string {
  *   matchHttpPath('/users/123/posts', '/users/{id}/posts') => true
  *   matchHttpPath('/users', '/users/{id}') => false
  */
-export function matchHttpPath(
-  actualPath: string,
-  patternPath: string,
-): boolean {
-  // Exact match
-  if (actualPath === patternPath) return true;
+export function matchHttpPath(actualPath: string, patternPath: string): boolean {
+	// Exact match
+	if (actualPath === patternPath) return true;
 
-  // No path parameters - simple comparison
-  if (!patternPath.includes("{") && !patternPath.includes(":")) {
-    return actualPath === patternPath;
-  }
+	// No path parameters - simple comparison
+	if (!patternPath.includes("{") && !patternPath.includes(":")) {
+		return actualPath === patternPath;
+	}
 
-  // Split paths into segments
-  const actualSegments = actualPath.split("/").filter(Boolean);
-  const patternSegments = patternPath.split("/").filter(Boolean);
+	// Split paths into segments
+	const actualSegments = actualPath.split("/").filter(Boolean);
+	const patternSegments = patternPath.split("/").filter(Boolean);
 
-  // Different number of segments - no match
-  if (actualSegments.length !== patternSegments.length) {
-    return false;
-  }
+	// Different number of segments - no match
+	if (actualSegments.length !== patternSegments.length) {
+		return false;
+	}
 
-  // Match each segment
-  for (let i = 0; i < patternSegments.length; i++) {
-    const patternSegment = patternSegments[i];
-    const actualSegment = actualSegments[i];
+	// Match each segment
+	for (let i = 0; i < patternSegments.length; i++) {
+		const patternSegment = patternSegments[i];
+		const actualSegment = actualSegments[i];
 
-    // Path parameter - matches anything
-    // Support both {id} (OpenAPI) and :id (Express) formats
-    if (
-      (patternSegment.startsWith("{") && patternSegment.endsWith("}")) ||
-      patternSegment.startsWith(":")
-    ) {
-      continue;
-    }
+		// Path parameter - matches anything
+		// Support both {id} (OpenAPI) and :id (Express) formats
+		if ((patternSegment.startsWith("{") && patternSegment.endsWith("}")) || patternSegment.startsWith(":")) {
+			continue;
+		}
 
-    // Literal segment - must match exactly
-    if (patternSegment !== actualSegment) {
-      return false;
-    }
-  }
+		// Literal segment - must match exactly
+		if (patternSegment !== actualSegment) {
+			return false;
+		}
+	}
 
-  return true;
+	return true;
 }

@@ -4,11 +4,7 @@
  * Executes individual test steps with timeout and error handling.
  */
 
-import type {
-	StepExecutionContext,
-	StepExecutionResult,
-	TestStep,
-} from "./execution.types";
+import type { StepExecutionContext, StepExecutionResult, TestStep } from "./execution.types";
 
 /**
  * Default step timeout (30 seconds)
@@ -18,10 +14,7 @@ const DEFAULT_STEP_TIMEOUT = 30000;
 /**
  * Execute a single test step
  */
-export async function executeStep(
-	step: TestStep,
-	context: StepExecutionContext,
-): Promise<StepExecutionResult> {
+export async function executeStep(step: TestStep, context: StepExecutionContext): Promise<StepExecutionResult> {
 	const startTime = Date.now();
 	const timeout = step.timeout ?? DEFAULT_STEP_TIMEOUT;
 
@@ -29,11 +22,7 @@ export async function executeStep(
 		// Create timeout promise
 		const timeoutPromise = new Promise<never>((_, reject) => {
 			setTimeout(() => {
-				reject(
-					new Error(
-						`Step timeout after ${timeout}ms: ${step.description || step.type}`,
-					),
-				);
+				reject(new Error(`Step timeout after ${timeout}ms: ${step.description || step.type}`));
 			}, timeout);
 		});
 
@@ -90,7 +79,7 @@ export async function executeSteps(
 		failFast?: boolean;
 		abortSignal?: AbortSignal;
 		onStepComplete?: (result: StepExecutionResult, index: number) => void;
-	},
+	}
 ): Promise<StepExecutionResult[]> {
 	const results: StepExecutionResult[] = [];
 	const failFast = options?.failFast ?? true;
@@ -139,10 +128,7 @@ export async function executeSteps(
 /**
  * Filter steps by phase
  */
-export function filterStepsByPhase(
-	steps: TestStep[],
-	phase: TestStep["phase"],
-): TestStep[] {
+export function filterStepsByPhase(steps: TestStep[], phase: TestStep["phase"]): TestStep[] {
 	return steps.filter((step) => step.phase === phase);
 }
 

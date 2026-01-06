@@ -10,9 +10,9 @@
  * - scenario.init() only for lifecycle tests
  */
 
-import { describe, expect, it } from "vitest";
-import { TestScenario, testCase, AsyncServer, AsyncClient } from "testurio";
 import { TcpProtocol } from "@testurio/protocol-tcp";
+import { AsyncClient, AsyncServer, TestScenario, testCase } from "testurio";
+import { describe, expect, it } from "vitest";
 
 // ============================================================================
 // Message Type Definitions

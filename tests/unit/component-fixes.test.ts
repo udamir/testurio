@@ -1,6 +1,6 @@
 /**
  * Tests for component fixes from implementation-analysis-v3.md
- * 
+ *
  * Covers:
  * - 4.1: Promise-based proxy connection setup
  * - 4.2: Message queue removal from AsyncClient
@@ -10,9 +10,9 @@
  * - 8.3: Parallel broadcast sends
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
-import { HookRegistry } from "testurio";
 import type { Hook, Message } from "testurio";
+import { HookRegistry } from "testurio";
+import { beforeEach, describe, expect, it } from "vitest";
 
 describe("Component Fixes", () => {
 	describe("5.3 Hook Execution Order", () => {

@@ -19,10 +19,7 @@ import { DropMessageError } from "../base/base.types";
  * @template TPayload - Incoming message payload type
  * @template M - Full message definition for type inference (optional)
  */
-export class AsyncClientHookBuilder<
-	TPayload,
-	_M = unknown,
-> {
+export class AsyncClientHookBuilder<TPayload, _M = unknown> {
 	/**
 	 * Create a new async client hook builder.
 	 *
@@ -62,9 +59,7 @@ export class AsyncClientHookBuilder<
 			type: "proxy",
 			execute: async (msg: Message<TPayload>) => {
 				if (handler) {
-					const transformedPayload = await Promise.resolve(
-						handler(msg.payload),
-					);
+					const transformedPayload = await Promise.resolve(handler(msg.payload));
 					return {
 						...msg,
 						payload: transformedPayload,

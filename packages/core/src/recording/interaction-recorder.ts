@@ -92,7 +92,7 @@ export class InteractionRecorder {
 			responsePayload?: unknown;
 			status?: "completed" | "failed" | "timeout";
 			error?: string;
-		},
+		}
 	): void {
 		const interaction = this.interactions.get(id);
 		if (!interaction) {
@@ -136,10 +136,7 @@ export class InteractionRecorder {
 	 */
 	getFilteredInteractions(filter: InteractionFilter): Interaction[] {
 		return this.getInteractions().filter((interaction) => {
-			if (
-				filter.messageType &&
-				interaction.messageType !== filter.messageType
-			) {
+			if (filter.messageType && interaction.messageType !== filter.messageType) {
 				return false;
 			}
 			if (filter.direction && interaction.direction !== filter.direction) {
@@ -206,15 +203,13 @@ export class InteractionRecorder {
 
 		for (const interaction of interactions) {
 			// Count by service
-			byService[interaction.serviceName] =
-				(byService[interaction.serviceName] || 0) + 1;
+			byService[interaction.serviceName] = (byService[interaction.serviceName] || 0) + 1;
 
 			// Count by status
 			byStatus[interaction.status] = (byStatus[interaction.status] || 0) + 1;
 
 			// Count by direction
-			byDirection[interaction.direction] =
-				(byDirection[interaction.direction] || 0) + 1;
+			byDirection[interaction.direction] = (byDirection[interaction.direction] || 0) + 1;
 
 			// Sum duration for completed interactions
 			if (interaction.duration !== undefined) {

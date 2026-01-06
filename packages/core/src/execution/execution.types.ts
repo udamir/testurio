@@ -204,14 +204,7 @@ export interface TestExecutionOptions {
 /**
  * Test execution status
  */
-export type TestExecutionStatus =
-	| "pending"
-	| "running"
-	| "passed"
-	| "failed"
-	| "skipped"
-	| "timeout"
-	| "cancelled";
+export type TestExecutionStatus = "pending" | "running" | "passed" | "failed" | "skipped" | "timeout" | "cancelled";
 
 // =============================================================================
 // Test Case Builder Interface (for components)
@@ -221,10 +214,7 @@ export type TestExecutionStatus =
  * Minimal interface for TestCaseBuilder used by components
  * This breaks the circular dependency between base-component and execution
  */
-export interface ITestCaseBuilder<
-	TContext extends Record<string, unknown> = Record<string, unknown>,
-> {
+export interface ITestCaseBuilder {
 	phase: TestPhase;
-	readonly context: TContext;
 	registerStep(step: Omit<TestStep, "phase">): void;
 }

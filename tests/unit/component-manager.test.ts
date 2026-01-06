@@ -1,16 +1,11 @@
 /**
  * TestScenario Component Management Tests
- * 
+ *
  * Tests for component management functionality that is now inlined in TestScenario.
  */
 
+import { BaseSyncProtocol, Client, Server, TestScenario } from "testurio";
 import { describe, expect, it } from "vitest";
-import {
-	TestScenario,
-	BaseSyncProtocol,
-	Client,
-	Server,
-} from "testurio";
 
 // Mock adapter class implementing SyncAdapter
 class MockProtocol extends BaseSyncProtocol {
@@ -42,15 +37,17 @@ class MockProtocol extends BaseSyncProtocol {
 }
 
 // Helper to create components with mock adapter
-const createClient = (name: string, port: number) => new Client(name, {
-	protocol: new MockProtocol(),
-	targetAddress: { host: "localhost", port },
-});
+const createClient = (name: string, port: number) =>
+	new Client(name, {
+		protocol: new MockProtocol(),
+		targetAddress: { host: "localhost", port },
+	});
 
-const createServer = (name: string, port: number) => new Server(name, {
-	protocol: new MockProtocol(),
-	listenAddress: { host: "localhost", port },
-});
+const createServer = (name: string, port: number) =>
+	new Server(name, {
+		protocol: new MockProtocol(),
+		listenAddress: { host: "localhost", port },
+	});
 
 describe("TestScenario Component Management", () => {
 	describe("component creation", () => {
@@ -73,13 +70,13 @@ describe("TestScenario Component Management", () => {
 		});
 
 		it("should throw if component already exists", () => {
-			expect(() => new TestScenario({
-				name: "Test",
-				components: [
-					createClient("duplicate", 8080),
-					createClient("duplicate", 8081),
-				],
-			})).toThrow("already exists");
+			expect(
+				() =>
+					new TestScenario({
+						name: "Test",
+						components: [createClient("duplicate", 8080), createClient("duplicate", 8081)],
+					})
+			).toThrow("already exists");
 		});
 	});
 });

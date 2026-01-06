@@ -5,9 +5,9 @@
  * Using sync (unary) gRPC protocol with real connections.
  */
 
-import { describe, expect, it } from "vitest";
-import { Server, Client, TestScenario, testCase } from "testurio";
 import { GrpcUnaryProtocol } from "@testurio/protocol-grpc";
+import { Client, Server, TestScenario, testCase } from "testurio";
+import { describe, expect, it } from "vitest";
 
 // ============================================================================
 // Type Definitions - Aligned with test-service.proto
@@ -234,11 +234,7 @@ const createClient = (name: string, port: number) =>
 		targetAddress: { host: "127.0.0.1", port },
 	});
 
-const createProxyServer = (
-	name: string,
-	listenPort: number,
-	targetPort: number,
-) =>
+const createProxyServer = (name: string, listenPort: number, targetPort: number) =>
 	new Server(name, {
 		protocol: new GrpcUnaryProtocol<TestService>({ schema: TEST_PROTO }),
 		listenAddress: { host: "127.0.0.1", port: listenPort },
@@ -279,8 +275,8 @@ describe("gRPC Unary Protocol Chain: Client → Mock", () => {
 							email: "john@example.com",
 						},
 						metadata: {
-							"x-request-id": "test-request-id"
-						}
+							"x-request-id": "test-request-id",
+						},
 					};
 				});
 
@@ -360,9 +356,7 @@ describe("gRPC Unary Protocol Chain: Client → Mock", () => {
 			expect(result.passed).toBe(true);
 			expect(receivedPayload).toMatchObject({
 				customer_id: "CUST-001",
-				items: expect.arrayContaining([
-					expect.objectContaining({ product_id: "PROD-1" }),
-				]),
+				items: expect.arrayContaining([expect.objectContaining({ product_id: "PROD-1" })]),
 			});
 			expect(responseData).toMatchObject({
 				order_id: "ORD-12345",
@@ -493,22 +487,22 @@ describe("gRPC Unary Protocol Chain: Client → Mock", () => {
 				api.request("DeleteUser", { payload: { user_id: 1 } });
 
 				// Mock handlers
-				backend
-					.onRequest("GetUser")
-					.mockResponse(() => ({
-						payload: { user_id: 1, name: "Alice", email: "alice@example.com" },
-						metadata: { "x-request-id": "req-001", "x-api-version": "v1" },
-					}));
+				backend.onRequest("GetUser").mockResponse(() => ({
+					payload: { user_id: 1, name: "Alice", email: "alice@example.com" },
+					metadata: { "x-request-id": "req-001", "x-api-version": "v1" },
+				}));
 
-				backend
-					.onRequest("ListUsers")
-					.mockResponse(() => ({
-						payload: { users: [{ id: 1, name: "Alice", email: "alice@example.com" }, { id: 2, name: "Bob", email: "bob@example.com" }], total: 2 },
-					}));
+				backend.onRequest("ListUsers").mockResponse(() => ({
+					payload: {
+						users: [
+							{ id: 1, name: "Alice", email: "alice@example.com" },
+							{ id: 2, name: "Bob", email: "bob@example.com" },
+						],
+						total: 2,
+					},
+				}));
 
-				backend
-					.onRequest("DeleteUser")
-					.mockResponse(() => ({ payload: { deleted: true } }));
+				backend.onRequest("DeleteUser").mockResponse(() => ({ payload: { deleted: true } }));
 
 				// Response handlers
 				api.onResponse("GetUser").assert((res) => {
@@ -580,8 +574,8 @@ describe("gRPC Unary Protocol Chain: Client → Proxy → Mock", () => {
 							email: "proxied@example.com",
 						},
 						metadata: {
-							"x-request-id": "proxy-request-id"
-						}
+							"x-request-id": "proxy-request-id",
+						},
 					};
 				});
 
@@ -748,7 +742,7 @@ describe("gRPC Unary Protocol Chain: Client → Proxy → Mock", () => {
 
 				// Step 1: Client sends request with metadata
 				api.request("GetUser", {
-					payload: { user_id: 42 }
+					payload: { user_id: 42 },
 				});
 
 				// Step 2: Proxy forwards
@@ -767,8 +761,8 @@ describe("gRPC Unary Protocol Chain: Client → Proxy → Mock", () => {
 							email: "auth@example.com",
 						},
 						metadata: {
-							"x-request-id": "test-request-id"
-						}
+							"x-request-id": "test-request-id",
+						},
 					};
 				});
 
@@ -995,23 +989,23 @@ describe("gRPC Unary Protocol Chain: Client → Proxy → Mock", () => {
 						return {
 							payload: { error: { code: 401, message: "Authorization required" } },
 							metadata: {
-								"x-auth-user": "test-request-id"
-							}
+								"x-auth-user": "test-request-id",
+							},
 						};
 					}
 					// This shouldn't be reached in this test
-					return { 
-						payload: { success: { value: "should-not-reach" } }, 
-						metadata: { "x-auth-user": "test-request-id" } 
+					return {
+						payload: { success: { value: "should-not-reach" } },
+						metadata: { "x-auth-user": "test-request-id" },
 					};
 				});
 
 				// Backend should NOT be called
 				backend.onRequest("GetSecretData").mockResponse(() => {
 					backendCalled = true;
-					return { 
+					return {
 						payload: { success: { value: "secret-data" } },
-						metadata: { "x-auth-user": "backend-test-user" }
+						metadata: { "x-auth-user": "backend-test-user" },
 					};
 				});
 

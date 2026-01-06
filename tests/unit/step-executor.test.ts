@@ -2,14 +2,9 @@
  * Step Executor Tests
  */
 
-import { describe, expect, it, vi } from "vitest";
 import type { StepExecutionContext, TestStep } from "testurio";
-import {
-	executeStep,
-	executeSteps,
-	filterStepsByPhase,
-	summarizeStepResults,
-} from "testurio";
+import { executeStep, executeSteps, filterStepsByPhase, summarizeStepResults } from "testurio";
+import { describe, expect, it, vi } from "vitest";
 
 describe("Step Executor", () => {
 	describe("executeStep", () => {

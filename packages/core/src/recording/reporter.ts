@@ -4,12 +4,8 @@
  * Interface and implementations for reporting test results.
  */
 
+import type { TestCaseResult, TestResult, TestStepResult } from "../execution/execution.types";
 import type { Interaction } from "./recording.types";
-import type {
-	TestCaseResult,
-	TestResult,
-	TestStepResult,
-} from "../execution/execution.types";
 
 /**
  * Test Reporter Interface
@@ -67,9 +63,7 @@ export class ConsoleReporter implements TestReporter {
 			const icon = step.passed ? "✓" : "✗";
 			const color = step.passed ? "\x1b[32m" : "\x1b[31m";
 			const reset = "\x1b[0m";
-			console.log(
-				`    ${color}${icon}${reset} ${step.description} (${step.duration}ms)`,
-			);
+			console.log(`    ${color}${icon}${reset} ${step.description} (${step.duration}ms)`);
 		}
 	}
 
@@ -127,9 +121,7 @@ export class JsonReporter implements TestReporter {
 	}
 
 	onComplete(result: TestResult): void {
-		const json = this.prettyPrint
-			? JSON.stringify(result, null, 2)
-			: JSON.stringify(result);
+		const json = this.prettyPrint ? JSON.stringify(result, null, 2) : JSON.stringify(result);
 		this.output.push(json);
 		console.log(json);
 	}
@@ -265,9 +257,7 @@ export class InteractionReporter implements TestReporter {
 		// Print by service
 		for (const [service, interactions] of Object.entries(byService)) {
 			console.log(`\n  ${service}:`);
-			const completed = interactions.filter(
-				(i) => i.status === "completed",
-			).length;
+			const completed = interactions.filter((i) => i.status === "completed").length;
 			const failed = interactions.filter((i) => i.status === "failed").length;
 			const pending = interactions.filter((i) => i.status === "pending").length;
 
@@ -277,9 +267,7 @@ export class InteractionReporter implements TestReporter {
 			if (pending > 0) console.log(`    Pending: ${pending}`);
 
 			// Average duration
-			const durations = interactions
-				.filter((i) => i.duration !== undefined)
-				.map((i) => i.duration as number);
+			const durations = interactions.filter((i) => i.duration !== undefined).map((i) => i.duration as number);
 			if (durations.length > 0) {
 				const avg = durations.reduce((a, b) => a + b, 0) / durations.length;
 				console.log(`    Avg Duration: ${avg.toFixed(2)}ms`);

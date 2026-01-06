@@ -13,9 +13,9 @@
  * They should FAIL initially, proving the gaps exist.
  */
 
-import { describe, expect, it } from "vitest";
-import { TestScenario, testCase, AsyncServer, AsyncClient } from "testurio";
 import { TcpProtocol } from "@testurio/protocol-tcp";
+import { AsyncClient, AsyncServer, TestScenario, testCase } from "testurio";
+import { describe, expect, it } from "vitest";
 
 // ============================================================================
 // Message Type Definitions
@@ -123,10 +123,13 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 
 			const tc = testCase("Three clients connect and send messages", (test) => {
 				// Backend should receive all three messages
-				test.use(backend).onMessage("Login").mockEvent("LoginResponse", (payload) => {
-					receivedMessages.push(payload.user);
-					return { user: payload.user, sessionId: payload.sessionId, status: "ok" };
-				});
+				test
+					.use(backend)
+					.onMessage("Login")
+					.mockEvent("LoginResponse", (payload) => {
+						receivedMessages.push(payload.user);
+						return { user: payload.user, sessionId: payload.sessionId, status: "ok" };
+					});
 
 				// All three clients send messages
 				test.use(client1).sendMessage("Login", { user: "alice", sessionId: "s1" });
@@ -134,9 +137,18 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 				test.use(client3).sendMessage("Login", { user: "charlie", sessionId: "s3" });
 
 				// All clients should receive their responses (use waitEvent for blocking)
-				test.use(client1).waitEvent("LoginResponse", { timeout: 2000 }).assert((p) => p.user === "alice");
-				test.use(client2).waitEvent("LoginResponse", { timeout: 2000 }).assert((p) => p.user === "bob");
-				test.use(client3).waitEvent("LoginResponse", { timeout: 2000 }).assert((p) => p.user === "charlie");
+				test
+					.use(client1)
+					.waitEvent("LoginResponse", { timeout: 2000 })
+					.assert((p) => p.user === "alice");
+				test
+					.use(client2)
+					.waitEvent("LoginResponse", { timeout: 2000 })
+					.assert((p) => p.user === "bob");
+				test
+					.use(client3)
+					.waitEvent("LoginResponse", { timeout: 2000 })
+					.assert((p) => p.user === "charlie");
 			});
 
 			const result = await scenario.run(tc);
@@ -165,12 +177,15 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 
 			const tc = testCase("Each client has isolated session", (test) => {
 				// Backend tracks messages per session
-				test.use(backend).onMessage("Data").mockEvent("DataResponse", (payload) => {
-					const msgs = sessionMessages.get(payload.clientId) || [];
-					msgs.push(payload.data);
-					sessionMessages.set(payload.clientId, msgs);
-					return { clientId: payload.clientId, data: payload.data, processed: true };
-				});
+				test
+					.use(backend)
+					.onMessage("Data")
+					.mockEvent("DataResponse", (payload) => {
+						const msgs = sessionMessages.get(payload.clientId) || [];
+						msgs.push(payload.data);
+						sessionMessages.set(payload.clientId, msgs);
+						return { clientId: payload.clientId, data: payload.data, processed: true };
+					});
 
 				// Client1 sends multiple messages
 				test.use(client1).sendMessage("Data", { clientId: "c1", data: "msg1" });
@@ -180,8 +195,14 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 				test.use(client2).sendMessage("Data", { clientId: "c2", data: "msg3" });
 
 				// Wait for specific messages using matcher (msg2 for client1, msg3 for client2)
-				test.use(client1).waitEvent("DataResponse", { timeout: 2000, matcher: (p) => p.data === "msg2" }).assert((p) => p.data === "msg2");
-				test.use(client2).waitEvent("DataResponse", { timeout: 2000, matcher: (p) => p.data === "msg3" }).assert((p) => p.data === "msg3");
+				test
+					.use(client1)
+					.waitEvent("DataResponse", { timeout: 2000, matcher: (p) => p.data === "msg2" })
+					.assert((p) => p.data === "msg2");
+				test
+					.use(client2)
+					.waitEvent("DataResponse", { timeout: 2000, matcher: (p) => p.data === "msg3" })
+					.assert((p) => p.data === "msg3");
 			});
 
 			const result = await scenario.run(tc);
@@ -210,25 +231,34 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 
 			const tc = testCase("Messages don't cross sessions", (test) => {
 				// Backend responds with clientId in response
-				test.use(backend).onMessage("Ping").mockEvent("Pong", (payload) => ({
-					seq: payload.seq,
-					clientId: payload.clientId,
-					pong: true,
-				}));
+				test
+					.use(backend)
+					.onMessage("Ping")
+					.mockEvent("Pong", (payload) => ({
+						seq: payload.seq,
+						clientId: payload.clientId,
+						pong: true,
+					}));
 
 				test.use(client1).sendMessage("Ping", { seq: 1, clientId: "c1" });
 				test.use(client2).sendMessage("Ping", { seq: 2, clientId: "c2" });
 
 				// Each client should only receive their own response (use waitEvent for blocking)
-				test.use(client1).waitEvent("Pong", { timeout: 2000 }).assert((p) => {
-					if (p.clientId !== "c1") client1ReceivedWrongMessage = true;
-					return p.clientId === "c1" && p.seq === 1;
-				});
+				test
+					.use(client1)
+					.waitEvent("Pong", { timeout: 2000 })
+					.assert((p) => {
+						if (p.clientId !== "c1") client1ReceivedWrongMessage = true;
+						return p.clientId === "c1" && p.seq === 1;
+					});
 
-				test.use(client2).waitEvent("Pong", { timeout: 2000 }).assert((p) => {
-					if (p.clientId !== "c2") client2ReceivedWrongMessage = true;
-					return p.clientId === "c2" && p.seq === 2;
-				});
+				test
+					.use(client2)
+					.waitEvent("Pong", { timeout: 2000 })
+					.assert((p) => {
+						if (p.clientId !== "c2") client2ReceivedWrongMessage = true;
+						return p.clientId === "c2" && p.seq === 2;
+					});
 			});
 
 			const result = await scenario.run(tc);
@@ -261,10 +291,13 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 				test.use(client).sendMessage("Data", { clientId: "test", data: "auto-forward" });
 
 				// Backend should still receive it (proxy forwards automatically)
-				test.use(backend).waitMessage("Data", { timeout: 2000 }).assert((payload) => {
-					backendReceivedMessage = true;
-					return payload.data === "auto-forward";
-				});
+				test
+					.use(backend)
+					.waitMessage("Data", { timeout: 2000 })
+					.assert((payload) => {
+						backendReceivedMessage = true;
+						return payload.data === "auto-forward";
+					});
 			});
 
 			const result = await scenario.run(tc);
@@ -288,20 +321,26 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 
 			const tc = testCase("Events forwarded without explicit handlers", (test) => {
 				// Backend responds - no handler on proxy for response
-				test.use(backend).onMessage("Login").mockEvent("LoginResponse", (payload) => ({
-					user: payload.user,
-					sessionId: payload.sessionId,
-					status: "ok",
-				}));
+				test
+					.use(backend)
+					.onMessage("Login")
+					.mockEvent("LoginResponse", (payload) => ({
+						user: payload.user,
+						sessionId: payload.sessionId,
+						status: "ok",
+					}));
 
 				// Client sends request
 				test.use(client).sendMessage("Login", { user: "test", sessionId: "s1" });
 
 				// Client should receive response (proxy forwards automatically)
-				test.use(client).waitEvent("LoginResponse", { timeout: 2000 }).assert((payload) => {
-					clientReceivedEvent = true;
-					return payload.status === "ok";
-				});
+				test
+					.use(client)
+					.waitEvent("LoginResponse", { timeout: 2000 })
+					.assert((payload) => {
+						clientReceivedEvent = true;
+						return payload.status === "ok";
+					});
 			});
 
 			const result = await scenario.run(tc);
@@ -328,13 +367,13 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 
 				test.use(client).sendMessage("Data", originalPayload);
 
-				test.use(backend).waitMessage("Data", { timeout: 2000 }).assert((payload) => {
-					receivedPayload = payload;
-					return (
-						payload.clientId === originalPayload.clientId &&
-						payload.data === originalPayload.data
-					);
-				});
+				test
+					.use(backend)
+					.waitMessage("Data", { timeout: 2000 })
+					.assert((payload) => {
+						receivedPayload = payload;
+						return payload.clientId === originalPayload.clientId && payload.data === originalPayload.data;
+					});
 			});
 
 			const result = await scenario.run(tc);
@@ -363,14 +402,20 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 
 			const tc = testCase("Single message arrives once", (test) => {
 				// Count how many times backend receives the message
-				test.use(backend).onMessage("Ping").mockEvent("Pong", (payload) => {
-					messageCount++;
-					return { seq: payload.seq, clientId: payload.clientId, pong: true };
-				});
+				test
+					.use(backend)
+					.onMessage("Ping")
+					.mockEvent("Pong", (payload) => {
+						messageCount++;
+						return { seq: payload.seq, clientId: payload.clientId, pong: true };
+					});
 
 				test.use(client).sendMessage("Ping", { seq: 1, clientId: "dup-test" });
 
-				test.use(client).waitEvent("Pong", { timeout: 2000 }).assert((p) => p.seq === 1);
+				test
+					.use(client)
+					.waitEvent("Pong", { timeout: 2000 })
+					.assert((p) => p.seq === 1);
 			});
 
 			const result = await scenario.run(tc);
@@ -393,10 +438,13 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 			const receivedSeqs: number[] = [];
 
 			const tc = testCase("Multiple messages each arrive once", (test) => {
-				test.use(backend).onMessage("Ping").mockEvent("Pong", (payload) => {
-					receivedSeqs.push(payload.seq);
-					return { seq: payload.seq, clientId: payload.clientId, pong: true };
-				});
+				test
+					.use(backend)
+					.onMessage("Ping")
+					.mockEvent("Pong", (payload) => {
+						receivedSeqs.push(payload.seq);
+						return { seq: payload.seq, clientId: payload.clientId, pong: true };
+					});
 
 				// Send 5 messages
 				for (let i = 1; i <= 5; i++) {
@@ -404,7 +452,10 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 				}
 
 				// Wait for last response using matcher to filter for seq=5
-				test.use(client).waitEvent("Pong", { timeout: 2000, matcher: (p) => p.seq === 5 }).assert((p) => p.seq === 5);
+				test
+					.use(client)
+					.waitEvent("Pong", { timeout: 2000, matcher: (p) => p.seq === 5 })
+					.assert((p) => p.seq === 5);
 			});
 
 			const result = await scenario.run(tc);
@@ -428,18 +479,24 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 			const receivedResponses: number[] = [];
 
 			const tc = testCase("Response events arrive once each", (test) => {
-				test.use(backend).onMessage("Ping").mockEvent("Pong", (payload) => ({
-					seq: payload.seq,
-					clientId: payload.clientId,
-					pong: true,
-				}));
+				test
+					.use(backend)
+					.onMessage("Ping")
+					.mockEvent("Pong", (payload) => ({
+						seq: payload.seq,
+						clientId: payload.clientId,
+						pong: true,
+					}));
 
 				test.use(client).sendMessage("Ping", { seq: 1, clientId: "event-once" });
 
-				test.use(client).waitEvent("Pong", { timeout: 2000 }).assert((p) => {
-					receivedResponses.push(p.seq);
-					return p.seq === 1;
-				});
+				test
+					.use(client)
+					.waitEvent("Pong", { timeout: 2000 })
+					.assert((p) => {
+						receivedResponses.push(p.seq);
+						return p.seq === 1;
+					});
 			});
 
 			const result = await scenario.run(tc);
@@ -468,21 +525,30 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 
 			const tc = testCase("Proxy transforms message before forwarding", (test) => {
 				// Proxy transforms user to uppercase
-				test.use(proxy).onMessage("Login").proxy((payload) => ({
-					...payload,
-					user: payload.user.toUpperCase(),
-				}));
+				test
+					.use(proxy)
+					.onMessage("Login")
+					.proxy((payload) => ({
+						...payload,
+						user: payload.user.toUpperCase(),
+					}));
 
 				// Backend should receive UPPERCASE user
-				test.use(backend).onMessage("Login").mockEvent("LoginResponse", (payload) => {
-					backendReceivedUser = payload.user;
-					return { user: payload.user, sessionId: payload.sessionId, status: "ok" };
-				});
+				test
+					.use(backend)
+					.onMessage("Login")
+					.mockEvent("LoginResponse", (payload) => {
+						backendReceivedUser = payload.user;
+						return { user: payload.user, sessionId: payload.sessionId, status: "ok" };
+					});
 
 				// Client sends lowercase user
 				test.use(client).sendMessage("Login", { user: "alice", sessionId: "s1" });
 
-				test.use(client).waitEvent("LoginResponse", { timeout: 2000 }).assert((p) => p.status === "ok");
+				test
+					.use(client)
+					.waitEvent("LoginResponse", { timeout: 2000 })
+					.assert((p) => p.status === "ok");
 			});
 
 			const result = await scenario.run(tc);
@@ -506,25 +572,34 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 
 			const tc = testCase("Proxy transforms response before forwarding", (test) => {
 				// Backend sends lowercase status
-				test.use(backend).onMessage("Login").mockEvent("LoginResponse", (payload) => ({
-					user: payload.user,
-					sessionId: payload.sessionId,
-					status: "ok",
-				}));
+				test
+					.use(backend)
+					.onMessage("Login")
+					.mockEvent("LoginResponse", (payload) => ({
+						user: payload.user,
+						sessionId: payload.sessionId,
+						status: "ok",
+					}));
 
 				// Proxy transforms status to uppercase
-				test.use(proxy).onEvent("LoginResponse").proxy((payload) => ({
-					...payload,
-					status: payload.status.toUpperCase(),
-				}));
+				test
+					.use(proxy)
+					.onEvent("LoginResponse")
+					.proxy((payload) => ({
+						...payload,
+						status: payload.status.toUpperCase(),
+					}));
 
 				test.use(client).sendMessage("Login", { user: "bob", sessionId: "s2" });
 
 				// Client should receive UPPERCASE status
-				test.use(client).waitEvent("LoginResponse", { timeout: 2000 }).assert((p) => {
-					clientReceivedStatus = p.status;
-					return p.status === "OK";
-				});
+				test
+					.use(client)
+					.waitEvent("LoginResponse", { timeout: 2000 })
+					.assert((p) => {
+						clientReceivedStatus = p.status;
+						return p.status === "OK";
+					});
 			});
 
 			const result = await scenario.run(tc);
@@ -550,15 +625,21 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 				test.use(client).sendMessage("Data", { clientId: "transform", data: "original" });
 
 				// Proxy completely changes the data
-				test.use(proxy).onMessage("Data").proxy((payload) => ({
-					...payload,
-					data: "TRANSFORMED",
-				}));
+				test
+					.use(proxy)
+					.onMessage("Data")
+					.proxy((payload) => ({
+						...payload,
+						data: "TRANSFORMED",
+					}));
 
-				test.use(backend).waitMessage("Data", { timeout: 2000 }).assert((payload) => {
-					backendReceivedData = payload.data;
-					return payload.data === "TRANSFORMED";
-				});
+				test
+					.use(backend)
+					.waitMessage("Data", { timeout: 2000 })
+					.assert((payload) => {
+						backendReceivedData = payload.data;
+						return payload.data === "TRANSFORMED";
+					});
 			});
 
 			const result = await scenario.run(tc);
@@ -590,13 +671,19 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 				// Establish connection
 				test.use(client).sendMessage("Login", { user: "disconnect-test", sessionId: "s1" });
 
-				test.use(backend).onMessage("Login").mockEvent("LoginResponse", (payload) => ({
-					user: payload.user,
-					sessionId: payload.sessionId,
-					status: "ok",
-				}));
+				test
+					.use(backend)
+					.onMessage("Login")
+					.mockEvent("LoginResponse", (payload) => ({
+						user: payload.user,
+						sessionId: payload.sessionId,
+						status: "ok",
+					}));
 
-				test.use(client).onEvent("LoginResponse").assert((p) => p.status === "ok");
+				test
+					.use(client)
+					.onEvent("LoginResponse")
+					.assert((p) => p.status === "ok");
 
 				// Note: Actual disconnect handling would need to be verified
 				// through component state inspection after test
@@ -624,15 +711,24 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 				test.use(client1).sendMessage("Login", { user: "user1", sessionId: "s1" });
 				test.use(client2).sendMessage("Login", { user: "user2", sessionId: "s2" });
 
-				test.use(backend).onMessage("Login").mockEvent("LoginResponse", (payload) => ({
-					user: payload.user,
-					sessionId: payload.sessionId,
-					status: "ok",
-				}));
+				test
+					.use(backend)
+					.onMessage("Login")
+					.mockEvent("LoginResponse", (payload) => ({
+						user: payload.user,
+						sessionId: payload.sessionId,
+						status: "ok",
+					}));
 
 				// Both should receive responses
-				test.use(client1).onEvent("LoginResponse").assert((p) => p.user === "user1");
-				test.use(client2).onEvent("LoginResponse").assert((p) => p.user === "user2");
+				test
+					.use(client1)
+					.onEvent("LoginResponse")
+					.assert((p) => p.user === "user1");
+				test
+					.use(client2)
+					.onEvent("LoginResponse")
+					.assert((p) => p.user === "user2");
 
 				// Client2 should still work after client1 would disconnect
 				// (In real test, we'd disconnect client1 and verify client2 still works)

@@ -5,17 +5,9 @@
  * Verifies that test.use(component) returns properly typed step builders.
  */
 
-import { describe, expect, it } from "vitest";
-import {
-	Client,
-	Server,
-	AsyncClient,
-	AsyncServer,
-	TestScenario,
-	testCase,
-	HttpProtocol,
-} from "testurio";
 import { WebSocketProtocol, type WsServiceDefinition } from "@testurio/protocol-ws";
+import { AsyncClient, AsyncServer, Client, HttpProtocol, Server, TestScenario, testCase } from "testurio";
+import { describe, expect, it } from "vitest";
 
 // HTTP service type definitions for strict typing
 interface User {
@@ -68,12 +60,10 @@ describe("Component Types Integration", () => {
 				const backend = test.use(httpServer);
 
 				// Register mock handler first (declarative order)
-				backend
-					.onRequest("getUsers", { method: "GET", path: "/users" })
-					.mockResponse(() => ({
-						code: 200,
-						body: [{ id: 1, name: "Alice" }],
-					}));
+				backend.onRequest("getUsers", { method: "GET", path: "/users" }).mockResponse(() => ({
+					code: 200,
+					body: [{ id: 1, name: "Alice" }],
+				}));
 
 				// Then send request
 				api.request("getUsers", { method: "GET", path: "/users" });
@@ -115,12 +105,10 @@ describe("Component Types Integration", () => {
 				const api = test.use(httpClient);
 
 				// Register mock handler first
-				backend
-					.onRequest("health", { method: "GET", path: "/health" })
-					.mockResponse(() => ({
-						code: 200,
-						body: { status: "ok" },
-					}));
+				backend.onRequest("health", { method: "GET", path: "/health" }).mockResponse(() => ({
+					code: 200,
+					body: { status: "ok" },
+				}));
 
 				// Then send request
 				api.request("health", { method: "GET", path: "/health" });
@@ -230,12 +218,10 @@ describe("Component Types Integration", () => {
 				const subscriber = test.use(wsClient);
 
 				// Register HTTP mock handler first
-				backend
-					.onRequest("createUser", { method: "POST", path: "/users" })
-					.mockResponse(() => ({
-						code: 201,
-						body: { id: 1, name: "Alice" },
-					}));
+				backend.onRequest("createUser", { method: "POST", path: "/users" }).mockResponse(() => ({
+					code: 201,
+					body: { id: 1, name: "Alice" },
+				}));
 
 				// HTTP request
 				api.request("createUser", { method: "POST", path: "/users" });
@@ -281,29 +267,24 @@ describe("Component Types Integration", () => {
 
 			let responseReceived = false;
 
-			const tc = testCase(
-				"Using component() method for name-based access",
-				(test) => {
-					// Using use() with component references (preferred)
-					const api = test.use(httpClient);
-					const backend = test.use(httpServer);
+			const tc = testCase("Using component() method for name-based access", (test) => {
+				// Using use() with component references (preferred)
+				const api = test.use(httpClient);
+				const backend = test.use(httpServer);
 
-					// Register mock handler first
-					backend
-						.onRequest("test", { method: "GET", path: "/test" })
-						.mockResponse(() => ({
-							code: 200,
-							body: { ok: true },
-						}));
+				// Register mock handler first
+				backend.onRequest("test", { method: "GET", path: "/test" }).mockResponse(() => ({
+					code: 200,
+					body: { ok: true },
+				}));
 
-					api.request("test", { method: "GET", path: "/test" });
+				api.request("test", { method: "GET", path: "/test" });
 
-					api.onResponse("test").assert(() => {
-						responseReceived = true;
-						return true;
-					});
-				},
-			);
+				api.onResponse("test").assert(() => {
+					responseReceived = true;
+					return true;
+				});
+			});
 
 			const result = await scenario.run(tc);
 			expect(result.passed).toBe(true);

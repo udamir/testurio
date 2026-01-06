@@ -5,20 +5,13 @@
  * Component management is inlined for simplicity.
  */
 
-import { TestCaseBuilder } from "./test-case-builder";
 import { AsyncClient, AsyncServer, Client, Server } from "../components";
 import type { BaseComponent } from "../components/base";
-import {
-	ConsoleReporter,
-	InteractionRecorder,
-} from "../recording";
-import type {
-	TestCaseResult,
-	TestResult,
-	TestStepResult,
-} from "./execution.types";
 import type { Interaction, TestReporter } from "../recording";
+import { ConsoleReporter, InteractionRecorder } from "../recording";
+import type { TestCaseResult, TestResult, TestStepResult } from "./execution.types";
 import type { TestCase } from "./test-case";
+import { TestCaseBuilder } from "./test-case-builder";
 
 /**
  * Test scenario configuration
@@ -35,16 +28,13 @@ export interface TestScenarioConfig {
 /**
  * TestScenario - orchestrates test execution
  */
-export class TestScenario<
-	TContext extends Record<string, unknown> = Record<string, unknown>,
-> {
+export class TestScenario {
 	// ========== Instance Members ==========
 
 	private config: TestScenarioConfig;
 	private components = new Map<string, BaseComponent>();
-	private context: TContext;
-	private initHandler?: (test: TestCaseBuilder<TContext>) => void;
-	private stopHandler?: (test: TestCaseBuilder<TContext>) => void;
+	private initHandler?: (test: TestCaseBuilder) => void;
+	private stopHandler?: (test: TestCaseBuilder) => void;
 	private interactions: Interaction[] = [];
 	private initialized = false;
 	private recorder: InteractionRecorder;
@@ -52,7 +42,6 @@ export class TestScenario<
 
 	constructor(config: TestScenarioConfig) {
 		this.config = config;
-		this.context = {} as TContext;
 		this.recorder = new InteractionRecorder();
 
 		// Enable recording if configured
@@ -81,7 +70,7 @@ export class TestScenario<
 	/**
 	 * Start all components
 	 * Order: servers first (sequentially to handle dependencies), then clients
-	 * 
+	 *
 	 * Servers are started sequentially in the order they were defined in config.components because:
 	 * - Proxy servers need their target backend to be ready before accepting connections
 	 * - The user defines components in dependency order (backend before proxy)
@@ -91,45 +80,48 @@ export class TestScenario<
 		const all = this.config.components;
 
 		// Include both sync and async server/client types
-		const servers = all.filter(
-			(c) => c instanceof Server || c instanceof AsyncServer,
-		);
-		const clients = all.filter(
-			(c) => c instanceof Client || c instanceof AsyncClient,
-		);
+		const servers = all.filter((c) => c instanceof Server || c instanceof AsyncServer);
+		const clients = all.filter((c) => c instanceof Client || c instanceof AsyncClient);
 
 		// Start servers sequentially (in config order) to handle dependencies
 		for (const server of servers) {
 			await server.start();
 		}
-		
+
 		// Clients can start in parallel (they connect to already-running servers)
 		await Promise.all(clients.map((c) => c.start()));
 	}
 
 	/**
 	 * Stop all components
-	 * Order: clients first, then servers
+	 * Order: clients first, then servers in reverse order (opposite of startup)
+	 *
+	 * Servers are stopped in reverse config order because:
+	 * - Components are defined in dependency order (backend before proxy)
+	 * - Stopping in reverse order ensures proxies stop before backends
+	 * - This prevents ECONNREFUSED errors from in-flight proxy connections
 	 */
 	private async stopComponents(): Promise<void> {
-		const all = Array.from(this.components.values());
+		// Use original config order to get correct dependency order
+		const all = this.config.components;
 
 		// Include both sync and async server/client types
-		const clients = all.filter(
-			(c) => c instanceof Client || c instanceof AsyncClient,
-		);
-		const servers = all.filter(
-			(c) => c instanceof Server || c instanceof AsyncServer,
-		);
+		const clients = all.filter((c) => c instanceof Client || c instanceof AsyncClient);
+		const servers = all.filter((c) => c instanceof Server || c instanceof AsyncServer);
 
+		// Stop clients in parallel
 		await Promise.all(clients.map((c) => c.stop().catch(() => {})));
-		await Promise.all(servers.map((c) => c.stop().catch(() => {})));
+
+		// Stop servers sequentially in reverse order (proxies before backends)
+		for (let i = servers.length - 1; i >= 0; i--) {
+			await servers[i].stop().catch(() => {});
+		}
 	}
 
 	/**
 	 * Define init handler
 	 */
-	init(handler: (test: TestCaseBuilder<TContext>) => void): this {
+	init(handler: (test: TestCaseBuilder) => void): this {
 		this.initHandler = handler;
 		return this;
 	}
@@ -137,16 +129,9 @@ export class TestScenario<
 	/**
 	 * Define stop handler
 	 */
-	stop(handler: (test: TestCaseBuilder<TContext>) => void): this {
+	stop(handler: (test: TestCaseBuilder) => void): this {
 		this.stopHandler = handler;
 		return this;
-	}
-
-	/**
-	 * Get shared context
-	 */
-	getContext(): TContext {
-		return this.context;
 	}
 
 	/**
@@ -216,7 +201,7 @@ export class TestScenario<
 			for (const step of steps) {
 				try {
 					await step.action();
-				} catch (error) {
+				} catch (_error) {
 					// Continue with cleanup even if stop steps fail
 				}
 			}
@@ -231,11 +216,8 @@ export class TestScenario<
 	/**
 	 * Create a test case builder
 	 */
-	private createBuilder(): TestCaseBuilder<TContext> {
-		const builder = new TestCaseBuilder<TContext>(
-			this.components,
-			this.context,
-		);
+	private createBuilder(): TestCaseBuilder {
+		const builder = new TestCaseBuilder(this.components);
 		builder.setComponentRegistry(this.components);
 		return builder;
 	}
@@ -244,9 +226,7 @@ export class TestScenario<
 	 * Process pending components from a builder
 	 * Starts components (already registered during builder phase), returns list of test-case-scoped components for cleanup
 	 */
-	private async processPendingComponents(
-		builder: TestCaseBuilder<TContext>,
-	): Promise<BaseComponent[]> {
+	private async processPendingComponents(builder: TestCaseBuilder): Promise<BaseComponent[]> {
 		const pending = builder.getPendingComponents();
 		const testCaseComponents: BaseComponent[] = [];
 
@@ -267,9 +247,7 @@ export class TestScenario<
 	/**
 	 * Stop and remove test-case-scoped components
 	 */
-	private async cleanupTestCaseComponents(
-		components: BaseComponent[],
-	): Promise<void> {
+	private async cleanupTestCaseComponents(components: BaseComponent[]): Promise<void> {
 		for (const component of components) {
 			try {
 				await component.stop();
@@ -293,9 +271,7 @@ export class TestScenario<
 	 *   run([test1, test2], test3)         // test1 & test2 sequential, test3 in parallel with them
 	 *   run([test1, test2], [test3, test4]) // two sequential groups running in parallel
 	 */
-	async run(
-		...testCases: (TestCase<TContext> | TestCase<TContext>[])[]
-	): Promise<TestResult> {
+	async run(...testCases: (TestCase | TestCase[])[]): Promise<TestResult> {
 		const startTime = Date.now();
 		const results: TestCaseResult[] = [];
 
@@ -309,14 +285,10 @@ export class TestScenario<
 			await this.runInit();
 
 			// Normalize: each arg becomes a group (array runs sequentially, single item is a group of 1)
-			const parallelGroups = testCases.map((tc) =>
-				Array.isArray(tc) ? tc : [tc],
-			);
+			const parallelGroups = testCases.map((tc) => (Array.isArray(tc) ? tc : [tc]));
 
 			// Execute all groups in parallel, within each group run sequentially
-			const executeGroup = async (
-				group: TestCase<TContext>[],
-			): Promise<TestCaseResult[]> => {
+			const executeGroup = async (group: TestCase[]): Promise<TestCaseResult[]> => {
 				const results: TestCaseResult[] = [];
 				for (const testCase of group) {
 					const result = await this.executeTestCase(testCase);
@@ -332,13 +304,13 @@ export class TestScenario<
 			for (const group of groupResults) {
 				results.push(...group);
 			}
-		} catch (error) {
+		} catch (_error) {
 			// Test execution failed
 		} finally {
 			// Always run cleanup
 			try {
 				await this.runStop();
-			} catch (error) {
+			} catch (_error) {
 				// Cleanup failed
 			}
 		}
@@ -358,9 +330,7 @@ export class TestScenario<
 	/**
 	 * Execute a single test case
 	 */
-	private async executeTestCase(
-		testCase: TestCase<TContext>,
-	): Promise<TestCaseResult> {
+	private async executeTestCase(testCase: TestCase): Promise<TestCaseResult> {
 		// Notify reporters
 		for (const reporter of this.reporters) {
 			reporter.onTestCaseStart?.({ name: testCase.name });
@@ -404,11 +374,7 @@ export class TestScenario<
 	/**
 	 * Create final test result
 	 */
-	private createTestResult(
-		testCases: TestCaseResult[],
-		startTime: number,
-		endTime: number,
-	): TestResult {
+	private createTestResult(testCases: TestCaseResult[], startTime: number, endTime: number): TestResult {
 		const passedTests = testCases.filter((tc) => tc.passed).length;
 		const failedTests = testCases.filter((tc) => !tc.passed).length;
 
@@ -431,10 +397,7 @@ export class TestScenario<
 				passedSteps: testCases.reduce((sum, tc) => sum + tc.passedSteps, 0),
 				failedSteps: testCases.reduce((sum, tc) => sum + tc.failedSteps, 0),
 				totalDuration: endTime - startTime,
-				averageDuration:
-					testCases.length > 0
-						? Math.round((endTime - startTime) / testCases.length)
-						: 0,
+				averageDuration: testCases.length > 0 ? Math.round((endTime - startTime) / testCases.length) : 0,
 				totalInteractions: this.interactions.length,
 				passRate: testCases.length > 0 ? passedTests / testCases.length : 1,
 			},
@@ -445,8 +408,6 @@ export class TestScenario<
 /**
  * Factory function for creating test scenarios
  */
-export function scenario<
-	TContext extends Record<string, unknown> = Record<string, unknown>,
->(config: TestScenarioConfig): TestScenario<TContext> {
-	return new TestScenario<TContext>(config);
+export function scenario(config: TestScenarioConfig): TestScenario {
+	return new TestScenario(config);
 }

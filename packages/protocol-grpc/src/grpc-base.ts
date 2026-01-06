@@ -5,15 +5,12 @@
  */
 
 import * as grpc from "@grpc/grpc-js";
-import type {
-	SchemaDefinition,
-	TlsConfig,
-} from "testurio";
+import type { SchemaDefinition, TlsConfig } from "testurio";
 import {
-	loadGrpcSchema,
 	getServiceClient as getServiceClientFromSchema,
-	toSchemaDefinition,
 	type LoadedSchema,
+	loadGrpcSchema,
+	toSchemaDefinition,
 } from "./schema-loader";
 
 /**
@@ -43,7 +40,14 @@ export abstract class GrpcBaseProtocol {
 	public client: ClientHandle = { isConnected: false };
 
 	/** Loaded gRPC schema */
-	protected schema?: LoadedSchema;
+	protected _schema?: LoadedSchema;
+
+	/**
+	 * Get the loaded schema (for protocol access)
+	 */
+	get schema(): LoadedSchema | undefined {
+		return this._schema;
+	}
 
 	/** Active gRPC server instance */
 	protected grpcServer?: grpc.Server;
@@ -55,18 +59,16 @@ export abstract class GrpcBaseProtocol {
 	 * Load Protobuf schema from .proto files
 	 */
 	async loadSchema(schemaPath: string | string[]): Promise<SchemaDefinition> {
-		this.schema = await loadGrpcSchema(schemaPath);
-		return toSchemaDefinition(this.schema);
+		this._schema = await loadGrpcSchema(schemaPath);
+		return toSchemaDefinition(this._schema);
 	}
 
 	/**
 	 * Get service client constructor by name
 	 */
-	getServiceClient(
-		serviceName: string,
-	): grpc.ServiceClientConstructor | undefined {
-		if (!this.schema) return undefined;
-		return getServiceClientFromSchema(this.schema, serviceName);
+	getServiceClient(serviceName: string): grpc.ServiceClientConstructor | undefined {
+		if (!this._schema) return undefined;
+		return getServiceClientFromSchema(this._schema, serviceName);
 	}
 
 	/**
@@ -83,7 +85,7 @@ export abstract class GrpcBaseProtocol {
 								private_key: Buffer.from(tls.key),
 							},
 						]
-					: [],
+					: []
 			);
 		}
 		return grpc.ServerCredentials.createInsecure();
@@ -97,7 +99,7 @@ export abstract class GrpcBaseProtocol {
 			return grpc.credentials.createSsl(
 				tls.ca ? Buffer.from(tls.ca) : undefined,
 				tls.key ? Buffer.from(tls.key) : undefined,
-				tls.cert ? Buffer.from(tls.cert) : undefined,
+				tls.cert ? Buffer.from(tls.cert) : undefined
 			);
 		}
 		return grpc.credentials.createInsecure();

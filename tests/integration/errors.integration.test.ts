@@ -4,9 +4,9 @@
  * Tests error handling across the test framework.
  */
 
-import { describe, expect, it } from "vitest";
-import { TestScenario, testCase, Server, Client, AsyncServer, AsyncClient, HttpProtocol } from "testurio";
 import { WebSocketProtocol } from "@testurio/protocol-ws";
+import { AsyncClient, AsyncServer, Client, HttpProtocol, Server, TestScenario, testCase } from "testurio";
+import { describe, expect, it } from "vitest";
 
 // ============================================================================
 // Message Type Definitions
@@ -133,10 +133,13 @@ describe("Error Scenarios Integration Tests", () => {
 				const backend = test.use(backendServer);
 
 				api.request("getSlow", { method: "GET", path: "/slow" });
-				backend.onRequest("getSlow", { method: "GET", path: "/slow" }).delay(100).mockResponse(() => ({
-					code: 200,
-					body: { delayed: true },
-				}));
+				backend
+					.onRequest("getSlow", { method: "GET", path: "/slow" })
+					.delay(100)
+					.mockResponse(() => ({
+						code: 200,
+						body: { delayed: true },
+					}));
 				api.onResponse("getSlow");
 			});
 
@@ -164,11 +167,9 @@ describe("Error Scenarios Integration Tests", () => {
 
 				api.sendMessage("TestRequest", { value: 10 });
 
-				backend
-					.waitMessage("TestRequest", { timeout: 1000 })
-					.assert((payload) => {
-						return payload.value === 999; // Will fail - value is 10
-					});
+				backend.waitMessage("TestRequest", { timeout: 1000 }).assert((payload) => {
+					return payload.value === 999; // Will fail - value is 10
+				});
 			});
 
 			const result = await scenario.run(tc);
@@ -353,9 +354,7 @@ describe("Error Scenarios Integration Tests", () => {
 
 			const tc = testCase("Wait for message that never arrives", (test) => {
 				const backend = test.use(backendServer);
-				backend
-					.waitMessage("NeverSent", { timeout: 100 })
-					.assert(() => true);
+				backend.waitMessage("NeverSent", { timeout: 100 }).assert(() => true);
 			});
 
 			const result = await scenario.run(tc);

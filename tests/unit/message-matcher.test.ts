@@ -2,20 +2,12 @@
  * Message Matcher Tests
  */
 
-import { describe, expect, it } from "vitest";
 import type { Hook, Message, PayloadMatcher } from "testurio";
-import {
-	matchHook,
-	matchMessageType,
-	matchPayload,
-	matchHttpPath,
-} from "testurio";
+import { matchHook, matchHttpPath, matchMessageType, matchPayload } from "testurio";
+import { describe, expect, it } from "vitest";
 
 // Helper to create a minimal hook for testing
-function createHook(
-	messageTypes: string | string[],
-	matcher?: PayloadMatcher,
-): Hook {
+function createHook(messageTypes: string | string[], matcher?: PayloadMatcher): Hook {
 	return {
 		id: "test-hook",
 		componentName: "test",
@@ -173,12 +165,7 @@ describe("MessageMatcher", () => {
 		});
 
 		it("should match path with multiple parameters", () => {
-			expect(
-				matchHttpPath(
-					"/api/users/123/orders/456",
-					"/api/users/{userId}/orders/{orderId}",
-				),
-			).toBe(true);
+			expect(matchHttpPath("/api/users/123/orders/456", "/api/users/{userId}/orders/{orderId}")).toBe(true);
 		});
 
 		it("should not match if segment count differs", () => {
@@ -187,10 +174,7 @@ describe("MessageMatcher", () => {
 		});
 
 		it("should match complex paths", () => {
-			expect(
-				matchHttpPath("/api/v1/users/123/posts", "/api/v1/users/{id}/posts"),
-			).toBe(true);
+			expect(matchHttpPath("/api/v1/users/123/posts", "/api/v1/users/{id}/posts")).toBe(true);
 		});
 	});
-
 });

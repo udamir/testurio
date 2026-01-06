@@ -13,7 +13,7 @@ import type { Message } from "testurio";
 /**
  * WebSocket Service definition for bidirectional messaging.
  * Uses separate clientMessages and serverMessages maps.
- * 
+ *
  * @example
  * ```typescript
  * interface MyWsService extends WsServiceDefinition {

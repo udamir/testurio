@@ -5,10 +5,10 @@
  */
 
 import * as grpc from "@grpc/grpc-js";
-import type { IAsyncServerAdapter, IAsyncClientAdapter } from "testurio";
-import type { Message } from "testurio";
+import type { IAsyncClientAdapter, IAsyncServerAdapter, Message } from "testurio";
 import { generateId } from "testurio";
 import { extractGrpcMetadata } from "./metadata";
+import type { GrpcClientMethods, GrpcStreamClientMethod } from "./types";
 
 /**
  * gRPC Stream Server Adapter
@@ -30,7 +30,7 @@ export class GrpcStreamServerAdapter implements IAsyncServerAdapter {
 		host: string,
 		port: number,
 		serviceDefinitions: Map<string, grpc.ServiceDefinition>,
-		tls?: { ca?: string; cert?: string; key?: string },
+		tls?: { ca?: string; cert?: string; key?: string }
 	): Promise<GrpcStreamServerAdapter> {
 		return new Promise((resolve, reject) => {
 			const server = new grpc.Server();
@@ -63,15 +63,20 @@ export class GrpcStreamServerAdapter implements IAsyncServerAdapter {
 			return grpc.ServerCredentials.createSsl(
 				tls.ca ? Buffer.from(tls.ca) : null,
 				tls.cert && tls.key
-					? [{ cert_chain: Buffer.from(tls.cert), private_key: Buffer.from(tls.key) }]
-					: [],
+					? [
+							{
+								cert_chain: Buffer.from(tls.cert),
+								private_key: Buffer.from(tls.key),
+							},
+						]
+					: []
 			);
 		}
 		return grpc.ServerCredentials.createInsecure();
 	}
 
 	private createStreamServiceImplementation(
-		serviceDefinition: grpc.ServiceDefinition,
+		serviceDefinition: grpc.ServiceDefinition
 	): grpc.UntypedServiceImplementation {
 		const implementation: grpc.UntypedServiceImplementation = {};
 
@@ -84,9 +89,7 @@ export class GrpcStreamServerAdapter implements IAsyncServerAdapter {
 		return implementation;
 	}
 
-	private createBidiStreamHandler(
-		methodName: string,
-	): grpc.handleBidiStreamingCall<unknown, unknown> {
+	private createBidiStreamHandler(methodName: string): grpc.handleBidiStreamingCall<unknown, unknown> {
 		return (call) => {
 			extractGrpcMetadata(call.metadata);
 
@@ -94,7 +97,7 @@ export class GrpcStreamServerAdapter implements IAsyncServerAdapter {
 			const clientAdapter = new GrpcStreamClientAdapter(
 				call as unknown as grpc.ClientDuplexStream<unknown, unknown>,
 				connId,
-				methodName,
+				methodName
 			);
 			this.connections.set(connId, clientAdapter);
 
@@ -141,7 +144,7 @@ export class GrpcStreamClientAdapter implements IAsyncClientAdapter {
 	constructor(
 		call: grpc.ClientDuplexStream<unknown, unknown> | grpc.ServerDuplexStream<unknown, unknown>,
 		id: string,
-		methodName: string,
+		methodName: string
 	) {
 		this.call = call;
 		this.id = id;
@@ -180,28 +183,29 @@ export class GrpcStreamClientAdapter implements IAsyncClientAdapter {
 		port: number,
 		ServiceClient: grpc.ServiceClientConstructor,
 		methodName: string,
-		tls?: { ca?: string; cert?: string; key?: string },
+		tls?: { ca?: string; cert?: string; key?: string }
 	): Promise<GrpcStreamClientAdapter> {
 		const credentials = tls
 			? grpc.credentials.createSsl(
 					tls.ca ? Buffer.from(tls.ca) : undefined,
 					tls.key ? Buffer.from(tls.key) : undefined,
-					tls.cert ? Buffer.from(tls.cert) : undefined,
+					tls.cert ? Buffer.from(tls.cert) : undefined
 				)
 			: grpc.credentials.createInsecure();
 
 		const client = new ServiceClient(`${host}:${port}`, credentials);
 
-		const grpcClient = client as unknown as Record<
-			string,
-			() => grpc.ClientDuplexStream<unknown, unknown>
-		>;
+		// Access client methods via typed interface
+		const clientMethods = client as GrpcClientMethods;
+		const method = clientMethods[methodName];
 
-		if (typeof grpcClient[methodName] !== "function") {
+		if (typeof method !== "function") {
 			throw new Error(`Method ${methodName} not found on service`);
 		}
 
-		const call = grpcClient[methodName]();
+		// Cast to stream method type and call with proper this binding
+		const streamMethod = method as GrpcStreamClientMethod;
+		const call = streamMethod.call(client);
 		return new GrpcStreamClientAdapter(call, `grpc-client-${Date.now()}`, methodName);
 	}
 

@@ -6,13 +6,13 @@
  * Implements the declarative sequential pattern.
  */
 
-import { generateHookId } from "../base";
-import { SyncHookBuilderImpl } from "./sync-server.hook-builder";
-import type { Hook } from "../base";
-import type { ExtractServerRequest, ExtractServerResponse } from "./sync-server.types";
-import type { Server } from "./sync-server.component";
 import type { TestPhase } from "../../execution";
-import type { ISyncProtocol, ProtocolService, ProtocolRequestOptions } from "../../protocols/base";
+import type { ISyncProtocol, ProtocolRequestOptions, ProtocolService } from "../../protocols/base";
+import type { Hook } from "../base";
+import { generateHookId } from "../base";
+import type { Server } from "./sync-server.component";
+import { SyncHookBuilderImpl } from "./sync-server.hook-builder";
+import type { ExtractServerRequest, ExtractServerResponse } from "./sync-server.types";
 
 /**
  * Sync Server Step Builder
@@ -23,7 +23,10 @@ import type { ISyncProtocol, ProtocolService, ProtocolRequestOptions } from "../
  * @template A - Protocol type (ISyncProtocol) - contains service definition via __types.service
  */
 export class SyncServerStepBuilder<A extends ISyncProtocol = ISyncProtocol> {
-	constructor(private server: Server, private testPhase: TestPhase) {}
+	constructor(
+		private server: Server,
+		private testPhase: TestPhase
+	) {}
 
 	/**
 	 * Register request handler
@@ -36,14 +39,13 @@ export class SyncServerStepBuilder<A extends ISyncProtocol = ISyncProtocol> {
 	 */
 	onRequest<K extends keyof ProtocolService<A> & string>(
 		messageType: K,
-		options?: ProtocolRequestOptions<A>,
+		options?: ProtocolRequestOptions<A>
 	): SyncHookBuilderImpl<ExtractServerRequest<A, K>, ExtractServerResponse<A, K>> {
 		// For HTTP, construct message type from method + path if provided
 		// This matches how HttpProtocol creates message types: "GET /users"
 		const httpOptions = options as { method?: string; path?: string } | undefined;
-		const effectiveMessageType = httpOptions?.method && httpOptions?.path
-			? `${httpOptions.method} ${httpOptions.path}`
-			: messageType;
+		const effectiveMessageType =
+			httpOptions?.method && httpOptions?.path ? `${httpOptions.method} ${httpOptions.path}` : messageType;
 
 		const hook: Hook<ExtractServerRequest<A, K>> = {
 			id: generateHookId(),
@@ -73,12 +75,10 @@ export class SyncServerStepBuilder<A extends ISyncProtocol = ISyncProtocol> {
 	 */
 	onResponse<K extends keyof ProtocolService<A> & string>(
 		messageType: K,
-		options?: ProtocolRequestOptions<A>,
+		options?: ProtocolRequestOptions<A>
 	): SyncHookBuilderImpl<ExtractServerResponse<A, K>, ExtractServerResponse<A, K>> {
 		if (!this.server.isProxy) {
-			throw new Error(
-				`onResponse() is only available in proxy mode. Server "${this.server.name}" is in mock mode.`,
-			);
+			throw new Error(`onResponse() is only available in proxy mode. Server "${this.server.name}" is in mock mode.`);
 		}
 
 		const hook: Hook<ExtractServerResponse<A, K>> = {

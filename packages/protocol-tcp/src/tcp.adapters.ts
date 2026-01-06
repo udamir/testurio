@@ -4,11 +4,10 @@
  * Server and client adapters for TCP protocol.
  */
 
-import type { IAsyncServerAdapter, IAsyncClientAdapter } from "testurio";
-import type { Message } from "testurio";
-import type { TcpProtocolOptions, ISocket } from "./types";
+import type { IAsyncClientAdapter, IAsyncServerAdapter, Message } from "testurio";
 import { TcpClient } from "./tcp.client";
 import { TcpServer } from "./tcp.server";
+import type { ISocket, TcpProtocolOptions } from "./types";
 
 /**
  * TCP Server Adapter
@@ -18,9 +17,18 @@ export class TcpServerAdapter implements IAsyncServerAdapter {
 	private server: TcpServer;
 	private connectionHandler?: (connection: IAsyncClientAdapter) => void;
 	private connections = new Map<string, TcpClientAdapter>();
+	private serverErrorHandler?: (error: Error) => void;
+	private lastError?: Error;
 
 	constructor(server: TcpServer) {
 		this.server = server;
+	}
+
+	/**
+	 * Get the last error that occurred on this adapter
+	 */
+	get error(): Error | undefined {
+		return this.lastError;
 	}
 
 	/**
@@ -30,7 +38,7 @@ export class TcpServerAdapter implements IAsyncServerAdapter {
 		host: string,
 		port: number,
 		options: TcpProtocolOptions = {},
-		tls?: { enabled?: boolean; cert?: string; key?: string },
+		tls?: { enabled?: boolean; cert?: string; key?: string }
 	): Promise<TcpServerAdapter> {
 		const server = new TcpServer();
 		const adapter = new TcpServerAdapter(server);
@@ -57,6 +65,7 @@ export class TcpServerAdapter implements IAsyncServerAdapter {
 		});
 
 		server.on("error", (err, socket) => {
+			adapter.lastError = err;
 			if (socket) {
 				const clientAdapter = adapter.connections.get(socket.id);
 				if (clientAdapter) {
@@ -64,6 +73,9 @@ export class TcpServerAdapter implements IAsyncServerAdapter {
 					clientAdapter._handleClose();
 					adapter.connections.delete(socket.id);
 				}
+			} else {
+				// Server-level error (no specific socket)
+				adapter.serverErrorHandler?.(err);
 			}
 		});
 
@@ -85,6 +97,13 @@ export class TcpServerAdapter implements IAsyncServerAdapter {
 		this.connectionHandler = handler;
 	}
 
+	/**
+	 * Register server error handler for errors occurring at the server level
+	 */
+	onError(handler: (error: Error) => void): void {
+		this.serverErrorHandler = handler;
+	}
+
 	async stop(): Promise<void> {
 		await this.server.close();
 		this.connections.clear();
@@ -102,6 +121,7 @@ export class TcpClientAdapter implements IAsyncClientAdapter {
 	private tcpClient?: TcpClient;
 	private options: TcpProtocolOptions;
 	private _connected: boolean;
+	private lastError?: Error;
 
 	private messageHandler?: (message: Message) => void;
 	private closeHandler?: () => void;
@@ -120,13 +140,16 @@ export class TcpClientAdapter implements IAsyncClientAdapter {
 	}
 
 	/**
+	 * Get the last error that occurred on this adapter
+	 */
+	get error(): Error | undefined {
+		return this.lastError;
+	}
+
+	/**
 	 * Create TCP client adapter by connecting to server
 	 */
-	static async create(
-		host: string,
-		port: number,
-		options: TcpProtocolOptions = {},
-	): Promise<TcpClientAdapter> {
+	static async create(host: string, port: number, options: TcpProtocolOptions = {}): Promise<TcpClientAdapter> {
 		const tcpClient = new TcpClient();
 		const adapter = new TcpClientAdapter(`client-${Date.now()}`, options);
 		adapter.tcpClient = tcpClient;
@@ -220,8 +243,13 @@ export class TcpClientAdapter implements IAsyncClientAdapter {
 			const str = typeof data === "string" ? data : new TextDecoder().decode(data);
 			const message = JSON.parse(str) as Message;
 			this.messageHandler?.(message);
-		} catch {
-			// Failed to parse message
+		} catch (error) {
+			// Failed to parse message - create a parsing error
+			const parseError = new Error(
+				`Failed to parse TCP message: ${error instanceof Error ? error.message : String(error)}`
+			);
+			this.lastError = parseError;
+			this.errorHandler?.(parseError);
 		}
 	}
 
@@ -233,6 +261,7 @@ export class TcpClientAdapter implements IAsyncClientAdapter {
 
 	/** Internal: handle error event */
 	_handleError(error: Error): void {
+		this.lastError = error;
 		this.errorHandler?.(error);
 	}
 }

@@ -5,11 +5,7 @@
  * Provides common functionality while enforcing type safety at compile time.
  */
 
-import type {
-	SyncOperations,
-	AsyncMessages,
-	Operations,
-} from "./base.types";
+import type { AsyncMessages, Operations, SyncOperations } from "./base.types";
 
 /**
  * Abstract base class with common protocol functionality
@@ -28,12 +24,16 @@ export abstract class BaseProtocol<T extends Operations = Operations> {
  *
  * Provides common functionality for request/response protocols.
  * Use this for protocols where each request gets exactly one response.
- * 
+ *
  * @template T - Service definition type (operation name -> { request, response })
  * @template TReq - Raw request type for the protocol
  * @template TRes - Raw response type for the protocol
  */
-export abstract class BaseSyncProtocol<T extends SyncOperations = SyncOperations, TReq = unknown, TRes = unknown> extends BaseProtocol<T> {
+export abstract class BaseSyncProtocol<
+	T extends SyncOperations = SyncOperations,
+	TReq = unknown,
+	TRes = unknown,
+> extends BaseProtocol<T> {
 	/**
 	 * Phantom type properties for type inference.
 	 * These properties are never assigned at runtime - they exist only for TypeScript.
@@ -48,9 +48,7 @@ export abstract class BaseSyncProtocol<T extends SyncOperations = SyncOperations
  *
  * Provides common functionality for bidirectional message protocols.
  * Subclasses implement transport-specific operations.
- * 
+ *
  * @template M - Message definition type
  */
-export abstract class BaseAsyncProtocol<T extends AsyncMessages = AsyncMessages> extends BaseProtocol<T> {
-
-}
+export abstract class BaseAsyncProtocol<T extends AsyncMessages = AsyncMessages> extends BaseProtocol<T> {}

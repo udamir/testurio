@@ -4,10 +4,10 @@
  * Represents a client that connects to a target server.
  */
 
-import type { ISyncProtocol, ISyncClientAdapter, Address, TlsConfig } from "../../protocols/base";
 import type { ITestCaseBuilder } from "../../execution/execution.types";
-import { SyncClientStepBuilder } from "./sync-client.step-builder";
+import type { Address, ISyncClientAdapter, ISyncProtocol, TlsConfig } from "../../protocols/base";
 import { BaseComponent } from "../base";
+import { SyncClientStepBuilder } from "./sync-client.step-builder";
 
 /**
  * Client component options
@@ -80,7 +80,7 @@ export class Client<P extends ISyncProtocol = ISyncProtocol> extends BaseCompone
 	 *   targetAddress: { host: "localhost", port: 3000 },
 	 * });
 	 * ```
- */
+	 */
 	static create<A extends ISyncProtocol>(name: string, options: ClientOptions<A>): Client<A> {
 		return new Client<A>(name, options);
 	}
@@ -105,11 +105,7 @@ export class Client<P extends ISyncProtocol = ISyncProtocol> extends BaseCompone
 	 * @param options - Request options (payload, metadata, timeout)
 	 * @returns Response payload directly (protocol-specific format)
 	 */
-	async request(
-		messageType: string,
-		data?: P["$request"],
-		timeout?: number,
-	): Promise<P["$response"]> {
+	async request(messageType: string, data?: P["$request"], timeout?: number): Promise<P["$response"]> {
 		if (!this.isStarted()) {
 			throw new Error(`Client ${this.name} is not started`);
 		}

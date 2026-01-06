@@ -7,8 +7,8 @@
  * Note: onResponse() receives SyncResponse<T> with { status, headers, body }.
  */
 
+import { Client, HttpProtocol, type HttpResponse, Server, TestScenario, testCase } from "testurio";
 import { describe, expect, it } from "vitest";
-import { TestScenario, testCase, Server, Client, HttpProtocol, type HttpResponse } from "testurio";
 
 // ============================================================================
 // Response Type Definitions
@@ -45,7 +45,10 @@ interface HttpServiceDef {
 	};
 	getData: {
 		request: { method: "GET"; path: "/api/data"; body?: never; headers?: Record<string, string> };
-		response: { code: 200; body: { proxied?: boolean; headers?: Record<string, string>; value?: number; transformedBy?: string } };
+		response: {
+			code: 200;
+			body: { proxied?: boolean; headers?: Record<string, string>; value?: number; transformedBy?: string };
+		};
 	};
 	getBlocked: {
 		request: { method: "GET"; path: "/blocked"; body?: never };
@@ -181,7 +184,6 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 				const api = test.use(apiClient);
 				const backend = test.use(backendServer);
 
-
 				// Step 1: Client sends POST request
 				api.request("createUser", {
 					method: "POST",
@@ -282,7 +284,9 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 				components: [backendServer, gatewayProxy, apiClient],
 			});
 
-			let responseData: HttpResponse<{ proxied?: boolean; headers?: Record<string, string>; value?: number; transformedBy?: string }> | undefined;
+			let responseData:
+				| HttpResponse<{ proxied?: boolean; headers?: Record<string, string>; value?: number; transformedBy?: string }>
+				| undefined;
 			let proxyReceivedRequest = false;
 			let backendCalled = false;
 
@@ -354,7 +358,9 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 				api.request("getBlocked", { method: "GET", path: "/blocked" });
 
 				// Step 2: Proxy blocks request
-				gateway.onRequest("getBlocked", { method: "GET", path: "/blocked" }).mockResponse(() => ({ code: 403, body: { error: "Access denied by proxy" } }));
+				gateway
+					.onRequest("getBlocked", { method: "GET", path: "/blocked" })
+					.mockResponse(() => ({ code: 403, body: { error: "Access denied by proxy" } }));
 
 				// Backend should NOT be called
 				backend.onRequest("getBlocked", { method: "GET", path: "/blocked" }).mockResponse(() => {
@@ -414,13 +420,21 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 				api.request("deleteUsers", { method: "DELETE", path: "/users" });
 
 				// Mock handlers
-				backend.onRequest("getUsers", { method: "GET", path: "/users" }).mockResponse(() => ({ code: 200, body: [{ id: 1, name: "Alice" }] }));
+				backend
+					.onRequest("getUsers", { method: "GET", path: "/users" })
+					.mockResponse(() => ({ code: 200, body: [{ id: 1, name: "Alice" }] }));
 
-				backend.onRequest("getOrders", { method: "GET", path: "/orders" }).mockResponse(() => ({ code: 200, body: [{ id: 101, item: "Widget" }] }));
+				backend
+					.onRequest("getOrders", { method: "GET", path: "/orders" })
+					.mockResponse(() => ({ code: 200, body: [{ id: 101, item: "Widget" }] }));
 
-				backend.onRequest("postOrder", { method: "POST", path: "/orders" }).mockResponse(() => ({ code: 201, body: { id: 102, item: "Gadget" } }));
+				backend
+					.onRequest("postOrder", { method: "POST", path: "/orders" })
+					.mockResponse(() => ({ code: 201, body: { id: 102, item: "Gadget" } }));
 
-				backend.onRequest("deleteUsers", { method: "DELETE", path: "/users" }).mockResponse(() => ({ code: 200, body: { deleted: true } }));
+				backend
+					.onRequest("deleteUsers", { method: "DELETE", path: "/users" })
+					.mockResponse(() => ({ code: 200, body: { deleted: true } }));
 
 				// Response handlers
 				api.onResponse("getUsers").assert((res) => {

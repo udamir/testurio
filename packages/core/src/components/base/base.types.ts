@@ -4,8 +4,8 @@
  * Types for hook system, handlers, and builders.
  */
 
-import type { Message } from "../../protocols/base";
 import type { TestPhase } from "../../execution/execution.types";
+import type { Message } from "../../protocols/base";
 
 // =============================================================================
 // Payload Matchers
@@ -30,9 +30,7 @@ export interface FunctionPayloadMatcher {
 /**
  * Payload matcher - matches by traceId or custom function
  */
-export type PayloadMatcher =
-	| TraceIdPayloadMatcher
-	| FunctionPayloadMatcher;
+export type PayloadMatcher = TraceIdPayloadMatcher | FunctionPayloadMatcher;
 
 // =============================================================================
 // Hook Types
@@ -70,13 +68,7 @@ export interface HookHandler<T, R = T> {
 /**
  * Hook handler types
  */
-export type HookHandlerType =
-	| "assert"
-	| "proxy"
-	| "mock"
-	| "delay"
-	| "drop"
-	| "custom";
+export type HookHandlerType = "assert" | "proxy" | "mock" | "delay" | "drop" | "custom";
 
 // =============================================================================
 // Hook Errors
@@ -99,7 +91,7 @@ export class HookError extends Error {
 	constructor(
 		message: string,
 		public readonly hookId: string,
-		public readonly cause?: Error,
+		public readonly cause?: Error
 	) {
 		super(message);
 		this.name = "HookError";
@@ -112,7 +104,7 @@ export class HookError extends Error {
 export class TimeoutError extends Error {
 	constructor(
 		message: string,
-		public readonly timeout: number,
+		public readonly timeout: number
 	) {
 		super(message);
 		this.name = "TimeoutError";
@@ -138,14 +130,9 @@ export interface BaseHookBuilder<TPayload> {
  * @template TPayload - Request payload type (what comes in)
  * @template TResponse - Response type (what mockResponse should return)
  */
-export interface SyncHookBuilder<TPayload = unknown, TResponse = unknown>
-	extends BaseHookBuilder<TPayload> {
+export interface SyncHookBuilder<TPayload = unknown, TResponse = unknown> extends BaseHookBuilder<TPayload> {
 	proxy(handler?: (payload: TPayload) => TPayload | Promise<TPayload>): this;
-	mockResponse(
-		handler: (
-			payload: TPayload,
-		) => TResponse | Promise<TResponse>,
-	): this;
+	mockResponse(handler: (payload: TPayload) => TResponse | Promise<TResponse>): this;
 }
 
 // =============================================================================

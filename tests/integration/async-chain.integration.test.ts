@@ -8,9 +8,9 @@
  * Messages are routed based on client's target address.
  */
 
-import { describe, expect, it } from "vitest";
-import { TestScenario, testCase, AsyncServer, AsyncClient } from "testurio";
 import { TcpProtocol } from "@testurio/protocol-tcp";
+import { AsyncClient, AsyncServer, TestScenario, testCase } from "testurio";
+import { describe, expect, it } from "vitest";
 
 // ============================================================================
 // Message Type Definitions
@@ -115,11 +115,7 @@ const createClient = (name: string, port: number) =>
 		targetAddress: { host: "localhost", port },
 	});
 
-const createProxyServer = (
-	name: string,
-	listenPort: number,
-	targetPort: number,
-) =>
+const createProxyServer = (name: string, listenPort: number, targetPort: number) =>
 	new AsyncServer(name, {
 		protocol: new TcpProtocol<AsyncTcpService>(),
 		listenAddress: { host: "localhost", port: listenPort },
@@ -191,11 +187,7 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 					.use(api)
 					.onEvent("OrderRequestResponse")
 					.assert((payload) => {
-						return (
-							payload.orderId === "ORD-001" &&
-							payload.status === "confirmed" &&
-							payload.items.length === 2
-						);
+						return payload.orderId === "ORD-001" && payload.status === "confirmed" && payload.items.length === 2;
 					});
 			});
 
@@ -229,9 +221,7 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 						receivedPayload = payload;
 						// Verify payload structure instead of always returning true
 						return (
-							payload.level === "info" &&
-							payload.message === "User logged in" &&
-							typeof payload.timestamp === "number"
+							payload.level === "info" && payload.message === "User logged in" && typeof payload.timestamp === "number"
 						);
 					});
 			});
@@ -271,11 +261,7 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 					.use(api)
 					.onEvent("SubscribeResponse")
 					.assert((payload) => {
-						return (
-							payload.subscriptionId === "sub-123" &&
-							payload.symbol === "EURUSD" &&
-							payload.status === "active"
-						);
+						return payload.subscriptionId === "sub-123" && payload.symbol === "EURUSD" && payload.status === "active";
 					});
 			});
 

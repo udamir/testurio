@@ -10,16 +10,10 @@
  * - With targetAddress = proxy mode
  */
 
-import type {
-	ISyncProtocol,
-	ISyncServerAdapter,
-	ISyncClientAdapter,
-	Address,
-	TlsConfig,
-} from "../../protocols/base";
 import type { ITestCaseBuilder } from "../../execution/execution.types";
-import { SyncServerStepBuilder } from "./sync-server.step-builder";
+import type { Address, ISyncClientAdapter, ISyncProtocol, ISyncServerAdapter, TlsConfig } from "../../protocols/base";
 import { BaseComponent } from "../base";
+import { SyncServerStepBuilder } from "./sync-server.step-builder";
 
 /**
  * Server component options
@@ -78,22 +72,22 @@ export class Server<A extends ISyncProtocol = ISyncProtocol> extends BaseCompone
 	 * Static factory method to create a Server instance
 	 *
 	 * @example Mock mode:
- * ```typescript
- * const server = Server.create("backend", {
- *   protocol: new HttpProtocol(),
- *   listenAddress: { host: "localhost", port: 3000 },
- * });
- * ```
- *
- * @example Proxy mode:
- * ```typescript
+	 * ```typescript
+	 * const server = Server.create("backend", {
+	 *   protocol: new HttpProtocol(),
+	 *   listenAddress: { host: "localhost", port: 3000 },
+	 * });
+	 * ```
+	 *
+	 * @example Proxy mode:
+	 * ```typescript
 	 * const proxy = Server.create("gateway", {
- *   protocol: new HttpProtocol(),
- *   listenAddress: { host: "localhost", port: 3001 },
- *   targetAddress: { host: "localhost", port: 3000 },
- * });
- * ```
- */
+	 *   protocol: new HttpProtocol(),
+	 *   listenAddress: { host: "localhost", port: 3001 },
+	 *   targetAddress: { host: "localhost", port: 3000 },
+	 * });
+	 * ```
+	 */
 	static create<A extends ISyncProtocol>(name: string, options: ServerOptions<A>): Server<A> {
 		return new Server<A>(name, options);
 	}
@@ -117,14 +111,20 @@ export class Server<A extends ISyncProtocol = ISyncProtocol> extends BaseCompone
 	 */
 	protected async doStart(): Promise<void> {
 		// Create server adapter (v3 API)
-		this._serverAdapter = await this.protocol.createServer({ listenAddress: this._listenAddress, tls: this._tls });
+		this._serverAdapter = await this.protocol.createServer({
+			listenAddress: this._listenAddress,
+			tls: this._tls,
+		});
 
 		// Set request handler to delegate request handling to this component
 		this._serverAdapter.onRequest((messageType, request) => this.handleIncomingRequest(messageType, request));
 
 		// If proxy mode, create client connection to target
 		if (this._targetAddress) {
-			this._clientAdapter = await this.protocol.createClient({ targetAddress: this._targetAddress, tls: this._tls });
+			this._clientAdapter = await this.protocol.createClient({
+				targetAddress: this._targetAddress,
+				tls: this._tls,
+			});
 		}
 	}
 
@@ -154,7 +154,10 @@ export class Server<A extends ISyncProtocol = ISyncProtocol> extends BaseCompone
 	 */
 	async handleIncomingRequest(messageType: string, request: A["$request"]): Promise<A["$response"] | null> {
 		// Process through hooks (includes mock response generation)
-		const processedMessage = await this.hookRegistry.executeHooks({ type: messageType, payload: request });
+		const processedMessage = await this.hookRegistry.executeHooks({
+			type: messageType,
+			payload: request,
+		});
 
 		// If message was dropped by a hook, return null
 		if (!processedMessage) {
@@ -182,10 +185,7 @@ export class Server<A extends ISyncProtocol = ISyncProtocol> extends BaseCompone
 	 * @param options - Request options (payload, metadata, timeout)
 	 * @returns Response body directly (protocol-agnostic)
 	 */
-	async forwardRequest(
-		messageType: string,
-		data?: A["$request"],
-	): Promise<A["$response"]> {
+	async forwardRequest(messageType: string, data?: A["$request"]): Promise<A["$response"]> {
 		if (!this.isProxy) {
 			throw new Error(`Server ${this.name} is not in proxy mode`);
 		}

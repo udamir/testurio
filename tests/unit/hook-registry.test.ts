@@ -2,9 +2,9 @@
  * Hook Registry Tests
  */
 
-import { beforeEach, describe, expect, it } from "vitest";
-import { HookRegistry } from "testurio";
 import type { Hook, Message } from "testurio";
+import { HookRegistry } from "testurio";
+import { beforeEach, describe, expect, it } from "vitest";
 
 describe("HookRegistry", () => {
 	let registry: HookRegistry;
@@ -125,9 +125,7 @@ describe("HookRegistry", () => {
 			const result = await registry.executeHooks(message);
 
 			expect(result).not.toBeNull();
-			expect((result?.payload as { transformed: boolean }).transformed).toBe(
-				true,
-			);
+			expect((result?.payload as { transformed: boolean }).transformed).toBe(true);
 		});
 
 		it("should return original message if no hooks match", async () => {

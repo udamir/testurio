@@ -4,9 +4,9 @@
  * Tests for TestCase metadata fluent API and metadata object parameter.
  */
 
-import { describe, expect, it } from "vitest";
-import { testCase } from "testurio";
 import type { TestCaseMetadata } from "testurio";
+import { testCase } from "testurio";
+import { describe, expect, it } from "vitest";
 
 describe("TestCase Metadata", () => {
 	describe("Fluent API", () => {
@@ -197,7 +197,6 @@ describe("TestCase Metadata", () => {
 			const mockBuilder = {
 				setPhase: () => {},
 				getSteps: () => [],
-				context: {},
 			};
 
 			const tc = testCase("Test", () => {})

@@ -5,9 +5,9 @@
  */
 
 import * as http from "node:http";
-import type { ISyncServerAdapter, ISyncClientAdapter } from "../base";
-import type { HttpRequest, HttpResponse, HttpRequestOptions } from "./http.types";
+import type { ISyncClientAdapter, ISyncServerAdapter } from "../base";
 import { generateId } from "../base";
+import type { HttpRequest, HttpRequestOptions, HttpResponse } from "./http.types";
 
 /**
  * HTTP Server Adapter
@@ -25,10 +25,7 @@ export class HttpServerAdapter implements ISyncServerAdapter {
 	/**
 	 * Create and start HTTP server adapter
 	 */
-	static async create(
-		host: string,
-		port: number,
-	): Promise<HttpServerAdapter> {
+	static async create(host: string, port: number): Promise<HttpServerAdapter> {
 		return new Promise((resolve, reject) => {
 			const server = http.createServer();
 			const adapter = new HttpServerAdapter(server);
@@ -69,7 +66,11 @@ export class HttpServerAdapter implements ISyncServerAdapter {
 		}
 
 		// No handler processed the request - send 404
-		this.respond(traceId, { code: 404, headers: {}, body: { error: "Not Found" } });
+		this.respond(traceId, {
+			code: 404,
+			headers: {},
+			body: { error: "Not Found" },
+		});
 	}
 
 	private readRequestBody(req: http.IncomingMessage): Promise<unknown> {
@@ -113,7 +114,7 @@ export class HttpServerAdapter implements ISyncServerAdapter {
 	}
 
 	onRequest<TReq = unknown, TRes = unknown>(
-		handler: (messageType: string, request: TReq) => Promise<TRes | null>,
+		handler: (messageType: string, request: TReq) => Promise<TRes | null>
 	): void {
 		this.requestHandler = handler as (messageType: string, request: HttpRequest) => Promise<HttpResponse | null>;
 	}
@@ -148,21 +149,13 @@ export class HttpClientAdapter implements ISyncClientAdapter {
 	/**
 	 * Create HTTP client adapter
 	 */
-	static async create(
-		host: string,
-		port: number,
-		tls?: boolean,
-	): Promise<HttpClientAdapter> {
+	static async create(host: string, port: number, tls?: boolean): Promise<HttpClientAdapter> {
 		const protocol = tls ? "https" : "http";
 		const baseUrl = `${protocol}://${host}:${port}`;
 		return new HttpClientAdapter(baseUrl);
 	}
 
-	async request<TReq = unknown, TRes = unknown>(
-		_messageType: string,
-		data: TReq,
-		_timeout?: number,
-	): Promise<TRes> {
+	async request<TReq = unknown, TRes = unknown>(_messageType: string, data: TReq, timeout?: number): Promise<TRes> {
 		const options = data as HttpRequestOptions;
 
 		if (!options?.method || !options?.path) {
@@ -179,6 +172,12 @@ export class HttpClientAdapter implements ISyncClientAdapter {
 
 		if (options.body) {
 			fetchOptions.body = JSON.stringify(options.body);
+		}
+
+		// Apply request timeout if specified
+		const requestTimeout = options.timeout ?? timeout;
+		if (requestTimeout && requestTimeout > 0) {
+			fetchOptions.signal = AbortSignal.timeout(requestTimeout);
 		}
 
 		try {
@@ -204,7 +203,14 @@ export class HttpClientAdapter implements ISyncClientAdapter {
 				body,
 			} as TRes;
 		} catch (error) {
-			throw new Error(error instanceof Error ? error.message : "Request failed");
+			if (error instanceof Error) {
+				// Check for abort/timeout errors
+				if (error.name === "TimeoutError" || error.name === "AbortError") {
+					throw new Error(`Request timeout after ${requestTimeout}ms`);
+				}
+				throw new Error(error.message);
+			}
+			throw new Error("Request failed");
 		}
 	}
 

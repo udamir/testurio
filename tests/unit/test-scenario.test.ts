@@ -2,15 +2,9 @@
  * TestScenario Tests
  */
 
-import { describe, expect, it } from "vitest";
-import {
-	testCase,
-	TestScenario,
-	scenario,
-	BaseSyncProtocol,
-	Client,
-} from "testurio";
 import type { TestScenarioConfig } from "testurio";
+import { BaseSyncProtocol, Client, scenario, TestScenario, testCase } from "testurio";
+import { describe, expect, it } from "vitest";
 
 // Mock adapter class
 class MockAdapter extends BaseSyncProtocol {
@@ -29,10 +23,11 @@ class MockAdapter extends BaseSyncProtocol {
 }
 
 // Helper to create type-safe client for tests
-const createTestClient = () => new Client("api", {
-	protocol: new MockAdapter() as unknown as Parameters<typeof Client.create>[1]["protocol"],
-	targetAddress: { host: "localhost", port: 8080 },
-});
+const createTestClient = () =>
+	new Client("api", {
+		protocol: new MockAdapter() as unknown as Parameters<typeof Client.create>[1]["protocol"],
+		targetAddress: { host: "localhost", port: 8080 },
+	});
 
 describe("TestScenario", () => {
 	const config: TestScenarioConfig = {
@@ -119,7 +114,7 @@ describe("TestScenario", () => {
 					() => {
 						throw new Error("Test failed");
 					},
-					{ timeout: 100 },
+					{ timeout: 100 }
 				);
 			});
 
@@ -184,16 +179,6 @@ describe("TestScenario", () => {
 
 			expect(result.duration).toBeGreaterThanOrEqual(40);
 			expect(result.startTime).toBeLessThan(result.endTime);
-		});
-	});
-
-	describe("getContext", () => {
-		it("should return shared context", () => {
-			const testScenario = new TestScenario(config);
-
-			const context = testScenario.getContext();
-
-			expect(context).toEqual({});
 		});
 	});
 

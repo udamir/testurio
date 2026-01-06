@@ -5,8 +5,8 @@
  * using real protocol adapters.
  */
 
+import { Client, HttpProtocol, type HttpResponse, Server, TestScenario, testCase } from "testurio";
 import { describe, expect, it } from "vitest";
-import { TestScenario, testCase, Server, Client, HttpProtocol, type HttpResponse } from "testurio";
 
 // Type-safe HTTP service definition
 interface HttpServiceDef {

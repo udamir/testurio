@@ -29,12 +29,7 @@ export class AssertionCollector {
 	/**
 	 * Record a failed assertion
 	 */
-	fail(
-		description: string,
-		error: string,
-		expected?: unknown,
-		actual?: unknown,
-	): void {
+	fail(description: string, error: string, expected?: unknown, actual?: unknown): void {
 		this.assertions.push({
 			passed: false,
 			description,
@@ -58,12 +53,7 @@ export class AssertionCollector {
 		if (condition) {
 			this.pass(description, true, true);
 		} else {
-			this.fail(
-				description,
-				error || "Expected true but got false",
-				true,
-				false,
-			);
+			this.fail(description, error || "Expected true but got false", true, false);
 		}
 		return condition;
 	}
@@ -80,7 +70,7 @@ export class AssertionCollector {
 				description,
 				`Expected ${JSON.stringify(expected)} but got ${JSON.stringify(actual)}`,
 				expected,
-				actual,
+				actual
 			);
 		}
 		return passed;
@@ -98,7 +88,7 @@ export class AssertionCollector {
 				description,
 				`Expected ${JSON.stringify(expected)} but got ${JSON.stringify(actual)}`,
 				expected,
-				actual,
+				actual
 			);
 		}
 		return passed;
@@ -120,11 +110,7 @@ export class AssertionCollector {
 	/**
 	 * Assert that a value matches a predicate
 	 */
-	assertMatches<T>(
-		value: T,
-		predicate: (value: T) => boolean,
-		description: string,
-	): boolean {
+	assertMatches<T>(value: T, predicate: (value: T) => boolean, description: string): boolean {
 		const passed = predicate(value);
 		if (passed) {
 			this.pass(description, "match", value);

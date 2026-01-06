@@ -2,8 +2,8 @@
  * Assertion Collector Tests
  */
 
-import { beforeEach, describe, expect, it } from "vitest";
 import { AssertionCollector } from "testurio";
+import { beforeEach, describe, expect, it } from "vitest";
 
 describe("AssertionCollector", () => {
 	let collector: AssertionCollector;
@@ -70,21 +70,13 @@ describe("AssertionCollector", () => {
 
 	describe("assertDeepEqual", () => {
 		it("should pass when objects are deeply equal", () => {
-			const result = collector.assertDeepEqual(
-				{ a: 1, b: { c: 2 } },
-				{ a: 1, b: { c: 2 } },
-				"Objects match",
-			);
+			const result = collector.assertDeepEqual({ a: 1, b: { c: 2 } }, { a: 1, b: { c: 2 } }, "Objects match");
 
 			expect(result).toBe(true);
 		});
 
 		it("should fail when objects are not deeply equal", () => {
-			const result = collector.assertDeepEqual(
-				{ a: 1, b: { c: 2 } },
-				{ a: 1, b: { c: 3 } },
-				"Objects should match",
-			);
+			const result = collector.assertDeepEqual({ a: 1, b: { c: 2 } }, { a: 1, b: { c: 3 } }, "Objects should match");
 
 			expect(result).toBe(false);
 		});
@@ -104,10 +96,7 @@ describe("AssertionCollector", () => {
 		});
 
 		it("should fail when value is undefined", () => {
-			const result = collector.assertDefined(
-				undefined,
-				"Value should be defined",
-			);
+			const result = collector.assertDefined(undefined, "Value should be defined");
 
 			expect(result).toBe(false);
 		});
@@ -115,21 +104,13 @@ describe("AssertionCollector", () => {
 
 	describe("assertMatches", () => {
 		it("should pass when predicate returns true", () => {
-			const result = collector.assertMatches(
-				42,
-				(v) => v > 0,
-				"Value is positive",
-			);
+			const result = collector.assertMatches(42, (v) => v > 0, "Value is positive");
 
 			expect(result).toBe(true);
 		});
 
 		it("should fail when predicate returns false", () => {
-			const result = collector.assertMatches(
-				-1,
-				(v) => v > 0,
-				"Value should be positive",
-			);
+			const result = collector.assertMatches(-1, (v) => v > 0, "Value should be positive");
 
 			expect(result).toBe(false);
 		});

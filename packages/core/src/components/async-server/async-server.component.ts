@@ -5,17 +5,17 @@
  * Uses connection wrappers for message handling.
  */
 
+import type { ITestCaseBuilder } from "../../execution/execution.types";
 import type {
+	Address,
+	IAsyncClientAdapter,
 	IAsyncProtocol,
 	IAsyncServerAdapter,
-	IAsyncClientAdapter,
-	Address,
 	Message,
 	TlsConfig,
 } from "../../protocols/base";
-import type { ITestCaseBuilder } from "../../execution/execution.types";
-import { AsyncServerStepBuilder } from "./async-server.step-builder";
 import { BaseComponent } from "../base";
+import { AsyncServerStepBuilder } from "./async-server.step-builder";
 
 /**
  * Session for proxy mode - links incoming client to outgoing backend connection
@@ -66,7 +66,10 @@ export interface AsyncServerOptions<A extends IAsyncProtocol = IAsyncProtocol> {
  * });
  * ```
  */
-export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends BaseComponent<P, AsyncServerStepBuilder<P>> {
+export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends BaseComponent<
+	P,
+	AsyncServerStepBuilder<P>
+> {
 	private readonly _listenAddress: Address;
 	private readonly _targetAddress?: Address;
 	private readonly _tls?: TlsConfig;
@@ -89,10 +92,7 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 	/**
 	 * Static factory method to create an AsyncServer instance
 	 */
-	static create<P extends IAsyncProtocol>(
-		name: string,
-		options: AsyncServerOptions<P>,
-	): AsyncServer<P> {
+	static create<P extends IAsyncProtocol>(name: string, options: AsyncServerOptions<P>): AsyncServer<P> {
 		return new AsyncServer<P>(name, options);
 	}
 
@@ -214,9 +214,7 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 					if (!session.outgoing && session.outgoingConnected) {
 						const connected = await Promise.race([
 							session.outgoingConnected,
-							new Promise<boolean>((resolve) => 
-								setTimeout(() => resolve(false), this._proxyConnectionTimeout)
-							),
+							new Promise<boolean>((resolve) => setTimeout(() => resolve(false), this._proxyConnectionTimeout)),
 						]);
 						if (!connected) {
 							return; // Connection failed or timed out
@@ -253,17 +251,17 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 		if (!this._targetAddress) {
 			throw new Error("Target address is required for proxy mode");
 		}
-		
+
 		// Apply connection timeout
 		const connectionPromise = this.protocol.createClient({
 			targetAddress: this._targetAddress,
 			tls: this._tls,
 		});
-		
+
 		const timeoutPromise = new Promise<never>((_, reject) =>
 			setTimeout(() => reject(new Error("Proxy connection timeout")), this._proxyConnectionTimeout)
 		);
-		
+
 		session.outgoing = await Promise.race([connectionPromise, timeoutPromise]);
 
 		// Set up backend→client event forwarding
@@ -289,6 +287,18 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 	 * Stop the async server
 	 */
 	protected async doStop(): Promise<void> {
+		// Wait for all pending proxy connections to complete (or fail)
+		// This prevents race conditions where cleanup happens while connections are being established
+		const pendingConnections: Promise<boolean>[] = [];
+		for (const session of this._sessions.values()) {
+			if (session.outgoingConnected) {
+				pendingConnections.push(session.outgoingConnected.catch(() => false));
+			}
+		}
+		if (pendingConnections.length > 0) {
+			await Promise.all(pendingConnections);
+		}
+
 		// Close all sessions (including outgoing connections)
 		for (const session of this._sessions.values()) {
 			if (session.outgoing?.isConnected) {

@@ -9,19 +9,15 @@
 
 import type {
 	ClientProtocolConfig,
-	ServerProtocolConfig,
-	SchemaDefinition,
+	ISyncClientAdapter,
 	ISyncProtocol,
 	ISyncServerAdapter,
-	ISyncClientAdapter,
+	SchemaDefinition,
+	ServerProtocolConfig,
 } from "../base";
 import { BaseSyncProtocol } from "../base";
-import { HttpServerAdapter, HttpClientAdapter } from "./http.adapters";
-import type {
-	HttpRequest,
-	HttpResponse,
-	HttpOperations,
-} from "./http.types";
+import { HttpClientAdapter, HttpServerAdapter } from "./http.adapters";
+import type { HttpOperations, HttpRequest, HttpResponse } from "./http.types";
 
 /**
  * HTTP protocol options
@@ -43,7 +39,6 @@ export class HttpProtocol<T extends HttpOperations = HttpOperations>
 	extends BaseSyncProtocol<T, HttpRequest, HttpResponse>
 	implements ISyncProtocol<T, HttpRequest, HttpResponse>
 {
-
 	readonly type = "http";
 
 	constructor(private options: HttpProtocolOptions = {}) {
@@ -76,10 +71,7 @@ export class HttpProtocol<T extends HttpOperations = HttpOperations>
 	 * Component owns the returned adapter
 	 */
 	async createServer(config: ServerProtocolConfig): Promise<ISyncServerAdapter> {
-		return HttpServerAdapter.create(
-			config.listenAddress.host,
-			config.listenAddress.port,
-		);
+		return HttpServerAdapter.create(config.listenAddress.host, config.listenAddress.port);
 	}
 
 	/**
@@ -87,10 +79,6 @@ export class HttpProtocol<T extends HttpOperations = HttpOperations>
 	 * Component owns the returned adapter
 	 */
 	async createClient(config: ClientProtocolConfig): Promise<ISyncClientAdapter> {
-		return HttpClientAdapter.create(
-			config.targetAddress.host,
-			config.targetAddress.port,
-			config.tls?.enabled,
-		);
+		return HttpClientAdapter.create(config.targetAddress.host, config.targetAddress.port, config.tls?.enabled);
 	}
 }

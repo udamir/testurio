@@ -16,10 +16,10 @@ import { AsyncClientHookBuilder } from "../async-client/async-client.hook-builde
  * @template TPayload - Incoming message payload type
  * @template M - Full message definition for response type inference
  */
-export class AsyncServerHookBuilder<
+export class AsyncServerHookBuilder<TPayload, M extends AsyncMessages = AsyncMessages> extends AsyncClientHookBuilder<
 	TPayload,
-	M extends AsyncMessages = AsyncMessages,
-> extends AsyncClientHookBuilder<TPayload, M> {
+	M
+> {
 	/**
 	 * Add mock event handler (for mock servers in async protocols)
 	 * Creates a separate response message to be sent back to the client.
@@ -32,16 +32,12 @@ export class AsyncServerHookBuilder<
 	 */
 	mockEvent<K extends keyof ServerMessages<M> & string>(
 		responseType: K,
-		handler: (
-			payload: TPayload,
-		) => ServerMessages<M>[K] | Promise<ServerMessages<M>[K]>,
+		handler: (payload: TPayload) => ServerMessages<M>[K] | Promise<ServerMessages<M>[K]>
 	): this {
 		this.addHandler({
 			type: "mock",
 			execute: async (msg: Message) => {
-				const responsePayload = await Promise.resolve(
-					handler(msg.payload as TPayload),
-				);
+				const responsePayload = await Promise.resolve(handler(msg.payload as TPayload));
 				// Create a new response message (separate from the original)
 				// The protocol will send this back to the client
 				return {

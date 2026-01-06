@@ -2,9 +2,9 @@
  * TestCase Tests
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { TestCaseBuilder, TestCase, testCase } from "testurio";
 import type { BaseComponent } from "testurio";
+import { TestCase, TestCaseBuilder, testCase } from "testurio";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("TestCase", () => {
 	let components: Map<string, BaseComponent>;
@@ -25,9 +25,7 @@ describe("TestCase", () => {
 
 	describe("before/after", () => {
 		it("should chain before and after handlers", () => {
-			const tc = new TestCase("Test", () => {})
-				.before(() => {})
-				.after(() => {});
+			const tc = new TestCase("Test", () => {}).before(() => {}).after(() => {});
 
 			expect(tc).toBeInstanceOf(TestCase);
 		});
@@ -97,7 +95,7 @@ describe("TestCase", () => {
 					() => {
 						throw new Error("Test error");
 					},
-					{ timeout: 100 },
+					{ timeout: 100 }
 				);
 			});
 

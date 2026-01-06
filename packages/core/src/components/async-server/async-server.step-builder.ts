@@ -7,24 +7,24 @@
  */
 
 import type { ITestCaseBuilder } from "../../execution/execution.types";
-import { generateHookId } from "../base";
-import { AsyncServerHookBuilder } from "./async-server.hook-builder";
-import type { Message, IAsyncProtocol, ProtocolMessages, ClientMessages, ServerMessages } from "../../protocols/base";
+import type { ClientMessages, IAsyncProtocol, Message, ProtocolMessages, ServerMessages } from "../../protocols/base";
 import type { Hook } from "../base";
+import { generateHookId } from "../base";
 import type { AsyncServer } from "./async-server.component";
+import { AsyncServerHookBuilder } from "./async-server.hook-builder";
 
 /**
  * Async Server Step Builder
  *
  * Provides declarative API for async message handling.
  * Works for both mock mode and proxy mode.
- * 
+ *
  * @template P - Protocol type (messages are extracted via ProtocolMessages<P>)
  */
 export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 	constructor(
 		private server: AsyncServer<P>,
-		private testBuilder: ITestCaseBuilder,
+		private testBuilder: ITestCaseBuilder
 	) {}
 
 	/**
@@ -69,7 +69,7 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 		options?: {
 			timeout?: number;
 			matcher?: string | ((payload: ClientMessages<ProtocolMessages<P>>[K]) => boolean);
-		},
+		}
 	): AsyncServerHookBuilder<ClientMessages<ProtocolMessages<P>>[K], ProtocolMessages<P>> {
 		const timeout = options?.timeout ?? 5000;
 		const messageTypes = messageType as string;
@@ -139,11 +139,7 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 
 				// Wait for message with timeout
 				const timeoutPromise = new Promise<never>((_, reject) => {
-					setTimeout(
-						() =>
-							reject(new Error(`Timeout waiting for message: ${messageTypes}`)),
-						timeout,
-					);
+					setTimeout(() => reject(new Error(`Timeout waiting for message: ${messageTypes}`)), timeout);
 				});
 				const msg = await Promise.race([messagePromise, timeoutPromise]);
 
@@ -168,12 +164,10 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 	 */
 	onMessage<K extends keyof ClientMessages<ProtocolMessages<P>>>(
 		messageType: K | K[],
-		matcher?: string | ((payload: ClientMessages<ProtocolMessages<P>>[K]) => boolean),
+		matcher?: string | ((payload: ClientMessages<ProtocolMessages<P>>[K]) => boolean)
 	): AsyncServerHookBuilder<ClientMessages<ProtocolMessages<P>>[K], ProtocolMessages<P>> {
 		// Convert message types to string or string[]
-		const messageTypes = Array.isArray(messageType)
-			? (messageType as string[])
-			: (messageType as string);
+		const messageTypes = Array.isArray(messageType) ? (messageType as string[]) : (messageType as string);
 
 		// Build payload matcher if provided
 		const payloadMatcher = this.buildPayloadMatcher(matcher);
@@ -204,17 +198,13 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 	 */
 	onEvent<K extends keyof ServerMessages<ProtocolMessages<P>>>(
 		messageType: K | K[],
-		matcher?: string | ((payload: ServerMessages<ProtocolMessages<P>>[K]) => boolean),
+		matcher?: string | ((payload: ServerMessages<ProtocolMessages<P>>[K]) => boolean)
 	): AsyncServerHookBuilder<ServerMessages<ProtocolMessages<P>>[K], ProtocolMessages<P>> {
 		if (!this.server.isProxy) {
-			throw new Error(
-				`onEvent() is only available in proxy mode. Server "${this.server.name}" is in mock mode.`,
-			);
+			throw new Error(`onEvent() is only available in proxy mode. Server "${this.server.name}" is in mock mode.`);
 		}
 
-		const messageTypes = Array.isArray(messageType)
-			? (messageType as string[])
-			: (messageType as string);
+		const messageTypes = Array.isArray(messageType) ? (messageType as string[]) : (messageType as string);
 
 		const payloadMatcher = this.buildPayloadMatcher(matcher);
 
@@ -240,9 +230,7 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 	/**
 	 * Build payload matcher from string (traceId) or function
 	 */
-	private buildPayloadMatcher<T>(
-		matcher?: string | ((payload: T) => boolean),
-	): Hook["matcher"] {
+	private buildPayloadMatcher<T>(matcher?: string | ((payload: T) => boolean)): Hook["matcher"] {
 		if (!matcher) return undefined;
 
 		if (typeof matcher === "string") {

@@ -8,19 +8,16 @@
 import type * as grpc from "@grpc/grpc-js";
 import type {
 	ClientProtocolConfig,
-	ServerProtocolConfig,
+	IAsyncClientAdapter,
 	IAsyncProtocol,
 	IAsyncServerAdapter,
-	IAsyncClientAdapter,
 	SchemaDefinition,
+	ServerProtocolConfig,
 } from "testurio";
 import { BaseAsyncProtocol } from "testurio";
 import { GrpcBaseProtocol } from "./grpc-base";
-import { GrpcStreamServerAdapter, GrpcStreamClientAdapter } from "./stream.adapters";
-import type {
-	GrpcStreamProtocolOptions,
-	GrpcStreamServiceDefinition,
-} from "./types";
+import { GrpcStreamClientAdapter, GrpcStreamServerAdapter } from "./stream.adapters";
+import type { GrpcStreamProtocolOptions, GrpcStreamServiceDefinition } from "./types";
 
 /**
  * gRPC Stream Protocol
@@ -29,9 +26,7 @@ import type {
  *
  * @template S - Stream service definition type
  */
-export class GrpcStreamProtocol<
-		S extends GrpcStreamServiceDefinition = GrpcStreamServiceDefinition,
-	>
+export class GrpcStreamProtocol<S extends GrpcStreamServiceDefinition = GrpcStreamServiceDefinition>
 	extends BaseAsyncProtocol<S>
 	implements IAsyncProtocol<S>
 {
@@ -58,9 +53,7 @@ export class GrpcStreamProtocol<
 	/**
 	 * Get service client constructor by name
 	 */
-	getServiceClient(
-		serviceName: string,
-	): grpc.ServiceClientConstructor | undefined {
+	getServiceClient(serviceName: string): grpc.ServiceClientConstructor | undefined {
 		return this.base.getServiceClient(serviceName);
 	}
 
@@ -68,8 +61,7 @@ export class GrpcStreamProtocol<
 	 * Get service definitions from loaded schema
 	 */
 	private getServiceDefinitions(): Map<string, grpc.ServiceDefinition> {
-		const schema = (this.base as unknown as { schema?: { services: Map<string, grpc.ServiceDefinition> } }).schema;
-		return schema?.services ?? new Map();
+		return this.base.schema?.services ?? new Map();
 	}
 
 	// =========================================================================
@@ -90,7 +82,7 @@ export class GrpcStreamProtocol<
 			config.listenAddress.host,
 			config.listenAddress.port,
 			this.getServiceDefinitions(),
-			config.tls,
+			config.tls
 		);
 	}
 
@@ -122,9 +114,7 @@ export class GrpcStreamProtocol<
 		}
 
 		if (!ServiceClient) {
-			throw new Error(
-				`Service ${serviceName || "any"} not found. Make sure to load schema first.`,
-			);
+			throw new Error(`Service ${serviceName || "any"} not found. Make sure to load schema first.`);
 		}
 
 		return GrpcStreamClientAdapter.create(
@@ -132,7 +122,7 @@ export class GrpcStreamProtocol<
 			config.targetAddress.port,
 			ServiceClient,
 			methodName,
-			config.tls,
+			config.tls
 		);
 	}
 }

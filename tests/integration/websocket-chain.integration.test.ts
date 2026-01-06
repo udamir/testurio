@@ -5,9 +5,9 @@
  * Using async WebSocket protocol with real connections.
  */
 
-import { describe, expect, it } from "vitest";
-import { TestScenario, testCase, AsyncServer, AsyncClient } from "testurio";
 import { WebSocketProtocol } from "@testurio/protocol-ws";
+import { AsyncClient, AsyncServer, TestScenario, testCase } from "testurio";
+import { describe, expect, it } from "vitest";
 
 // ============================================================================
 // Message Type Definitions
@@ -179,9 +179,9 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 
 				backend.waitMessage("logEvent", { timeout: 1000 }).assert((payload) => {
 					receivedPayload = payload;
-					return payload.level === "info" && 
-						payload.message === "User logged in" && 
-						typeof payload.timestamp === "number";
+					return (
+						payload.level === "info" && payload.message === "User logged in" && typeof payload.timestamp === "number"
+					);
 				});
 			});
 

@@ -6,11 +6,7 @@
  */
 
 import type { Message } from "../../protocols/base";
-import type {
-	Hook,
-	HookHandler,
-	SyncHookBuilder,
-} from "../base/base.types";
+import type { Hook, HookHandler, SyncHookBuilder } from "../base/base.types";
 import { DropMessageError } from "../base/base.types";
 
 /**
@@ -65,9 +61,7 @@ export class SyncHookBuilderImpl<TPayload = unknown, TResponse = unknown>
 			type: "proxy",
 			execute: async (msg: Message<TPayload>) => {
 				if (handler) {
-					const transformedPayload = await Promise.resolve(
-						handler(msg.payload),
-					);
+					const transformedPayload = await Promise.resolve(handler(msg.payload));
 					return {
 						...msg,
 						payload: transformedPayload,
@@ -85,17 +79,11 @@ export class SyncHookBuilderImpl<TPayload = unknown, TResponse = unknown>
 	 * Use this to mock a backend response for sync protocols (HTTP, gRPC Unary).
 	 * The response type is inferred from the service definition.
 	 */
-	mockResponse(
-		handler: (
-			payload: TPayload,
-		) => TResponse | Promise<TResponse>,
-	): this {
+	mockResponse(handler: (payload: TPayload) => TResponse | Promise<TResponse>): this {
 		this.addHandler({
 			type: "mock",
 			execute: async (msg: Message<TPayload>) => {
-				const response = await Promise.resolve(
-					handler(msg.payload),
-				);
+				const response = await Promise.resolve(handler(msg.payload));
 
 				// TODO: fix type
 				// Replace message payload with response

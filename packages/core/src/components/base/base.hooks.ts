@@ -5,10 +5,7 @@
  */
 
 import type { Message } from "../../protocols/base";
-import type {
-	Hook,
-	HookExecutionResult,
-} from "./base.types";
+import type { Hook, HookExecutionResult } from "./base.types";
 import { DropMessageError, HookError } from "./base.types";
 import { matchHook } from "./message-matcher";
 
@@ -67,7 +64,7 @@ export class HookRegistry {
 				throw new HookError(
 					`Hook execution failed: ${hook.id}`,
 					hook.id,
-					error as Error,
+					error instanceof Error ? error : new Error(String(error))
 				);
 			}
 		}
@@ -78,10 +75,7 @@ export class HookRegistry {
 	/**
 	 * Execute a single hook (all handlers in chain)
 	 */
-	private async executeHook<T>(
-		hook: Hook<T>,
-		message: Message<T>,
-	): Promise<HookExecutionResult<T>> {
+	private async executeHook<T>(hook: Hook<T>, message: Message<T>): Promise<HookExecutionResult<T>> {
 		const startTime = Date.now();
 		let currentMessage = message;
 
@@ -117,7 +111,7 @@ export class HookRegistry {
 				originalMessage: message,
 				transformedMessage: null,
 				duration: Date.now() - startTime,
-				error: error as Error,
+				error: error instanceof Error ? error : new Error(String(error)),
 			};
 		}
 	}

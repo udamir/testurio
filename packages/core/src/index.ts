@@ -40,15 +40,15 @@
  * ```
  */
 
-// Base protocol (Message, Address, ProtocolCharacteristics, etc.)
-export * from "./protocols/base";
+// Components (Client, Server, AsyncClient, AsyncServer)
+export * from "./components";
 // Base component (Hook, HookHandler, errors, etc.)
 export * from "./components/base";
 // Execution (TestStep, TestCaseResult, TestScenario, testCase, etc.)
 export * from "./execution";
-// Recording (Interaction, InteractionRecorder, etc.)
-export * from "./recording";
-// Components (Client, Server, AsyncClient, AsyncServer)
-export * from "./components";
+// Base protocol (Message, Address, ProtocolCharacteristics, etc.)
+export * from "./protocols/base";
 // HTTP protocol
 export * from "./protocols/http";
+// Recording (Interaction, InteractionRecorder, etc.)
+export * from "./recording";

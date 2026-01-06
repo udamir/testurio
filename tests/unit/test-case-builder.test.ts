@@ -2,9 +2,9 @@
  * Test Case Builder Tests
  */
 
-import { beforeEach, describe, expect, it } from "vitest";
-import { TestCaseBuilder } from "testurio";
 import type { BaseComponent } from "testurio";
+import { TestCaseBuilder } from "testurio";
+import { beforeEach, describe, expect, it } from "vitest";
 
 describe("TestCaseBuilder", () => {
 	let components: Map<string, BaseComponent>;
@@ -12,27 +12,7 @@ describe("TestCaseBuilder", () => {
 
 	beforeEach(() => {
 		components = new Map<string, BaseComponent>();
-		builder = new TestCaseBuilder(components, {});
-	});
-
-	describe("context", () => {
-		it("should provide mutable context", () => {
-			type TestContext = {
-				value: number;
-				[key: string]: unknown;
-			};
-
-			const contextBuilder = new TestCaseBuilder<TestContext>(
-				components,
-				{ value: 0 } as TestContext,
-			);
-
-			expect(contextBuilder.context.value).toBe(0);
-
-			contextBuilder.context.value = 42;
-
-			expect(contextBuilder.context.value).toBe(42);
-		});
+		builder = new TestCaseBuilder(components);
 	});
 
 	describe("wait", () => {

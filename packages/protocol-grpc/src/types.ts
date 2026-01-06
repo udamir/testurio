@@ -2,7 +2,7 @@
  * gRPC Protocol Types
  *
  * Type definitions for gRPC protocols (unary and streaming).
- * 
+ *
  * @example Service Definition
  * ```typescript
  * interface MyGrpcService {
@@ -16,20 +16,20 @@
  *   };
  * }
  * ```
- * 
+ *
  * @example Usage
  * ```typescript
  * const client = new Client('api', {
  *   protocol: new GrpcUnaryProtocol<MyGrpcService>({ schema: 'service.proto' }),
  *   targetAddress: { host: 'localhost', port: 50051 },
  * });
- * 
+ *
  * // In test case - metadata in payload
  * api.request('GetUser', { payload: { user_id: 42 }, metadata: { authorization: 'Bearer token' } });
  * ```
  */
 
-import type { SyncRequestOptions, Message } from "testurio";
+import type { Message, SyncRequestOptions } from "testurio";
 
 // =============================================================================
 // Protocol Options
@@ -137,7 +137,7 @@ export type GrpcMetadata<T = object> = {
 /**
  * gRPC Method definition for type-safe gRPC unary adapters.
  * Maps method names to request/response structures with payload and metadata.
- * 
+ *
  * @example
  * ```typescript
  * interface MyService {
@@ -166,7 +166,7 @@ export interface GrpcServiceDefinition {
 /**
  * gRPC Stream Service definition for bidirectional streaming.
  * Uses separate clientMessages and serverMessages maps.
- * 
+ *
  * @example
  * ```typescript
  * interface MyStreamService extends GrpcStreamServiceDefinition {
@@ -224,4 +224,47 @@ export interface GrpcRequestOptions extends SyncRequestOptions {
 	method?: string;
 	/** Request metadata */
 	metadata?: Record<string, string>;
+}
+
+// =============================================================================
+// gRPC Client Method Types (for type-safe client access)
+// =============================================================================
+
+import type * as grpc from "@grpc/grpc-js";
+
+/**
+ * gRPC call options for setting deadline, etc.
+ */
+export interface GrpcCallOptions {
+	deadline?: Date | number;
+}
+
+/**
+ * gRPC unary method signature on client (with options overload)
+ */
+export type GrpcUnaryClientMethod = {
+	(
+		request: unknown,
+		metadata: grpc.Metadata,
+		callback: (err: grpc.ServiceError | null, response: unknown) => void
+	): grpc.ClientUnaryCall;
+	(
+		request: unknown,
+		metadata: grpc.Metadata,
+		options: GrpcCallOptions,
+		callback: (err: grpc.ServiceError | null, response: unknown) => void
+	): grpc.ClientUnaryCall;
+};
+
+/**
+ * gRPC bidirectional stream method signature on client
+ */
+export type GrpcStreamClientMethod = (metadata?: grpc.Metadata) => grpc.ClientDuplexStream<unknown, unknown>;
+
+/**
+ * gRPC client with typed method access
+ * Used to avoid double cast (as unknown as Record<...>)
+ */
+export interface GrpcClientMethods {
+	[methodName: string]: GrpcUnaryClientMethod | GrpcStreamClientMethod | undefined;
 }

@@ -7,7 +7,6 @@ export default defineConfig({
     fileParallelism: true,
     include: ['tests/**/*.test.ts'],
     exclude: ['node_modules'],
-    setupFiles: ['./tests/setup.ts'],
   },
   resolve: {
     alias: {
@@ -16,8 +15,6 @@ export default defineConfig({
       '@testurio/protocol-ws': resolve(__dirname, './packages/protocol-ws/src'),
       '@testurio/protocol-tcp': resolve(__dirname, './packages/protocol-tcp/src'),
       '@testurio/reporter-allure': resolve(__dirname, './packages/reporter-allure/src'),
-      // Legacy alias for gradual migration
-      '@': resolve(__dirname, './src'),
     },
   },
 });

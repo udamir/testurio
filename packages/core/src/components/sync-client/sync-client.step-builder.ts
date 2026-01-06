@@ -7,12 +7,11 @@
  */
 
 import type { ITestCaseBuilder } from "../../execution/execution.types";
+import type { ISyncProtocol, ProtocolService } from "../../protocols/base";
 import { generateRequestId } from "../base";
 import type { Client } from "./sync-client.component";
-import type { ExtractRequestData, ExtractClientResponse } from "./sync-client.types";
-import type { ProtocolService, ISyncProtocol } from "../../protocols/base";
 import { SyncClientHookBuilder } from "./sync-client.hook-builder";
-
+import type { ExtractClientResponse, ExtractRequestData } from "./sync-client.types";
 
 /**
  * Request entry for tracking correlation
@@ -98,7 +97,7 @@ export class SyncClientStepBuilder<A extends ISyncProtocol = ISyncProtocol> {
 
 	constructor(
 		private client: Client,
-		private testBuilder: ITestCaseBuilder,
+		private testBuilder: ITestCaseBuilder
 	) {
 		// Get or create request tracker from the client component
 		// This keeps internal state out of the user-facing test context
@@ -115,7 +114,7 @@ export class SyncClientStepBuilder<A extends ISyncProtocol = ISyncProtocol> {
 	request<K extends keyof ProtocolService<A> & string>(
 		messageType: K,
 		data: ExtractRequestData<A, K>,
-		timeout?: number,
+		timeout?: number
 	): void {
 		const traceId = this.requestTracker.trackRequest(messageType);
 
@@ -144,15 +143,14 @@ export class SyncClientStepBuilder<A extends ISyncProtocol = ISyncProtocol> {
 	 */
 	onResponse<K extends keyof ProtocolService<A> & string, TResponse = ExtractClientResponse<A, K>>(
 		messageType: K,
-		traceId?: string,
+		traceId?: string
 	): SyncClientHookBuilder<TResponse> {
 		return new SyncClientHookBuilder<TResponse>(
 			this.client.name,
 			this.testBuilder,
 			this.requestTracker,
 			messageType,
-			traceId,
+			traceId
 		);
 	}
 }
-

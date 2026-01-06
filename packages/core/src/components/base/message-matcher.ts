@@ -14,10 +14,7 @@ import type { Hook, PayloadMatcher } from "./base.types";
 /**
  * Check if a message matches a hook's message types
  */
-export function matchMessageType(
-	messageTypes: string | string[],
-	messageType: string,
-): boolean {
+export function matchMessageType(messageTypes: string | string[], messageType: string): boolean {
 	if (Array.isArray(messageTypes)) {
 		return messageTypes.includes(messageType);
 	}
@@ -45,10 +42,7 @@ export function matchHook<T>(hook: Hook<T>, message: Message<T>): boolean {
 /**
  * Check if a message matches a payload matcher
  */
-export function matchPayload(
-	matcher: PayloadMatcher,
-	message: Message,
-): boolean {
+export function matchPayload(matcher: PayloadMatcher, message: Message): boolean {
 	switch (matcher.type) {
 		case "traceId":
 			return message.traceId === matcher.value;

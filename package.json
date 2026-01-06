@@ -21,13 +21,14 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "lint": "pnpm -r lint",
-    "lint:fix": "biome check --write packages/*/src",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
     "prepublish": "pnpm run lint && pnpm run test:run && pnpm run build",
     "publish:all": "pnpm run prepublish && pnpm -r publish --access public"
   },
   "devDependencies": {
-    "@biomejs/biome": "^1.9.4",
+    "@biomejs/biome": "^2.3.11",
     "@types/node": "^24.10.0",
     "@types/ws": "^8.18.1",
     "@vitest/coverage-v8": "^1.6.0",

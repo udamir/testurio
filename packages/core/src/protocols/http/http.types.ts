@@ -2,7 +2,7 @@
  * HTTP Protocol Types
  *
  * Type definitions specific to the HTTP protocol.
- * 
+ *
  * @example Service Definition
  * ```typescript
  * interface MyHttpService {
@@ -16,14 +16,14 @@
  *   };
  * }
  * ```
- * 
+ *
  * @example Usage
  * ```typescript
  * const server = new Server('backend', {
  *   protocol: new HttpProtocol<MyHttpService>(),
  *   listenAddress: { host: 'localhost', port: 3000 },
  * });
- * 
+ *
  * // In test case
  * backend.onRequest('getUsers').mockResponse(() => ({
  *   code: 200,
@@ -100,17 +100,17 @@ export type HttpOperations<T = object> = {
 
 /**
  * HTTP Protocol type marker
- * 
+ *
  * Declares the types used by HttpProtocol for type inference.
  * Components use `$types` to extract request/response/service types.
- * 
+ *
  * @template S - HTTP service definition (operation ID -> { request, response })
- * 
+ *
  * @example
  * ```typescript
  * // HttpProtocol declares this internally:
  * declare readonly __types: HttpProtocolTypes<S>;
- * 
+ *
  * // Components extract types via:
  * type Service = ProtocolService<HttpProtocol<MyService>>; // MyService
  * type Request = ExtractRequestData<HttpProtocol<MyService>, 'getUsers'>; // { method, path }

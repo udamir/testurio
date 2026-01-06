@@ -5,37 +5,21 @@
  * Supports metadata for integration with test reporters (e.g., Allure).
  */
 
+import type { Severity, TestCaseMetadata, TestCaseResult, TestStep, TestStepResult } from "./execution.types";
+import { executeSteps, filterStepsByPhase, summarizeStepResults } from "./step-executor";
 import type { TestCaseBuilder } from "./test-case-builder";
-import type {
-	Severity,
-	TestCaseMetadata,
-	TestCaseResult,
-	TestStep,
-	TestStepResult,
-} from "./execution.types";
-import {
-	executeSteps,
-	filterStepsByPhase,
-	summarizeStepResults,
-} from "./step-executor";
 
 /**
  * TestCase - represents a single test case
  */
-export class TestCase<
-	TContext extends Record<string, unknown> = Record<string, unknown>,
-> {
+export class TestCase {
 	readonly name: string;
-	private testBuilder?: (test: TestCaseBuilder<TContext>) => void;
-	private beforeBuilder?: (test: TestCaseBuilder<TContext>) => void;
-	private afterBuilder?: (test: TestCaseBuilder<TContext>) => void;
+	private testBuilder?: (test: TestCaseBuilder) => void;
+	private beforeBuilder?: (test: TestCaseBuilder) => void;
+	private afterBuilder?: (test: TestCaseBuilder) => void;
 	private _metadata: TestCaseMetadata = {};
 
-	constructor(
-		name: string,
-		builder: (test: TestCaseBuilder<TContext>) => void,
-		metadata?: TestCaseMetadata,
-	) {
+	constructor(name: string, builder: (test: TestCaseBuilder) => void, metadata?: TestCaseMetadata) {
 		this.name = name;
 		this.testBuilder = builder;
 		if (metadata) {
@@ -136,7 +120,7 @@ export class TestCase<
 	/**
 	 * Define before hook (setup)
 	 */
-	before(handler: (test: TestCaseBuilder<TContext>) => void): this {
+	before(handler: (test: TestCaseBuilder) => void): this {
 		this.beforeBuilder = handler;
 		return this;
 	}
@@ -144,7 +128,7 @@ export class TestCase<
 	/**
 	 * Define after hook (cleanup)
 	 */
-	after(handler: (test: TestCaseBuilder<TContext>) => void): this {
+	after(handler: (test: TestCaseBuilder) => void): this {
 		this.afterBuilder = handler;
 		return this;
 	}
@@ -152,7 +136,7 @@ export class TestCase<
 	/**
 	 * Build all steps using the provided builder
 	 */
-	buildSteps(builder: TestCaseBuilder<TContext>): TestStep[] {
+	buildSteps(builder: TestCaseBuilder): TestStep[] {
 		const steps: TestStep[] = [];
 
 		// Build before steps
@@ -183,14 +167,14 @@ export class TestCase<
 	 * Execute the test case
 	 */
 	async execute(
-		builder: TestCaseBuilder<TContext>,
+		builder: TestCaseBuilder,
 		options?: {
 			failFast?: boolean;
 			abortSignal?: AbortSignal;
 			onStepComplete?: (result: TestStepResult, index: number) => void;
 			/** Called after steps are built but before execution, allows processing pending components */
 			onBeforeExecute?: () => Promise<void>;
-		},
+		}
 	): Promise<TestCaseResult> {
 		const startTime = Date.now();
 
@@ -206,19 +190,16 @@ export class TestCase<
 			// Execute steps
 			const stepResults = await executeSteps(
 				allSteps,
-				builder.context as Record<string, unknown>,
+				{},
 				{
 					failFast: options?.failFast ?? true,
 					abortSignal: options?.abortSignal,
 					onStepComplete: options?.onStepComplete
 						? (result, index) => {
-								options.onStepComplete?.(
-									this.toStepResult(result, index),
-									index,
-								);
+								options.onStepComplete?.(this.toStepResult(result, index), index);
 							}
 						: undefined,
-				},
+				}
 			);
 
 			const endTime = Date.now();
@@ -272,7 +253,7 @@ export class TestCase<
 			duration: number;
 			error?: Error;
 		},
-		index: number,
+		index: number
 	): TestStepResult {
 		return {
 			stepNumber: index + 1,
@@ -298,7 +279,7 @@ export class TestCase<
  * @example
  * // Basic usage
  * const tc = testCase("Get user", (test) => {
- *   test.client("api").request("getUser", { id: 1 });
+ *   test.use(apiClient).request("getUser", { id: 1 });
  * });
  *
  * @example
@@ -317,12 +298,10 @@ export class TestCase<
  *   .tags("api", "smoke")
  *   .severity("critical");
  */
-export function testCase<
-	TContext extends Record<string, unknown> = Record<string, unknown>,
->(
+export function testCase(
 	name: string,
-	builder: (test: TestCaseBuilder<TContext>) => void,
-	metadata?: TestCaseMetadata,
-): TestCase<TContext> {
+	builder: (test: TestCaseBuilder) => void,
+	metadata?: TestCaseMetadata
+): TestCase {
 	return new TestCase(name, builder, metadata);
 }

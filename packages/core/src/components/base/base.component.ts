@@ -4,21 +4,15 @@
  * Base class for all test components (Client, Mock, Proxy).
  */
 
-import type { IBaseProtocol } from "../../protocols/base";
 import type { ITestCaseBuilder } from "../../execution";
+import type { IBaseProtocol } from "../../protocols/base";
 import { HookRegistry } from "./base.hooks";
 import type { Hook } from "./base.types";
 
 /**
  * Component state
  */
-export type ComponentState =
-	| "created"
-	| "starting"
-	| "started"
-	| "stopping"
-	| "stopped"
-	| "error";
+export type ComponentState = "created" | "starting" | "started" | "stopping" | "stopped" | "error";
 
 /**
  * Component lifecycle events
@@ -37,10 +31,7 @@ export interface ComponentLifecycleEvents {
  * @typeParam P - Protocol type
  * @typeParam TStepBuilder - Step builder type returned by createStepBuilder
  */
-export abstract class BaseComponent<
-	P extends IBaseProtocol = IBaseProtocol,
-	TStepBuilder = unknown,
-> {
+export abstract class BaseComponent<P extends IBaseProtocol = IBaseProtocol, TStepBuilder = unknown> {
 	protected state: ComponentState = "created";
 	protected error?: Error;
 	protected hookRegistry: HookRegistry;
@@ -134,9 +125,7 @@ export abstract class BaseComponent<
 	 */
 	async start(): Promise<void> {
 		if (this.state !== "created" && this.state !== "stopped") {
-			throw new Error(
-				`Cannot start component ${this.name} in state ${this.state}`,
-			);
+			throw new Error(`Cannot start component ${this.name} in state ${this.state}`);
 		}
 
 		this.state = "starting";
@@ -146,7 +135,7 @@ export abstract class BaseComponent<
 			this.state = "started";
 		} catch (error) {
 			this.state = "error";
-			this.error = error as Error;
+			this.error = error instanceof Error ? error : new Error(String(error));
 			throw error;
 		}
 	}
@@ -160,9 +149,7 @@ export abstract class BaseComponent<
 		}
 
 		if (this.state !== "started" && this.state !== "error") {
-			throw new Error(
-				`Cannot stop component ${this.name} in state ${this.state}`,
-			);
+			throw new Error(`Cannot stop component ${this.name} in state ${this.state}`);
 		}
 
 		this.state = "stopping";
@@ -172,7 +159,7 @@ export abstract class BaseComponent<
 			this.state = "stopped";
 		} catch (error) {
 			this.state = "error";
-			this.error = error as Error;
+			this.error = error instanceof Error ? error : new Error(String(error));
 			throw error;
 		}
 	}
@@ -199,7 +186,5 @@ export abstract class BaseComponent<
 	 * @param builder - The test case builder instance
 	 * @returns A step builder appropriate for this component type
 	 */
-	abstract createStepBuilder<TContext extends Record<string, unknown>>(
-		builder: ITestCaseBuilder<TContext>,
-	): TStepBuilder;
+	abstract createStepBuilder(builder: ITestCaseBuilder): TStepBuilder;
 }

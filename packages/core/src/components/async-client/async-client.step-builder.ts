@@ -5,23 +5,23 @@
  */
 
 import type { ITestCaseBuilder } from "../../execution/execution.types";
+import type { ClientMessages, IAsyncProtocol, Message, ProtocolMessages, ServerMessages } from "../../protocols/base";
 import { generateHookId } from "../base";
-import { AsyncClientHookBuilder } from "./async-client.hook-builder";
-import type { Message, IAsyncProtocol, ProtocolMessages, ClientMessages, ServerMessages } from "../../protocols/base";
 import type { Hook } from "../base/base.types";
 import type { AsyncClient } from "./async-client.component";
+import { AsyncClientHookBuilder } from "./async-client.hook-builder";
 
 /**
  * Async Client Step Builder
  *
  * For async protocols: TCP, WebSocket, gRPC streaming
- * 
+ *
  * @template P - Protocol type (messages are extracted via ProtocolMessages<P>)
  */
 export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 	constructor(
 		private client: AsyncClient<P>,
-		private testBuilder: ITestCaseBuilder,
+		private testBuilder: ITestCaseBuilder
 	) {}
 
 	/**
@@ -85,7 +85,7 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 		payload:
 			| ClientMessages<ProtocolMessages<P>>[K]
 			| (() => ClientMessages<ProtocolMessages<P>>[K] | Promise<ClientMessages<ProtocolMessages<P>>[K]>),
-		traceId?: string,
+		traceId?: string
 	): void {
 		this.testBuilder.registerStep({
 			type: "sendMessage",
@@ -95,9 +95,7 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 			action: async () => {
 				const payloadValue =
 					typeof payload === "function"
-						? await Promise.resolve(
-								(payload as () => ClientMessages<ProtocolMessages<P>>[K])(),
-							)
+						? await Promise.resolve((payload as () => ClientMessages<ProtocolMessages<P>>[K])())
 						: payload;
 				const message: Message = {
 					type: messageType as string,
@@ -119,7 +117,7 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 	waitFor(
 		type: string,
 		handler: (response: Message) => void | Promise<void>,
-		options?: { timeout?: number; filter?: (msg: Message) => boolean },
+		options?: { timeout?: number; filter?: (msg: Message) => boolean }
 	): void {
 		this.testBuilder.registerStep({
 			type: "waitForMessage",
@@ -137,11 +135,7 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 						}
 					: undefined;
 
-				const response = await this.client.waitForMessage(
-					type,
-					matcher,
-					options?.timeout,
-				);
+				const response = await this.client.waitForMessage(type, matcher, options?.timeout);
 				await Promise.resolve(handler(response));
 			},
 		});
@@ -161,7 +155,7 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 		options?: {
 			timeout?: number;
 			matcher?: string | ((payload: ServerMessages<ProtocolMessages<P>>[K]) => boolean);
-		},
+		}
 	): AsyncClientHookBuilder<ServerMessages<ProtocolMessages<P>>[K], ProtocolMessages<P>> {
 		const timeout = options?.timeout ?? 5000;
 		const messageTypes = messageType as string;
@@ -169,6 +163,7 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 		// Build payload matcher if provided
 		const payloadMatcher = this.buildPayloadMatcher(options?.matcher);
 
+		// Hook for user handlers (executed manually in step action)
 		const hook: Hook = {
 			id: generateHookId(),
 			componentName: this.client.name,
@@ -180,10 +175,41 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 			timeout,
 		};
 
-		// NOTE: Don't register hook with hookRegistry - we execute handlers manually in the step
-		// This avoids double execution (once by protocol, once by step)
+		// Create a promise that resolves when message is received
+		let resolveMessage: (msg: unknown) => void;
+		let capturedMessage: unknown = null;
+		const messagePromise = new Promise<unknown>((resolve) => {
+			resolveMessage = (msg: unknown) => {
+				capturedMessage = msg;
+				resolve(msg);
+			};
+		});
 
-		// Create a step that waits for the event using client.waitForMessage
+		// Create a capture hook that signals when message arrives
+		// This hook is registered immediately during BUILD phase to capture early messages
+		const captureHook: Hook = {
+			id: generateHookId(),
+			componentName: this.client.name,
+			phase: "test",
+			messageTypes,
+			matcher: payloadMatcher,
+			handlers: [
+				{
+					type: "proxy",
+					execute: async (msg) => {
+						resolveMessage(msg);
+						return msg;
+					},
+				},
+			],
+			persistent: false,
+			timeout,
+		};
+
+		// Register capture hook immediately to catch messages before step executes
+		this.client.registerHook(captureHook);
+
+		// Create a step that waits for the event
 		this.testBuilder.registerStep({
 			type: "waitForMessage",
 			componentName: this.client.name,
@@ -191,26 +217,23 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 			timeout,
 			description: `Wait for ${String(messageType)} event`,
 			action: async () => {
-				// Build matcher function if needed
-				const matcherFn =
-					payloadMatcher?.type === "function"
-						? (payload: unknown) =>
-								(payloadMatcher.fn as (p: unknown) => boolean)(payload)
-						: payloadMatcher?.type === "traceId"
-							? (_payload: unknown, msg?: Message) =>
-									msg?.traceId === payloadMatcher.value
-							: undefined;
+				// If message already captured, execute user handlers immediately
+				if (capturedMessage) {
+					for (const handler of hook.handlers) {
+						await handler.execute(capturedMessage as Message);
+					}
+					return;
+				}
 
-				// Wait for the message
-				const receivedMessage = await this.client.waitForMessage(
-					messageTypes,
-					matcherFn,
-					timeout,
-				);
+				// Wait for message with timeout
+				const timeoutPromise = new Promise<never>((_, reject) => {
+					setTimeout(() => reject(new Error(`Timeout waiting for event: ${messageTypes}`)), timeout);
+				});
+				const msg = await Promise.race([messagePromise, timeoutPromise]);
 
-				// Execute hook handlers manually with the received message
+				// Execute user handlers with the received message
 				for (const handler of hook.handlers) {
-					await handler.execute(receivedMessage);
+					await handler.execute(msg as Message);
 				}
 			},
 		});
@@ -228,12 +251,10 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 	onEvent<K extends keyof ServerMessages<ProtocolMessages<P>>>(
 		messageType: K | K[],
 		matcher?: string | ((payload: ServerMessages<ProtocolMessages<P>>[K]) => boolean),
-		timeout?: number,
+		timeout?: number
 	): AsyncClientHookBuilder<ServerMessages<ProtocolMessages<P>>[K], ProtocolMessages<P>> {
 		// Convert message types to string or string[]
-		const messageTypes = Array.isArray(messageType)
-			? (messageType as string[])
-			: (messageType as string);
+		const messageTypes = Array.isArray(messageType) ? (messageType as string[]) : (messageType as string);
 
 		// Build payload matcher if provided
 		const payloadMatcher = this.buildPayloadMatcher(matcher);
@@ -258,9 +279,7 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 	/**
 	 * Build payload matcher from string (traceId) or function
 	 */
-	private buildPayloadMatcher<T>(
-		matcher?: string | ((payload: T) => boolean),
-	): Hook["matcher"] {
+	private buildPayloadMatcher<T>(matcher?: string | ((payload: T) => boolean)): Hook["matcher"] {
 		if (!matcher) return undefined;
 
 		if (typeof matcher === "string") {

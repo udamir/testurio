@@ -2,7 +2,7 @@
  * WebSocket Protocol (v2)
  *
  * Implements async bidirectional messaging over WebSocket.
- * 
+ *
  * v2 Design:
  * - Protocol handles transport only (sockets, framing, encoding)
  * - Connection wrappers handle handler registration and matching
@@ -13,15 +13,15 @@
 
 import type {
 	ClientProtocolConfig,
-	ServerProtocolConfig,
+	IAsyncClientAdapter,
 	IAsyncProtocol,
 	IAsyncServerAdapter,
-	IAsyncClientAdapter,
 	SchemaDefinition,
+	ServerProtocolConfig,
 } from "testurio";
 import { BaseAsyncProtocol } from "testurio";
-import type { WsServiceDefinition, WsProtocolOptions } from "./types";
-import { WsServerAdapter, WsClientAdapter } from "./ws.adapters";
+import type { WsProtocolOptions, WsServiceDefinition } from "./types";
+import { WsClientAdapter, WsServerAdapter } from "./ws.adapters";
 
 /**
  * WebSocket Protocol
@@ -45,14 +45,14 @@ import { WsServerAdapter, WsClientAdapter } from "./ws.adapters";
  * }
  *
  * const protocol = new WebSocketProtocol<MyWsService>();
- * 
+ *
  * // Server mode
  * await protocol.startServer(config, (connection) => {
  *   connection.onMessage("ping", undefined, (payload) => {
  *     connection.sendEvent("pong", { seq: payload.seq });
  *   });
  * });
- * 
+ *
  * // Client mode
  * const connection = await protocol.connect(config);
  * connection.onEvent("pong", undefined, (payload) => console.log(payload));
@@ -93,10 +93,7 @@ export class WebSocketProtocol<S extends WsServiceDefinition = WsServiceDefiniti
 	 * Component owns the returned adapter
 	 */
 	async createServer(config: ServerProtocolConfig): Promise<IAsyncServerAdapter> {
-		return WsServerAdapter.create(
-			config.listenAddress.host,
-			config.listenAddress.port,
-		);
+		return WsServerAdapter.create(config.listenAddress.host, config.listenAddress.port);
 	}
 
 	/**
@@ -104,11 +101,15 @@ export class WebSocketProtocol<S extends WsServiceDefinition = WsServiceDefiniti
 	 * Component owns the returned adapter
 	 */
 	async createClient(config: ClientProtocolConfig): Promise<IAsyncClientAdapter> {
+		// Connection timeout: config overrides protocol options
+		const connectionTimeout = config.timeouts?.connectionTimeout ?? this._options.timeout;
+
 		return WsClientAdapter.create(
 			config.targetAddress.host,
 			config.targetAddress.port,
 			config.targetAddress.path,
 			config.tls?.enabled,
+			connectionTimeout
 		);
 	}
 }
@@ -117,7 +118,7 @@ export class WebSocketProtocol<S extends WsServiceDefinition = WsServiceDefiniti
  * Create WebSocket protocol factory
  */
 export function createWebSocketProtocol<S extends WsServiceDefinition>(
-	options?: WsProtocolOptions,
+	options?: WsProtocolOptions
 ): WebSocketProtocol<S> {
 	return new WebSocketProtocol<S>(options);
 }

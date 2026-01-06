@@ -8,21 +8,16 @@
 import type * as grpc from "@grpc/grpc-js";
 import type {
 	ClientProtocolConfig,
-	ServerProtocolConfig,
-	ISyncProtocol,
-	SchemaDefinition,
-	ISyncServerAdapter,
 	ISyncClientAdapter,
+	ISyncProtocol,
+	ISyncServerAdapter,
+	SchemaDefinition,
+	ServerProtocolConfig,
 } from "testurio";
 import { BaseSyncProtocol } from "testurio";
-import { GrpcUnaryServerAdapter, GrpcUnaryClientAdapter } from "./unary.adapters";
 import { GrpcBaseProtocol } from "./grpc-base";
-import type {
-	GrpcUnaryProtocolOptions,
-	GrpcOperationRequest,
-	GrpcOperationResponse,
-	GrpcOperations,
-} from "./types";
+import type { GrpcOperationRequest, GrpcOperationResponse, GrpcOperations, GrpcUnaryProtocolOptions } from "./types";
+import { GrpcUnaryClientAdapter, GrpcUnaryServerAdapter } from "./unary.adapters";
 
 /**
  * gRPC Unary Protocol
@@ -60,9 +55,7 @@ export class GrpcUnaryProtocol<T extends GrpcOperations<T> = GrpcOperations>
 	/**
 	 * Get service client constructor by name
 	 */
-	getServiceClient(
-		serviceName: string,
-	): grpc.ServiceClientConstructor | undefined {
+	getServiceClient(serviceName: string): grpc.ServiceClientConstructor | undefined {
 		return this.base.getServiceClient(serviceName);
 	}
 
@@ -70,8 +63,7 @@ export class GrpcUnaryProtocol<T extends GrpcOperations<T> = GrpcOperations>
 	 * Get service definitions from loaded schema
 	 */
 	private getServiceDefinitions(): Map<string, grpc.ServiceDefinition> {
-		const schema = (this.base as unknown as { schema?: { services: Map<string, grpc.ServiceDefinition> } }).schema;
-		return schema?.services ?? new Map();
+		return this.base.schema?.services ?? new Map();
 	}
 
 	// =========================================================================
@@ -92,7 +84,7 @@ export class GrpcUnaryProtocol<T extends GrpcOperations<T> = GrpcOperations>
 			config.listenAddress.host,
 			config.listenAddress.port,
 			this.getServiceDefinitions(),
-			config.tls,
+			config.tls
 		);
 	}
 
@@ -121,16 +113,18 @@ export class GrpcUnaryProtocol<T extends GrpcOperations<T> = GrpcOperations>
 		}
 
 		if (!ServiceClient) {
-			throw new Error(
-				`Service ${serviceName || "any"} not found. Make sure to load schema first.`,
-			);
+			throw new Error(`Service ${serviceName || "any"} not found. Make sure to load schema first.`);
 		}
+
+		// Request timeout: config overrides protocol options
+		const requestTimeout = config.timeouts?.requestTimeout ?? this.protocolOptions.timeout;
 
 		return GrpcUnaryClientAdapter.create(
 			config.targetAddress.host,
 			config.targetAddress.port,
 			ServiceClient,
 			config.tls,
+			requestTimeout
 		);
 	}
 }

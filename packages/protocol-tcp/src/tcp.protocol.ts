@@ -2,7 +2,7 @@
  * TCP Protocol (v2)
  *
  * Implements async bidirectional messaging over TCP.
- * 
+ *
  * v2 Design:
  * - Protocol handles transport only (sockets, framing, encoding)
  * - Connection wrappers handle handler registration and matching
@@ -13,15 +13,15 @@
 
 import type {
 	ClientProtocolConfig,
-	ServerProtocolConfig,
+	IAsyncClientAdapter,
 	IAsyncProtocol,
 	IAsyncServerAdapter,
-	IAsyncClientAdapter,
 	SchemaDefinition,
+	ServerProtocolConfig,
 } from "testurio";
 import { BaseAsyncProtocol } from "testurio";
-import type { TcpServiceDefinition, TcpProtocolOptions } from "./types";
-import { TcpServerAdapter, TcpClientAdapter } from "./tcp.adapters";
+import { TcpClientAdapter, TcpServerAdapter } from "./tcp.adapters";
+import type { TcpProtocolOptions, TcpServiceDefinition } from "./types";
 
 /**
  * TCP Protocol
@@ -43,14 +43,14 @@ import { TcpServerAdapter, TcpClientAdapter } from "./tcp.adapters";
  * }
  *
  * const protocol = new TcpProtocol<MyTcpService>();
- * 
+ *
  * // Server mode
  * await protocol.startServer(config, (connection) => {
  *   connection.onMessage("OrderRequest", undefined, async (payload) => {
  *     await connection.sendEvent("OrderResponse", { orderId: payload.orderId, status: "ok" });
  *   });
  * });
- * 
+ *
  * // Client mode
  * const connection = await protocol.connect(config);
  * connection.onEvent("OrderResponse", undefined, (payload) => console.log(payload));
@@ -99,7 +99,7 @@ export class TcpProtocol<S extends TcpServiceDefinition = TcpServiceDefinition>
 			config.listenAddress.host,
 			config.listenAddress.port,
 			this.protocolOptions,
-			config.tls,
+			config.tls
 		);
 	}
 
@@ -108,22 +108,20 @@ export class TcpProtocol<S extends TcpServiceDefinition = TcpServiceDefinition>
 	 * Component owns the returned adapter
 	 */
 	async createClient(config: ClientProtocolConfig): Promise<IAsyncClientAdapter> {
-		return TcpClientAdapter.create(
-			config.targetAddress.host,
-			config.targetAddress.port,
-			{
-				...this.protocolOptions,
-				tls: config.tls?.enabled ?? this.protocolOptions.tls,
-			},
-		);
+		// Connection timeout: config overrides protocol options
+		const connectionTimeout = config.timeouts?.connectionTimeout ?? this.protocolOptions.timeout;
+
+		return TcpClientAdapter.create(config.targetAddress.host, config.targetAddress.port, {
+			...this.protocolOptions,
+			timeout: connectionTimeout,
+			tls: config.tls?.enabled ?? this.protocolOptions.tls,
+		});
 	}
 }
 
 /**
  * Create TCP protocol factory
  */
-export function createTcpProtocol<S extends TcpServiceDefinition>(
-	options?: TcpProtocolOptions,
-): TcpProtocol<S> {
+export function createTcpProtocol<S extends TcpServiceDefinition>(options?: TcpProtocolOptions): TcpProtocol<S> {
 	return new TcpProtocol<S>(options);
 }

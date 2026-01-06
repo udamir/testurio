@@ -2,11 +2,8 @@
  * Interaction Recorder Tests
  */
 
+import { InteractionRecorder, resetInteractionIdCounter } from "testurio";
 import { beforeEach, describe, expect, it } from "vitest";
-import {
-	InteractionRecorder,
-	resetInteractionIdCounter,
-} from "testurio";
 
 describe("InteractionRecorder", () => {
 	let recorder: InteractionRecorder;

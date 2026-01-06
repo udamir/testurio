@@ -9,9 +9,7 @@ import * as grpc from "@grpc/grpc-js";
 /**
  * Extract gRPC metadata from call metadata object to plain record
  */
-export function extractGrpcMetadata(
-	callMetadata: grpc.Metadata,
-): Record<string, string> {
+export function extractGrpcMetadata(callMetadata: grpc.Metadata): Record<string, string> {
 	const result: Record<string, string> = {};
 	const metadataMap = callMetadata.getMap();
 	for (const [key, value] of Object.entries(metadataMap)) {
@@ -27,9 +25,7 @@ export function extractGrpcMetadata(
 /**
  * Create gRPC Metadata object from plain record
  */
-export function createGrpcMetadata(
-	metadata?: Record<string, string>,
-): grpc.Metadata {
+export function createGrpcMetadata(metadata?: Record<string, string>): grpc.Metadata {
 	const grpcMetadata = new grpc.Metadata();
 	if (metadata) {
 		for (const [key, value] of Object.entries(metadata)) {

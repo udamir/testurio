@@ -17,10 +17,11 @@ import type { ProtocolService } from "../../protocols/base";
  * @template A - Protocol type
  * @template K - Operation/method key
  */
-export type ExtractServerRequest<A, K extends keyof ProtocolService<A>> =
-	ProtocolService<A>[K] extends { request: infer R }
-		? R
-		: ProtocolService<A>[K];
+export type ExtractServerRequest<A, K extends keyof ProtocolService<A>> = ProtocolService<A>[K] extends {
+	request: infer R;
+}
+	? R
+	: ProtocolService<A>[K];
 
 /**
  * Extract server response type from protocol.
@@ -31,9 +32,10 @@ export type ExtractServerRequest<A, K extends keyof ProtocolService<A>> =
  * @template A - Protocol type
  * @template K - Operation/method key
  */
-export type ExtractServerResponse<A, K extends keyof ProtocolService<A>> =
-	ProtocolService<A>[K] extends { responses: infer R }
+export type ExtractServerResponse<A, K extends keyof ProtocolService<A>> = ProtocolService<A>[K] extends {
+	responses: infer R;
+}
+	? R
+	: ProtocolService<A>[K] extends { response: infer R }
 		? R
-		: ProtocolService<A>[K] extends { response: infer R }
-			? R
-			: ProtocolService<A>[K];
+		: ProtocolService<A>[K];

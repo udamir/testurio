@@ -4,8 +4,7 @@
  * Server and client adapters for WebSocket protocol.
  */
 
-import type { IAsyncServerAdapter, IAsyncClientAdapter } from "testurio";
-import type { Message } from "testurio";
+import type { IAsyncClientAdapter, IAsyncServerAdapter, Message } from "testurio";
 import { WebSocket, WebSocketServer } from "ws";
 
 /**
@@ -17,39 +16,60 @@ export class WsServerAdapter implements IAsyncServerAdapter {
 	private connectionHandler?: (connection: IAsyncClientAdapter) => void;
 	private connections = new Map<string, WsClientAdapter>();
 	private connectionCounter = 0;
+	private serverErrorHandler?: (error: Error) => void;
+	private lastError?: Error;
 
 	constructor(server: WebSocketServer) {
 		this.server = server;
 	}
 
 	/**
+	 * Get the last error that occurred on this adapter
+	 */
+	get error(): Error | undefined {
+		return this.lastError;
+	}
+
+	/**
 	 * Create and start WebSocket server adapter
 	 */
-	static async create(
-		host: string,
-		port: number,
-	): Promise<WsServerAdapter> {
+	static async create(host: string, port: number): Promise<WsServerAdapter> {
 		return new Promise((resolve, reject) => {
 			const server = new WebSocketServer({ host, port });
 			const adapter = new WsServerAdapter(server);
+			let started = false;
 
 			server.on("connection", (socket) => {
 				const connId = `ws-${++adapter.connectionCounter}`;
 				const clientAdapter = new WsClientAdapter(socket, connId);
 				adapter.connections.set(connId, clientAdapter);
-				
+
 				socket.on("close", () => {
 					adapter.connections.delete(connId);
+				});
+
+				socket.on("error", (err) => {
+					// Track client socket errors on the server adapter
+					adapter.lastError = err;
+					adapter.serverErrorHandler?.(err);
 				});
 
 				adapter.connectionHandler?.(clientAdapter);
 			});
 
 			server.on("error", (err) => {
-				reject(err);
+				adapter.lastError = err;
+				if (!started) {
+					// Error during startup - reject the promise
+					reject(err);
+				} else {
+					// Error after startup - call error handler
+					adapter.serverErrorHandler?.(err);
+				}
 			});
 
 			server.on("listening", () => {
+				started = true;
 				resolve(adapter);
 			});
 		});
@@ -57,6 +77,13 @@ export class WsServerAdapter implements IAsyncServerAdapter {
 
 	onConnection(handler: (connection: IAsyncClientAdapter) => void): void {
 		this.connectionHandler = handler;
+	}
+
+	/**
+	 * Register server error handler for errors occurring after startup
+	 */
+	onError(handler: (error: Error) => void): void {
+		this.serverErrorHandler = handler;
 	}
 
 	async stop(): Promise<void> {
@@ -86,6 +113,7 @@ export class WsServerAdapter implements IAsyncServerAdapter {
 export class WsClientAdapter implements IAsyncClientAdapter {
 	readonly id: string;
 	private socket: WebSocket;
+	private lastError?: Error;
 
 	private messageHandler?: (message: Message) => void;
 	private closeHandler?: () => void;
@@ -100,8 +128,13 @@ export class WsClientAdapter implements IAsyncClientAdapter {
 			try {
 				const message = JSON.parse(data.toString()) as Message;
 				this.messageHandler?.(message);
-			} catch {
-				// Failed to parse message
+			} catch (error) {
+				// Failed to parse message - create a parsing error
+				const parseError = new Error(
+					`Failed to parse WebSocket message: ${error instanceof Error ? error.message : String(error)}`
+				);
+				this.lastError = parseError;
+				this.errorHandler?.(parseError);
 			}
 		});
 
@@ -110,32 +143,58 @@ export class WsClientAdapter implements IAsyncClientAdapter {
 		});
 
 		socket.on("error", (err) => {
+			this.lastError = err;
 			this.errorHandler?.(err);
 		});
 	}
 
 	/**
+	 * Get the last error that occurred on this adapter
+	 */
+	get error(): Error | undefined {
+		return this.lastError;
+	}
+
+	/**
 	 * Create WebSocket client adapter by connecting to server
+	 * @param host - Target host
+	 * @param port - Target port
+	 * @param path - Optional URL path
+	 * @param tls - Use secure WebSocket (wss)
+	 * @param connectionTimeout - Connection timeout in ms (default: 5000)
 	 */
 	static async create(
 		host: string,
 		port: number,
 		path?: string,
 		tls?: boolean,
+		connectionTimeout?: number
 	): Promise<WsClientAdapter> {
 		const protocol = tls ? "wss" : "ws";
 		const urlPath = path || "";
 		const url = `${protocol}://${host}:${port}${urlPath}`;
+		const timeout = connectionTimeout ?? 5000;
 
 		return new Promise((resolve, reject) => {
 			const socket = new WebSocket(url);
+			let timeoutId: NodeJS.Timeout | undefined;
+
+			// Setup connection timeout
+			if (timeout > 0) {
+				timeoutId = setTimeout(() => {
+					socket.terminate();
+					reject(new Error(`WebSocket connection timeout after ${timeout}ms`));
+				}, timeout);
+			}
 
 			socket.on("open", () => {
+				if (timeoutId) clearTimeout(timeoutId);
 				const adapter = new WsClientAdapter(socket, `client-${Date.now()}`);
 				resolve(adapter);
 			});
 
 			socket.on("error", (err) => {
+				if (timeoutId) clearTimeout(timeoutId);
 				reject(err);
 			});
 		});

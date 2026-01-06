@@ -5,16 +5,10 @@
  * Uses connection wrappers for message handling.
  */
 
-import type {
-	IAsyncProtocol,
-	IAsyncClientAdapter,
-	Address,
-	Message,
-	TlsConfig,
-} from "../../protocols/base";
 import type { ITestCaseBuilder } from "../../execution";
-import { AsyncClientStepBuilder } from "./async-client.step-builder";
+import type { Address, IAsyncClientAdapter, IAsyncProtocol, Message, TlsConfig } from "../../protocols/base";
 import { BaseComponent } from "../base";
+import { AsyncClientStepBuilder } from "./async-client.step-builder";
 
 /**
  * Async client component options
@@ -57,8 +51,10 @@ interface PendingMessage {
 	timeout: ReturnType<typeof setTimeout>;
 }
 
-export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends BaseComponent<P, AsyncClientStepBuilder<P>> {
-
+export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends BaseComponent<
+	P,
+	AsyncClientStepBuilder<P>
+> {
 	private readonly _targetAddress: Address;
 	private readonly _tls?: TlsConfig;
 	private readonly _connectionTimeout: number;
@@ -79,10 +75,7 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 	/**
 	 * Static factory method to create an AsyncClient instance
 	 */
-	static create<P extends IAsyncProtocol>(
-		name: string,
-		options: AsyncClientOptions<P>,
-	): AsyncClient<P> {
+	static create<P extends IAsyncProtocol>(name: string, options: AsyncClientOptions<P>): AsyncClient<P> {
 		return new AsyncClient<P>(name, options);
 	}
 
@@ -133,7 +126,7 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 	waitForMessage(
 		messageType: string | string[],
 		matcher?: (payload: unknown) => boolean,
-		timeout = 1000,
+		timeout = 1000
 	): Promise<Message> {
 		if (!this.isStarted()) {
 			return Promise.reject(new Error(`AsyncClient ${this.name} is not started`));
@@ -174,11 +167,11 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 			targetAddress: this._targetAddress,
 			tls: this._tls,
 		});
-		
+
 		const timeoutPromise = new Promise<never>((_, reject) =>
 			setTimeout(() => reject(new Error("Connection timeout")), this._connectionTimeout)
 		);
-		
+
 		this._connection = await Promise.race([connectionPromise, timeoutPromise]);
 
 		// Set up message handler to route through hooks
@@ -206,7 +199,7 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 				this.trackUnhandledError(error instanceof Error ? error : new Error(String(error)));
 			}
 		});
-		
+
 		// Track connection errors
 		this._connection.onError((error: Error) => {
 			this.trackUnhandledError(error);

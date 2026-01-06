@@ -20,7 +20,7 @@ export class SyncClientHookBuilder<TResponse = unknown> {
 		private testBuilder: ITestCaseBuilder,
 		private requestTracker: RequestTracker,
 		private messageType: string,
-		private traceId?: string,
+		private traceId?: string
 	) {
 		// Register the response handling step immediately
 		this.registerResponseStep();
@@ -45,18 +45,13 @@ export class SyncClientHookBuilder<TResponse = unknown> {
 			messageType: this.messageType,
 			description: `Handle response for ${this.messageType}${this.traceId ? ` (${this.traceId})` : ""}`,
 			action: async () => {
-				const response = this.requestTracker.findResponse(
-					this.messageType,
-					this.traceId,
-				) as TResponse;
+				const response = this.requestTracker.findResponse(this.messageType, this.traceId) as TResponse;
 
 				// Run all assertions
 				for (const assertion of this.assertions) {
 					const result = assertion(response);
 					if (result === false) {
-						throw new Error(
-							`Response assertion failed for ${this.messageType}`,
-						);
+						throw new Error(`Response assertion failed for ${this.messageType}`);
 					}
 				}
 			},
