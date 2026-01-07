@@ -6,7 +6,7 @@
  */
 
 import { AsyncClient, AsyncServer, Client, Server } from "../components";
-import type { BaseComponent } from "../components/base";
+import type { Component } from "../components/base";
 import type { Interaction, TestReporter } from "../recording";
 import { ConsoleReporter, InteractionRecorder } from "../recording";
 import type { TestCaseResult, TestResult, TestStepResult } from "./execution.types";
@@ -19,7 +19,7 @@ import { TestCaseBuilder } from "./test-case-builder";
 export interface TestScenarioConfig {
 	name: string;
 	description?: string;
-	components: BaseComponent[];
+	components: Component[];
 	timeout?: number;
 	recording?: boolean;
 	metadata?: Record<string, unknown>;
@@ -32,7 +32,7 @@ export class TestScenario {
 	// ========== Instance Members ==========
 
 	private config: TestScenarioConfig;
-	private components = new Map<string, BaseComponent>();
+	private components = new Map<string, Component>();
 	private initHandler?: (test: TestCaseBuilder) => void;
 	private stopHandler?: (test: TestCaseBuilder) => void;
 	private interactions: Interaction[] = [];
@@ -60,7 +60,7 @@ export class TestScenario {
 	/**
 	 * Register a component
 	 */
-	private registerComponent(component: BaseComponent): void {
+	private registerComponent(component: Component): void {
 		if (this.components.has(component.name)) {
 			throw new Error(`Component ${component.name} already exists`);
 		}
@@ -68,8 +68,23 @@ export class TestScenario {
 	}
 
 	/**
+	 * Check if a component is a network component (Server, Client, AsyncServer, AsyncClient)
+	 */
+	private isNetworkComponent(component: Component): boolean {
+		return (
+			component instanceof Server ||
+			component instanceof AsyncServer ||
+			component instanceof Client ||
+			component instanceof AsyncClient
+		);
+	}
+
+	/**
 	 * Start all components
-	 * Order: servers first (sequentially to handle dependencies), then clients
+	 * Order: non-network components first, then servers, then clients
+	 *
+	 * Non-network components (like DataSource) start first because:
+	 * - They may be dependencies for network components (e.g., database for API server)
 	 *
 	 * Servers are started sequentially in the order they were defined in config.components because:
 	 * - Proxy servers need their target backend to be ready before accepting connections
@@ -79,9 +94,15 @@ export class TestScenario {
 		// Use original config order to preserve dependency order
 		const all = this.config.components;
 
-		// Include both sync and async server/client types
+		// Categorize components
+		const nonNetwork = all.filter((c) => !this.isNetworkComponent(c));
 		const servers = all.filter((c) => c instanceof Server || c instanceof AsyncServer);
 		const clients = all.filter((c) => c instanceof Client || c instanceof AsyncClient);
+
+		// Start non-network components first (e.g., DataSource) - they may be dependencies
+		for (const component of nonNetwork) {
+			await component.start();
+		}
 
 		// Start servers sequentially (in config order) to handle dependencies
 		for (const server of servers) {
@@ -94,20 +115,24 @@ export class TestScenario {
 
 	/**
 	 * Stop all components
-	 * Order: clients first, then servers in reverse order (opposite of startup)
+	 * Order: clients first, then servers in reverse order, then non-network components
 	 *
 	 * Servers are stopped in reverse config order because:
 	 * - Components are defined in dependency order (backend before proxy)
 	 * - Stopping in reverse order ensures proxies stop before backends
 	 * - This prevents ECONNREFUSED errors from in-flight proxy connections
+	 *
+	 * Non-network components (like DataSource) stop last because:
+	 * - They may still be needed by cleanup handlers
 	 */
 	private async stopComponents(): Promise<void> {
 		// Use original config order to get correct dependency order
 		const all = this.config.components;
 
-		// Include both sync and async server/client types
+		// Categorize components
 		const clients = all.filter((c) => c instanceof Client || c instanceof AsyncClient);
 		const servers = all.filter((c) => c instanceof Server || c instanceof AsyncServer);
+		const nonNetwork = all.filter((c) => !this.isNetworkComponent(c));
 
 		// Stop clients in parallel
 		await Promise.all(clients.map((c) => c.stop().catch(() => {})));
@@ -115,6 +140,11 @@ export class TestScenario {
 		// Stop servers sequentially in reverse order (proxies before backends)
 		for (let i = servers.length - 1; i >= 0; i--) {
 			await servers[i].stop().catch(() => {});
+		}
+
+		// Stop non-network components last (in reverse order)
+		for (let i = nonNetwork.length - 1; i >= 0; i--) {
+			await nonNetwork[i].stop().catch(() => {});
 		}
 	}
 
@@ -235,9 +265,9 @@ export class TestScenario {
 	 * Process pending components from a builder
 	 * Starts components (already registered during builder phase), returns list of test-case-scoped components for cleanup
 	 */
-	private async processPendingComponents(builder: TestCaseBuilder): Promise<BaseComponent[]> {
+	private async processPendingComponents(builder: TestCaseBuilder): Promise<Component[]> {
 		const pending = builder.getPendingComponents();
-		const testCaseComponents: BaseComponent[] = [];
+		const testCaseComponents: Component[] = [];
 
 		for (const { component, options } of pending) {
 			// Start the component
@@ -256,7 +286,7 @@ export class TestScenario {
 	/**
 	 * Stop and remove test-case-scoped components
 	 */
-	private async cleanupTestCaseComponents(components: BaseComponent[]): Promise<void> {
+	private async cleanupTestCaseComponents(components: Component[]): Promise<void> {
 		for (const component of components) {
 			try {
 				await component.stop();
@@ -346,7 +376,7 @@ export class TestScenario {
 		}
 
 		const builder = this.createBuilder();
-		let testCaseComponents: BaseComponent[] = [];
+		let testCaseComponents: Component[] = [];
 
 		const result = await testCase.execute(builder, {
 			failFast: true,

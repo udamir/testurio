@@ -12,3 +12,4 @@ export * from "./sync-client/sync-client.component";
 export * from "./sync-client/sync-client.step-builder";
 export * from "./sync-server/sync-server.component";
 export * from "./sync-server/sync-server.step-builder";
+export * from "./datasource";

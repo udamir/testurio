@@ -110,6 +110,52 @@ export interface SyncHookBuilder<TPayload = unknown, TResponse = unknown> extend
 }
 
 // =============================================================================
+// Component Interface
+// =============================================================================
+
+/**
+ * Common component interface shared by all components
+ * (BaseComponent, DataSource, and any future component types)
+ *
+ * This interface allows TestScenario and TestCaseBuilder to work with
+ * any component type uniformly.
+ */
+export interface Component<TStepBuilder = unknown> {
+	/** Component name (must be unique within scenario) */
+	readonly name: string;
+
+	/** Get current component state */
+	getState(): string;
+
+	/** Check if component is started */
+	isStarted(): boolean;
+
+	/** Check if component is stopped */
+	isStopped(): boolean;
+
+	/** Start the component */
+	start(): Promise<void>;
+
+	/** Stop the component */
+	stop(): Promise<void>;
+
+	/** Create a step builder for use in testCase */
+	createStepBuilder(builder: unknown): TStepBuilder;
+
+	/** Clear test case hooks (for components with hooks) */
+	clearTestCaseHooks(): void;
+
+	/** Clear all hooks (for components with hooks) */
+	clearHooks(): void;
+
+	/** Get unhandled errors */
+	getUnhandledErrors(): Error[];
+
+	/** Clear unhandled errors */
+	clearUnhandledErrors(): void;
+}
+
+// =============================================================================
 // Component Options
 // =============================================================================
 

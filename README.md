@@ -8,9 +8,10 @@ A declarative E2E/integration testing framework for distributed systems with mul
 ## Features
 
 - **Multi-Protocol Support** - HTTP, gRPC (Unary & Streaming), WebSocket, TCP
+- **DataSource Integration** - Direct SDK access to Redis, PostgreSQL, MongoDB
 - **Declarative API** - Write tests in execution order with clear, readable syntax
-- **Component-Based** - Define clients, mocks, and proxies as reusable components
-- **Type-Safe** - Full TypeScript support with automatic type inference via `test.use(component)`
+- **Component-Based** - Define clients, mocks, proxies, and data sources as reusable components
+- **Type-Safe** - Full TypeScript support with automatic type inference
 - **Flow Testing** - Test complete request flows through your distributed system
 - **Flexible Mocking** - Mock responses, add delays, drop messages, or proxy through
 
@@ -80,9 +81,10 @@ console.log(result.passed); // true
   - [ ] RabbitMQ (AMQP protocol)
   - [ ] Kafka (producer/consumer testing)
   - [ ] Redis (pub/sub)
-- [ ] **Datasource Support** - Database integrations
-  - [ ] SQL (PostgreSQL, MySQL, SQLite)
-  - [ ] Redis (key-value)
+- [x] **DataSource Support** - Database/cache integrations
+  - [x] Redis (`@testurio/adapter-redis`)
+  - [x] PostgreSQL (`@testurio/adapter-pg`)
+  - [x] MongoDB (`@testurio/adapter-mongo`)
 
 ## Examples
 
@@ -176,6 +178,57 @@ const tc = testCase('Ping-Pong', (test) => {
 });
 ```
 
+### DataSource Example
+
+```typescript
+import { TestScenario, testCase, DataSource, Client, Server, HttpProtocol } from 'testurio';
+import { RedisAdapter } from '@testurio/adapter-redis';
+import type { Redis } from 'ioredis';
+
+// Create Redis DataSource
+const cache = new DataSource('cache', {
+  adapter: new RedisAdapter({ host: 'localhost', port: 6379 }),
+});
+
+// Create HTTP components
+const server = new Server('backend', {
+  protocol: new HttpProtocol(),
+  listenAddress: { host: 'localhost', port: 3000 },
+});
+
+const client = new Client('api', {
+  protocol: new HttpProtocol(),
+  targetAddress: { host: 'localhost', port: 3000 },
+});
+
+const scenario = new TestScenario({
+  name: 'Cache Integration Test',
+  components: [cache, server, client],
+});
+
+const tc = testCase('should use cached data', (test) => {
+  const redis = test.use(cache);
+  const api = test.use(client);
+  const mock = test.use(server);
+
+  // Step 1: Setup cache
+  redis.exec('populate cache', async (client) => {
+    await client.set('user:123', JSON.stringify({ id: 123, name: 'John' }));
+  });
+
+  // Step 2: API request
+  api.request('getUser', { method: 'GET', path: '/users/123' });
+  mock.onRequest('getUser').mockResponse(() => ({
+    code: 200,
+    body: { id: 123, name: 'John' },
+  }));
+
+  // Step 3: Verify cache
+  redis.exec('verify cache', async (client) => client.get('user:123'))
+    .assert('user should be cached', (data) => data !== null);
+});
+```
+
 ### Type-Safe HTTP Example
 
 Define service types to get full type safety across your tests:
@@ -262,6 +315,7 @@ Components are high-level abstractions that own protocol adapters and manage the
 | `AsyncClient`   | Async         | Client | Sends messages over WebSocket/TCP/gRPC streaming connections   |
 | `AsyncServer`   | Async         | Mock   | Listens for messages and sends response events                 |
 | `AsyncServer`   | Async         | Proxy  | Intercepts messages, can transform or forward to target        |
+| `DataSource`    | None          | Data   | Direct SDK access to databases/caches (Redis, PostgreSQL, MongoDB) |
 
 **Server as Proxy**: When a `Server` or `AsyncServer` has both `listenAddress` and `targetAddress`, it acts as a proxy:
 
@@ -291,6 +345,14 @@ Protocols are stateless adapter factories. Components own the adapters and manag
 | `GrpcStreamProtocol` | Async | `@testurio/protocol-grpc` | gRPC bidirectional streaming |
 | `WebSocketProtocol`  | Async | `@testurio/protocol-ws`   | WebSocket connections        |
 | `TcpProtocol`        | Async | `@testurio/protocol-tcp`  | Custom TCP protocols         |
+
+### DataSource Adapters
+
+| Adapter            | Package                    | Client Type | Use Case                     |
+| ------------------ | -------------------------- | ----------- | ---------------------------- |
+| `RedisAdapter`     | `@testurio/adapter-redis`  | `Redis`     | Redis cache/key-value store  |
+| `PostgresAdapter`  | `@testurio/adapter-pg`     | `Pool`      | PostgreSQL database          |
+| `MongoAdapter`     | `@testurio/adapter-mongo`  | `Db`        | MongoDB database             |
 
 ```typescript
 // Sync protocols: createServer() / createClient() return adapters
@@ -353,6 +415,7 @@ const tc = testCase('Test name', (test) => {
   const backend = test.use(httpServer);   // Returns typed SyncServerStepBuilder
   const wsClient = test.use(asyncClient); // Returns typed AsyncClientStepBuilder
   const wsServer = test.use(asyncServer); // Returns typed AsyncServerStepBuilder
+  const db = test.use(dataSource);        // Returns typed DataSourceStepBuilder
 
   // Utilities
   test.wait(ms);
@@ -389,6 +452,30 @@ asyncMock.onMessage('MessageType', matcher?)
   .drop();
 ```
 
+### DataSource API
+
+```typescript
+// Execute database operation
+dataSource.exec(async (client) => {
+  await client.set('key', 'value');
+});
+
+// With description (for better reports)
+dataSource.exec('setup test data', async (client) => {
+  await client.query('INSERT INTO users ...');
+});
+
+// Chain assertions
+dataSource.exec(async (client) => client.get('key'))
+  .assert((result) => result !== null)
+  .assert('should have correct value', (result) => result === 'expected');
+
+// With timeout
+dataSource.exec('slow query', async (client) => {
+  return client.query('SELECT * FROM large_table');
+}, { timeout: 5000 });
+```
+
 ## Best Practices
 
 1. **Declare components first** - Get component references at the start of each test
@@ -413,7 +500,7 @@ graph TB
     end
 
     subgraph Components["COMPONENTS LAYER"]
-        C[Client, Server, AsyncClient, AsyncServer]
+        C[Client, Server, AsyncClient, AsyncServer, DataSource]
     end
 
     subgraph Protocols["PROTOCOLS LAYER"]
@@ -439,6 +526,7 @@ graph TB
 | **Components** | High-level abstractions that own adapters and manage state   |
 | **Protocols**  | Stateless adapter factories (`createServer`, `createClient`) |
 | **Adapters**   | Protocol-specific I/O operations (owned by components)       |
+| **DataSource** | Direct SDK access to databases/caches (no hooks, no protocols) |
 
 ## License
 

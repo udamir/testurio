@@ -6,15 +6,14 @@
  * and relies on the component's createStepBuilder method for type inference.
  */
 
-import type { BaseComponent, CreateComponentOptions } from "../components/base";
-import type { IBaseProtocol } from "../protocols/base";
+import type { Component, CreateComponentOptions } from "../components/base";
 import type { TestPhase, TestStep } from "./execution.types";
 
 /**
  * Pending component to be started
  */
 export interface PendingComponent {
-	component: BaseComponent;
+	component: Component;
 	options: CreateComponentOptions;
 }
 
@@ -27,14 +26,14 @@ export class TestCaseBuilder {
 	private steps: TestStep[] = [];
 	private currentPhase: TestPhase = "test";
 	private pendingComponents: PendingComponent[] = [];
-	private componentRegistry?: Map<string, BaseComponent>;
+	private componentRegistry?: Map<string, Component>;
 
-	constructor(private components: Map<string, BaseComponent>) {}
+	constructor(private components: Map<string, Component>) {}
 
 	/**
 	 * Set component registry for dynamic component registration
 	 */
-	setComponentRegistry(registry: Map<string, BaseComponent>): void {
+	setComponentRegistry(registry: Map<string, Component>): void {
 		this.componentRegistry = registry;
 	}
 
@@ -87,7 +86,7 @@ export class TestCaseBuilder {
 	 * with testCase scope (automatically cleaned up after the test case completes).
 	 *
 	 * Works with any Component type - built-in (Client, Server, AsyncClient, AsyncServer)
-	 * or custom components that extend Component.
+	 * or custom components (like DataSource).
 	 *
 	 * @example
 	 * ```typescript
@@ -104,9 +103,16 @@ export class TestCaseBuilder {
 	 *   api.request("test", { method: "GET", path: "/test" });
 	 *   server.onRequest("test").mockResponse(() => ({ ... }));
 	 * });
+	 *
+	 * // DataSource component
+	 * const tc = testCase("test", (test) => {
+	 *   const redis = test.use(cache);
+	 *   redis.exec(async (client) => client.get("key"))
+	 *     .assert((val) => val !== null);
+	 * });
 	 * ```
 	 */
-	use<A extends IBaseProtocol, TStepBuilder>(component: BaseComponent<A, TStepBuilder>): TStepBuilder {
+	use<TStepBuilder>(component: Component<TStepBuilder>): TStepBuilder {
 		// Auto-register component if not already registered (with testCase scope)
 		if (!this.components.has(component.name)) {
 			if (this.componentRegistry) {
@@ -121,7 +127,7 @@ export class TestCaseBuilder {
 		}
 
 		// Return the step builder from the component
-		return component.createStepBuilder(this);
+		return component.createStepBuilder(this) as TStepBuilder;
 	}
 
 	/**
