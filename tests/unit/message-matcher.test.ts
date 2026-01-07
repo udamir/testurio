@@ -1,180 +1,103 @@
 /**
- * Message Matcher Tests
+ * Hook Matching Tests
+ *
+ * Tests hook matching via BaseComponent.findMatchingHook
  */
 
-import type { Hook, Message, PayloadMatcher } from "testurio";
-import { matchHook, matchHttpPath, matchMessageType, matchPayload } from "testurio";
+import type { Hook, IBaseProtocol, ITestCaseBuilder, MessageMatcher, PayloadMatcher } from "testurio";
+import { BaseComponent } from "testurio";
 import { describe, expect, it } from "vitest";
 
-// Helper to create a minimal hook for testing
-function createHook(messageTypes: string | string[], matcher?: PayloadMatcher): Hook {
+// Minimal test component
+class TestComponent extends BaseComponent<IBaseProtocol> {
+	protected async doStart(): Promise<void> {}
+	protected async doStop(): Promise<void> {}
+	createStepBuilder(_builder: ITestCaseBuilder): unknown {
+		return {};
+	}
+}
+
+function createHook(messageType: string | MessageMatcher, payloadMatcher?: PayloadMatcher): Hook {
 	return {
 		id: "test-hook",
 		componentName: "test",
 		phase: "test",
-		messageTypes,
-		matcher,
+		messageType,
+		payloadMatcher,
 		handlers: [],
 		persistent: false,
 	};
 }
 
-describe("MessageMatcher", () => {
-	describe("matchMessageType", () => {
-		it("should match single message type", () => {
-			expect(matchMessageType("Order", "Order")).toBe(true);
+describe("Hook Matching", () => {
+	describe("message type matching", () => {
+		it("should match exact message type", () => {
+			const component = new TestComponent("test", {} as IBaseProtocol);
+			component.registerHook(createHook("Order"));
+
+			expect(component.findMatchingHook({ type: "Order", payload: {} })).not.toBeNull();
+			expect(component.findMatchingHook({ type: "Trade", payload: {} })).toBeNull();
 		});
 
-		it("should not match different message type", () => {
-			expect(matchMessageType("Order", "Trade")).toBe(false);
-		});
+		it("should match with function matcher", () => {
+			const component = new TestComponent("test", {} as IBaseProtocol);
+			const matcher: MessageMatcher = (messageType: string) => messageType.startsWith("Order");
+			component.registerHook(createHook(matcher));
 
-		it("should match when message type is in array", () => {
-			expect(matchMessageType(["Order", "Trade"], "Order")).toBe(true);
-			expect(matchMessageType(["Order", "Trade"], "Trade")).toBe(true);
-		});
-
-		it("should not match when message type is not in array", () => {
-			expect(matchMessageType(["Order", "Trade"], "Quote")).toBe(false);
+			expect(component.findMatchingHook({ type: "OrderCreate", payload: {} })).not.toBeNull();
+			expect(component.findMatchingHook({ type: "OrderUpdate", payload: {} })).not.toBeNull();
+			expect(component.findMatchingHook({ type: "TradeCreate", payload: {} })).toBeNull();
 		});
 	});
 
-	describe("matchPayload", () => {
+	describe("payload matching", () => {
 		it("should match by traceId", () => {
-			const matcher: PayloadMatcher = { type: "traceId", value: "trace-123" };
-			const message: Message = {
-				type: "Order",
-				payload: {},
-				traceId: "trace-123",
-			};
+			const component = new TestComponent("test", {} as IBaseProtocol);
+			component.registerHook(createHook("Order", { type: "traceId", value: "trace-123" }));
 
-			expect(matchPayload(matcher, message)).toBe(true);
-		});
-
-		it("should not match wrong traceId", () => {
-			const matcher: PayloadMatcher = { type: "traceId", value: "trace-123" };
-			const message: Message = {
-				type: "Order",
-				payload: {},
-				traceId: "trace-456",
-			};
-
-			expect(matchPayload(matcher, message)).toBe(false);
+			expect(component.findMatchingHook({ type: "Order", payload: {}, traceId: "trace-123" })).not.toBeNull();
+			expect(component.findMatchingHook({ type: "Order", payload: {}, traceId: "trace-456" })).toBeNull();
 		});
 
 		it("should match by function", () => {
-			const matcher: PayloadMatcher = {
-				type: "function",
-				fn: (payload) => (payload as { amount: number }).amount > 100,
-			};
-			const message: Message = { type: "Order", payload: { amount: 200 } };
+			const component = new TestComponent("test", {} as IBaseProtocol);
+			component.registerHook(
+				createHook("Order", {
+					type: "function",
+					fn: (payload) => (payload as { amount: number }).amount > 100,
+				})
+			);
 
-			expect(matchPayload(matcher, message)).toBe(true);
+			expect(component.findMatchingHook({ type: "Order", payload: { amount: 200 } })).not.toBeNull();
+			expect(component.findMatchingHook({ type: "Order", payload: { amount: 50 } })).toBeNull();
 		});
 
-		it("should not match when function returns false", () => {
-			const matcher: PayloadMatcher = {
-				type: "function",
-				fn: (payload) => (payload as { amount: number }).amount > 100,
-			};
-			const message: Message = { type: "Order", payload: { amount: 50 } };
+		it("should handle function matcher errors as no match", () => {
+			const component = new TestComponent("test", {} as IBaseProtocol);
+			component.registerHook(
+				createHook("Order", {
+					type: "function",
+					fn: () => {
+						throw new Error("Test error");
+					},
+				})
+			);
 
-			expect(matchPayload(matcher, message)).toBe(false);
-		});
-
-		it("should handle function matcher errors", () => {
-			const matcher: PayloadMatcher = {
-				type: "function",
-				fn: () => {
-					throw new Error("Test error");
-				},
-			};
-			const message: Message = { type: "Order", payload: {} };
-
-			expect(matchPayload(matcher, message)).toBe(false);
-		});
-
-		it("should match by traceId", () => {
-			const matcher: PayloadMatcher = { type: "traceId", value: "req-123" };
-			const message: Message = {
-				type: "request",
-				payload: {},
-				traceId: "req-123",
-			};
-
-			expect(matchPayload(matcher, message)).toBe(true);
+			expect(component.findMatchingHook({ type: "Order", payload: {} })).toBeNull();
 		});
 	});
 
-	describe("matchHook", () => {
-		it("should match when message type matches and no payload matcher", () => {
-			const hook = createHook("Order");
-			const message: Message = { type: "Order", payload: {} };
+	describe("combined matching", () => {
+		it("should require both type and payload to match", () => {
+			const component = new TestComponent("test", {} as IBaseProtocol);
+			component.registerHook(createHook("Order", { type: "traceId", value: "trace-123" }));
 
-			expect(matchHook(hook, message)).toBe(true);
-		});
-
-		it("should not match when message type does not match", () => {
-			const hook = createHook("Order");
-			const message: Message = { type: "Trade", payload: {} };
-
-			expect(matchHook(hook, message)).toBe(false);
-		});
-
-		it("should match when message type and payload matcher both match", () => {
-			const hook = createHook("Order", { type: "traceId", value: "trace-123" });
-			const message: Message = {
-				type: "Order",
-				payload: {},
-				traceId: "trace-123",
-			};
-
-			expect(matchHook(hook, message)).toBe(true);
-		});
-
-		it("should not match when message type matches but payload matcher does not", () => {
-			const hook = createHook("Order", { type: "traceId", value: "trace-123" });
-			const message: Message = {
-				type: "Order",
-				payload: {},
-				traceId: "trace-456",
-			};
-
-			expect(matchHook(hook, message)).toBe(false);
-		});
-
-		it("should match with array of message types", () => {
-			const hook = createHook(["Order", "Trade"]);
-			const message: Message = { type: "Trade", payload: {} };
-
-			expect(matchHook(hook, message)).toBe(true);
-		});
-	});
-
-	describe("matchHttpPath (from http-adapter)", () => {
-		it("should match exact paths", () => {
-			expect(matchHttpPath("/api/users", "/api/users")).toBe(true);
-		});
-
-		it("should not match different paths", () => {
-			expect(matchHttpPath("/api/users", "/api/orders")).toBe(false);
-		});
-
-		it("should match path with single parameter", () => {
-			expect(matchHttpPath("/api/users/123", "/api/users/{id}")).toBe(true);
-		});
-
-		it("should match path with multiple parameters", () => {
-			expect(matchHttpPath("/api/users/123/orders/456", "/api/users/{userId}/orders/{orderId}")).toBe(true);
-		});
-
-		it("should not match if segment count differs", () => {
-			expect(matchHttpPath("/api/users", "/api/users/{id}")).toBe(false);
-			expect(matchHttpPath("/api/users/123/orders", "/api/users/{id}")).toBe(false);
-		});
-
-		it("should match complex paths", () => {
-			expect(matchHttpPath("/api/v1/users/123/posts", "/api/v1/users/{id}/posts")).toBe(true);
+			// Both match
+			expect(component.findMatchingHook({ type: "Order", payload: {}, traceId: "trace-123" })).not.toBeNull();
+			// Type matches, payload doesn't
+			expect(component.findMatchingHook({ type: "Order", payload: {}, traceId: "trace-456" })).toBeNull();
+			// Type doesn't match
+			expect(component.findMatchingHook({ type: "Trade", payload: {}, traceId: "trace-123" })).toBeNull();
 		});
 	});
 });

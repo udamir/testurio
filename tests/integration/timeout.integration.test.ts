@@ -59,7 +59,7 @@ describe("Timeout Integration Tests", () => {
 				const backend = test.use(server);
 
 				// Make request with inline timeout option
-				api.request("getSlow", { method: "GET", path: "/slow", timeout: 2000 });
+				api.request("getSlow", { method: "GET", path: "/slow" }, 2000 );
 				backend
 					.onRequest("getSlow", { method: "GET", path: "/slow" })
 					.delay(100)
@@ -113,7 +113,7 @@ describe("Timeout Integration Tests", () => {
 			const client = new AsyncClient("api", {
 				protocol: new WebSocketProtocol<TimeoutWsService>(),
 				targetAddress: { host: "127.0.0.1", port: 17999 },
-				timeouts: { connectionTimeout: 500 },
+				connectionTimeout: 500,
 			});
 
 			const scenario = new TestScenario({
@@ -147,7 +147,7 @@ describe("Timeout Integration Tests", () => {
 			const client = new AsyncClient("api", {
 				protocol: new WebSocketProtocol<TimeoutWsService>(),
 				targetAddress: { host: "127.0.0.1", port: 17003 },
-				timeouts: { connectionTimeout: 5000 },
+				connectionTimeout: 5000,
 			});
 
 			const scenario = new TestScenario({

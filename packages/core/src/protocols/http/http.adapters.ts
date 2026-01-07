@@ -9,6 +9,14 @@ import type { ISyncClientAdapter, ISyncServerAdapter } from "../base";
 import { generateId } from "../base";
 import type { HttpRequest, HttpRequestOptions, HttpResponse } from "./http.types";
 
+interface RoutePattern {
+	method: string;
+	regex: RegExp;
+	paramNames: string[];
+}
+
+type Route = { method: string; path: string };
+
 /**
  * HTTP Server Adapter
  * Wraps http.Server instance, owned by component
@@ -17,18 +25,24 @@ export class HttpServerAdapter implements ISyncServerAdapter {
 	private server: http.Server;
 	private pendingRequests = new Map<string, http.ServerResponse>();
 	private requestHandler?: (messageType: string, request: HttpRequest) => Promise<HttpResponse | null>;
+	private compiledRoutes: RoutePattern[];
 
-	constructor(server: http.Server) {
+	constructor(server: http.Server, routes: Route[]) {
 		this.server = server;
+		// Compile routes once at construction (routes are complete at design-time)
+		this.compiledRoutes = routes.map((r) => {
+			const { regex, paramNames } = HttpServerAdapter.compilePath(r.path);
+			return { method: r.method.toUpperCase(), regex, paramNames };
+		});
 	}
 
 	/**
 	 * Create and start HTTP server adapter
 	 */
-	static async create(host: string, port: number): Promise<HttpServerAdapter> {
+	static async create(host: string, port: number, routes: Route[]): Promise<HttpServerAdapter> {
 		return new Promise((resolve, reject) => {
 			const server = http.createServer();
-			const adapter = new HttpServerAdapter(server);
+			const adapter = new HttpServerAdapter(server, routes);
 
 			server.on("error", (err) => {
 				reject(new Error(err.message));
@@ -44,19 +58,56 @@ export class HttpServerAdapter implements ISyncServerAdapter {
 		});
 	}
 
+	/**
+	 * Compile path pattern to regex with capture groups
+	 */
+	private static compilePath(path: string): { regex: RegExp; paramNames: string[] } {
+		const paramNames: string[] = [];
+		const regexStr = path
+			.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+			.replace(/\\{([^}]+)\\}/g, (_, name: string) => {
+				paramNames.push(name);
+				return "([^/]+)";
+			});
+		return { regex: new RegExp(`^${regexStr}$`), paramNames };
+	}
+
+	/**
+	 * Extract path params from request using registered routes
+	 */
+	private extractParams(method: string, path: string): Record<string, string> | undefined {
+		for (const route of this.compiledRoutes) {
+			if (route.method !== method.toUpperCase()) continue;
+			const match = route.regex.exec(path);
+			if (match && route.paramNames.length > 0) {
+				const params: Record<string, string> = {};
+				route.paramNames.forEach((name, i) => {
+					params[name] = match[i + 1];
+				});
+				return params;
+			}
+		}
+		return undefined;
+	}
+
 	private async handleRequest(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
 		const [path = "", query = ""] = req.url?.split("?") || [];
+		const method = req.method || "GET";
 		const body = await this.readRequestBody(req);
-		const messageType = `${req.method} ${path}`;
+		const messageType = `${method} ${path}`;
 		const traceId = generateId(messageType);
 		this.pendingRequests.set(traceId, res);
 
+		// Extract params at parsing time
+		const params = this.extractParams(method, path);
+
 		const payload: HttpRequest = {
-			method: req.method || "GET",
+			method,
 			path,
 			query,
 			headers: req.headers,
 			body,
+			params,
 		};
 
 		const response = await this.requestHandler?.(messageType, payload);

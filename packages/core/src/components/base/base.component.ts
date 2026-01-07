@@ -2,12 +2,12 @@
  * Base Component
  *
  * Base class for all test components (Client, Mock, Proxy).
+ * Includes hook management (registration and execution).
  */
 
 import type { ITestCaseBuilder } from "../../execution";
-import type { IBaseProtocol } from "../../protocols/base";
-import { HookRegistry } from "./base.hooks";
-import type { Hook } from "./base.types";
+import type { IBaseProtocol, Message, MessageMatcher } from "../../protocols/base";
+import type { Hook, PayloadMatcher } from "./base.types";
 
 /**
  * Component state
@@ -15,18 +15,7 @@ import type { Hook } from "./base.types";
 export type ComponentState = "created" | "starting" | "started" | "stopping" | "stopped" | "error";
 
 /**
- * Component lifecycle events
- */
-export interface ComponentLifecycleEvents {
-	onStart?: () => Promise<void> | void;
-	onStop?: () => Promise<void> | void;
-	onError?: (error: Error) => Promise<void> | void;
-}
-
-/**
  * Base Component class
- *
- * Each component owns its own HookRegistry for isolation.
  *
  * @typeParam P - Protocol type
  * @typeParam TStepBuilder - Step builder type returned by createStepBuilder
@@ -34,8 +23,7 @@ export interface ComponentLifecycleEvents {
 export abstract class BaseComponent<P extends IBaseProtocol = IBaseProtocol, TStepBuilder = unknown> {
 	protected state: ComponentState = "created";
 	protected error?: Error;
-	protected hookRegistry: HookRegistry;
-	/** Unhandled errors from async handlers */
+	protected hooks: Hook[] = [];
 	protected unhandledErrors: Error[] = [];
 
 	/** Component name */
@@ -46,83 +34,121 @@ export abstract class BaseComponent<P extends IBaseProtocol = IBaseProtocol, TSt
 	constructor(name: string, protocol: P) {
 		this.name = name;
 		this.protocol = protocol;
-		this.hookRegistry = new HookRegistry();
 	}
 
-	/**
-	 * Get component state
-	 */
+	// =========================================================================
+	// Component State
+	// =========================================================================
+
 	getState(): ComponentState {
 		return this.state;
 	}
 
-	/**
-	 * Check if component is started
-	 */
 	isStarted(): boolean {
 		return this.state === "started";
 	}
 
-	/**
-	 * Check if component is stopped
-	 */
 	isStopped(): boolean {
 		return this.state === "stopped";
 	}
 
 	/**
-	 * Check if component has error
-	 */
-	hasError(): boolean {
-		return this.state === "error";
-	}
-
-	/**
-	 * Get component error
-	 */
-	getError(): Error | undefined {
-		return this.error;
-	}
-
-	/**
-	 * Get unhandled errors from async handlers
-	 */
-	getUnhandledErrors(): Error[] {
-		return [...this.unhandledErrors];
-	}
-
-	/**
-	 * Check if there are unhandled errors
-	 */
-	hasUnhandledErrors(): boolean {
-		return this.unhandledErrors.length > 0;
-	}
-
-	/**
-	 * Clear unhandled errors
-	 */
-	clearUnhandledErrors(): void {
-		this.unhandledErrors = [];
-	}
-
-	/**
-	 * Track an unhandled error from async handler
-	 * Called by subclasses when async handlers throw
+	 * Track an unhandled error that occurred during async operations
 	 */
 	protected trackUnhandledError(error: Error): void {
 		this.unhandledErrors.push(error);
 	}
 
 	/**
-	 * Register a hook
+	 * Get all tracked unhandled errors
 	 */
-	registerHook(hook: Hook): void {
-		this.hookRegistry.registerHook(hook);
+	getUnhandledErrors(): Error[] {
+		return [...this.unhandledErrors];
 	}
 
 	/**
-	 * Start the component
+	 * Clear tracked unhandled errors
 	 */
+	clearUnhandledErrors(): void {
+		this.unhandledErrors = [];
+	}
+
+	// =========================================================================
+	// Hook Management
+	// =========================================================================
+
+	registerHook<T>(hook: Hook<T>): void {
+		this.hooks.push(hook as Hook);
+	}
+
+	findMatchingHook<T>(message: Message<T>): Hook<T> | null {
+		for (const hook of this.hooks as Hook<T>[]) {
+			if (this.matchHook(hook, message)) {
+				return hook;
+			}
+		}
+		return null;
+	}
+
+	async executeHook<T>(hook: Hook<T>, message: Message<T>): Promise<Message<T> | null> {
+		try {
+			let current = message;
+			for (const handler of hook.handlers) {
+				current = await handler.execute(current);
+			}
+			return current;
+		} catch {
+			return null;
+		}
+	}
+
+	async executeMatchingHook<T>(message: Message<T>): Promise<Message<T> | null> {
+		const hook = this.findMatchingHook(message);
+		return hook ? this.executeHook(hook, message) : message;
+	}
+
+	private matchHook<T>(hook: Hook<T>, message: Message<T>): boolean {
+		// Match message type
+		const typeMatches =
+			typeof hook.messageType === "function"
+				? (hook.messageType as MessageMatcher<T>)(message.type, message.payload)
+				: hook.messageType === message.type;
+
+		if (!typeMatches) return false;
+		if (!hook.payloadMatcher) return true;
+
+		// Match payload
+		const matcher = hook.payloadMatcher as PayloadMatcher;
+		if (matcher.type === "traceId") {
+			return message.traceId === matcher.value;
+		}
+		try {
+			return matcher.fn(message.payload);
+		} catch {
+			return false;
+		}
+	}
+
+	clearTestCaseHooks(): void {
+		this.hooks = this.hooks.filter((hook) => hook.persistent);
+	}
+
+	clearHooks(): void {
+		this.hooks = [];
+	}
+
+	getAllHooks(): Hook[] {
+		return [...this.hooks];
+	}
+
+	getHookById(id: string): Hook | undefined {
+		return this.hooks.find((hook) => hook.id === id);
+	}
+
+	// =========================================================================
+	// Lifecycle
+	// =========================================================================
+
 	async start(): Promise<void> {
 		if (this.state !== "created" && this.state !== "stopped") {
 			throw new Error(`Cannot start component ${this.name} in state ${this.state}`);
@@ -140,9 +166,6 @@ export abstract class BaseComponent<P extends IBaseProtocol = IBaseProtocol, TSt
 		}
 	}
 
-	/**
-	 * Stop the component
-	 */
 	async stop(): Promise<void> {
 		if (this.state === "stopped") {
 			return;
@@ -164,27 +187,7 @@ export abstract class BaseComponent<P extends IBaseProtocol = IBaseProtocol, TSt
 		}
 	}
 
-	/**
-	 * Subclass-specific start logic
-	 */
 	protected abstract doStart(): Promise<void>;
-
-	/**
-	 * Subclass-specific stop logic
-	 */
 	protected abstract doStop(): Promise<void>;
-
-	/**
-	 * Create a step builder for this component.
-	 * Used by test.use(component) for type-safe component access.
-	 *
-	 * Built-in components (Client, Server) implement this
-	 * to return their specific step builders.
-	 *
-	 * Custom components can override this to provide their own step builders.
-	 *
-	 * @param builder - The test case builder instance
-	 * @returns A step builder appropriate for this component type
-	 */
 	abstract createStepBuilder(builder: ITestCaseBuilder): TStepBuilder;
 }

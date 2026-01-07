@@ -24,7 +24,7 @@ interface CreateUserPayload {
 // Type-safe HTTP service definition
 interface UserApiService {
 	getUser: {
-		request: { method: "GET"; path: "/users/:id" };
+		request: { method: "GET"; path: "/users/{id}" };
 		response: { code: 200; body: User };
 	};
 	createUser: {

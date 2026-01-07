@@ -159,21 +159,30 @@ export class TestScenario {
 
 	/**
 	 * Run initialization
+	 *
+	 * Lifecycle order:
+	 * 1. Run init handler (register hooks, routes, create dynamic components)
+	 * 2. Start components (servers start with all routes already registered)
+	 * 3. Execute init steps (mockResponse actions, etc.)
 	 */
 	private async runInit(): Promise<void> {
 		if (this.initialized) return;
 
-		// Start initial components (from constructor config)
-		await this.startComponents();
+		let builder: ReturnType<typeof this.createBuilder> | undefined;
 
-		// Run init handler if defined
+		// Run init handler FIRST to register routes/hooks before components start
 		if (this.initHandler) {
-			const builder = this.createBuilder();
+			builder = this.createBuilder();
 			builder.setPhase("init");
 			this.initHandler(builder);
+		}
 
-			// Process any dynamically created components (start them)
-			// Note: Components created in init are always scenario-scoped
+		// Start initial components (from constructor config)
+		// Routes are already registered from init handler
+		await this.startComponents();
+
+		// Process any dynamically created components (start them)
+		if (builder) {
 			await this.processPendingComponents(builder);
 
 			// Execute init steps

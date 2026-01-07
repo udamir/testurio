@@ -1,16 +1,32 @@
 /**
  * Hook Registry Tests
+ *
+ * Tests for hook functionality in BaseComponent
  */
 
-import type { Hook, Message } from "testurio";
-import { HookRegistry } from "testurio";
+import type { Hook, IBaseProtocol, ITestCaseBuilder, Message } from "testurio";
+import { BaseComponent } from "testurio";
 import { beforeEach, describe, expect, it } from "vitest";
 
-describe("HookRegistry", () => {
-	let registry: HookRegistry;
+/**
+ * Minimal test component that extends BaseComponent for testing hooks
+ */
+class TestComponent extends BaseComponent<IBaseProtocol> {
+	protected async doStart(): Promise<void> {}
+	protected async doStop(): Promise<void> {}
+	createStepBuilder(_builder: ITestCaseBuilder): unknown {
+		return {};
+	}
+}
+
+// Minimal protocol mock
+const mockProtocol = {} as IBaseProtocol;
+
+describe("BaseComponent Hook Functionality", () => {
+	let component: TestComponent;
 
 	beforeEach(() => {
-		registry = new HookRegistry();
+		component = new TestComponent("test", mockProtocol);
 	});
 
 	describe("registerHook", () => {
@@ -19,15 +35,15 @@ describe("HookRegistry", () => {
 				id: "hook-1",
 				componentName: "client",
 				phase: "test",
-				messageTypes: "Order",
+				messageType: "Order",
 				handlers: [],
 				persistent: false,
 			};
 
-			registry.registerHook(hook);
+			component.registerHook(hook);
 
-			expect(registry.getAllHooks()).toHaveLength(1);
-			expect(registry.getHookById("hook-1")).toBe(hook);
+			expect(component.getAllHooks()).toHaveLength(1);
+			expect(component.getHookById("hook-1")).toBe(hook);
 		});
 
 		it("should register multiple hooks", () => {
@@ -36,7 +52,7 @@ describe("HookRegistry", () => {
 					id: "hook-1",
 					componentName: "client",
 					phase: "test",
-					messageTypes: "Order",
+					messageType: "Order",
 					handlers: [],
 					persistent: false,
 				},
@@ -44,35 +60,35 @@ describe("HookRegistry", () => {
 					id: "hook-2",
 					componentName: "proxy",
 					phase: "test",
-					messageTypes: "Payment",
+					messageType: "Payment",
 					handlers: [],
 					persistent: false,
 				},
 			];
 
-			registry.registerHooks(hooks);
+			hooks.forEach((hook) => component.registerHook(hook));
 
-			expect(registry.getAllHooks()).toHaveLength(2);
+			expect(component.getAllHooks()).toHaveLength(2);
 		});
 
-		it("should store hooks in registry", () => {
+		it("should store hooks in component", () => {
 			const hook: Hook = {
 				id: "hook-1",
 				componentName: "client",
 				phase: "test",
-				messageTypes: "Order",
+				messageType: "Order",
 				handlers: [],
 				persistent: false,
 			};
 
-			registry.registerHook(hook);
+			component.registerHook(hook);
 
-			// Each component owns its own registry, so all hooks belong to it
-			expect(registry.getAllHooks()).toHaveLength(1);
+			// Each component owns its own hooks
+			expect(component.getAllHooks()).toHaveLength(1);
 		});
 	});
 
-	describe("executeHooks", () => {
+	describe("executeMatchingHook", () => {
 		it("should execute matching hooks", async () => {
 			let executed = false;
 
@@ -80,7 +96,7 @@ describe("HookRegistry", () => {
 				id: "hook-1",
 				componentName: "client",
 				phase: "test",
-				messageTypes: "Order",
+				messageType: "Order",
 				handlers: [
 					{
 						type: "proxy",
@@ -93,10 +109,10 @@ describe("HookRegistry", () => {
 				persistent: false,
 			};
 
-			registry.registerHook(hook);
+			component.registerHook(hook);
 
 			const message: Message = { type: "Order", payload: {} };
-			await registry.executeHooks(message);
+			await component.executeMatchingHook(message);
 
 			expect(executed).toBe(true);
 		});
@@ -106,7 +122,7 @@ describe("HookRegistry", () => {
 				id: "hook-1",
 				componentName: "client",
 				phase: "test",
-				messageTypes: "Order",
+				messageType: "Order",
 				handlers: [
 					{
 						type: "proxy",
@@ -119,10 +135,10 @@ describe("HookRegistry", () => {
 				persistent: false,
 			};
 
-			registry.registerHook(hook);
+			component.registerHook(hook);
 
 			const message: Message = { type: "Order", payload: {} };
-			const result = await registry.executeHooks(message);
+			const result = await component.executeMatchingHook(message);
 
 			expect(result).not.toBeNull();
 			expect((result?.payload as { transformed: boolean }).transformed).toBe(true);
@@ -130,7 +146,7 @@ describe("HookRegistry", () => {
 
 		it("should return original message if no hooks match", async () => {
 			const message: Message = { type: "Order", payload: {} };
-			const result = await registry.executeHooks(message);
+			const result = await component.executeMatchingHook(message);
 
 			expect(result).toBe(message);
 		});
@@ -143,7 +159,7 @@ describe("HookRegistry", () => {
 					id: "hook-1",
 					componentName: "client",
 					phase: "init",
-					messageTypes: "Order",
+					messageType: "Order",
 					handlers: [],
 					persistent: true, // Init hook
 				},
@@ -151,40 +167,40 @@ describe("HookRegistry", () => {
 					id: "hook-2",
 					componentName: "client",
 					phase: "test",
-					messageTypes: "Payment",
+					messageType: "Payment",
 					handlers: [],
 					persistent: false, // Test hook
 				},
 			];
 
-			registry.registerHooks(hooks);
-			expect(registry.getAllHooks()).toHaveLength(2);
+			hooks.forEach((hook) => component.registerHook(hook));
+			expect(component.getAllHooks()).toHaveLength(2);
 
-			registry.clearTestCaseHooks();
+			component.clearTestCaseHooks();
 
-			expect(registry.getAllHooks()).toHaveLength(1);
-			expect(registry.getHookById("hook-1")).toBeDefined();
-			expect(registry.getHookById("hook-2")).toBeUndefined();
+			expect(component.getAllHooks()).toHaveLength(1);
+			expect(component.getHookById("hook-1")).toBeDefined();
+			expect(component.getHookById("hook-2")).toBeUndefined();
 		});
 	});
 
-	describe("clear", () => {
+	describe("clearHooks", () => {
 		it("should remove all hooks", () => {
 			const hook: Hook = {
 				id: "hook-1",
 				componentName: "client",
 				phase: "test",
-				messageTypes: "Order",
+				messageType: "Order",
 				handlers: [],
 				persistent: true,
 			};
 
-			registry.registerHook(hook);
-			expect(registry.getAllHooks()).toHaveLength(1);
+			component.registerHook(hook);
+			expect(component.getAllHooks()).toHaveLength(1);
 
-			registry.clear();
+			component.clearHooks();
 
-			expect(registry.getAllHooks()).toHaveLength(0);
+			expect(component.getAllHooks()).toHaveLength(0);
 		});
 	});
 });

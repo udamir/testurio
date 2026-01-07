@@ -38,24 +38,26 @@ export class SyncServerStepBuilder<A extends ISyncProtocol = ISyncProtocol> {
 	 * @param options - Optional protocol-specific options (method/path for HTTP)
 	 */
 	onRequest<K extends keyof ProtocolService<A> & string>(
-		messageType: K,
+		_messageType: K,
 		options?: ProtocolRequestOptions<A>
 	): SyncHookBuilderImpl<ExtractServerRequest<A, K>, ExtractServerResponse<A, K>> {
-		// For HTTP, construct message type from method + path if provided
-		// This matches how HttpProtocol creates message types: "GET /users"
-		const httpOptions = options as { method?: string; path?: string } | undefined;
-		const effectiveMessageType =
-			httpOptions?.method && httpOptions?.path ? `${httpOptions.method} ${httpOptions.path}` : messageType;
+		// Get messageType from protocol (function or string)
+		const messageType = this.server.protocol.createMessageTypeMatcher?.(_messageType, options) ?? _messageType;
+
+		// Build metadata (no pathPattern - protocol handles param extraction)
+		const metadata: Record<string, unknown> = {};
+		if (this.server.isProxy) {
+			metadata.direction = "downstream";
+		}
 
 		const hook: Hook<ExtractServerRequest<A, K>> = {
 			id: generateHookId(),
 			componentName: this.server.name,
 			phase: this.testPhase,
-			messageTypes: effectiveMessageType,
-			options,
+			messageType,
 			handlers: [],
-			persistent: false,
-			metadata: this.server.isProxy ? { direction: "downstream" } : undefined,
+			persistent: this.testPhase === "init",
+			metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
 		};
 
 		// Register hook first, then pass to builder
@@ -70,12 +72,12 @@ export class SyncServerStepBuilder<A extends ISyncProtocol = ISyncProtocol> {
 	 * Use to intercept/transform responses from the target server before
 	 * returning to the client.
 	 *
-	 * @param messageType - Message type identifier (operationId)
+	 * @param operationId - Operation identifier (operationId)
 	 * @param options - Optional protocol-specific options (method/path for HTTP)
 	 */
 	onResponse<K extends keyof ProtocolService<A> & string>(
-		messageType: K,
-		options?: ProtocolRequestOptions<A>
+		operationId: K,
+		_options?: ProtocolRequestOptions<A>
 	): SyncHookBuilderImpl<ExtractServerResponse<A, K>, ExtractServerResponse<A, K>> {
 		if (!this.server.isProxy) {
 			throw new Error(`onResponse() is only available in proxy mode. Server "${this.server.name}" is in mock mode.`);
@@ -85,10 +87,9 @@ export class SyncServerStepBuilder<A extends ISyncProtocol = ISyncProtocol> {
 			id: generateHookId(),
 			componentName: this.server.name,
 			phase: this.testPhase,
-			messageTypes: messageType,
-			options,
+			messageType: operationId,
 			handlers: [],
-			persistent: false,
+			persistent: this.testPhase === "init",
 			metadata: {
 				direction: "upstream",
 			},

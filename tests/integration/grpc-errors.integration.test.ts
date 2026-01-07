@@ -18,14 +18,14 @@ const TEST_SERVICE = "test.v1.TestService";
 // Service type definition
 interface TestService {
 	GetUser: {
-		request: { user_id: number };
-		response: { id: number; name: string; email: string };
+		request: { payload: { user_id: number } };
+		response: { payload: { id: number; name: string; email: string } };
 	};
 }
 
 // Port counter for this test file (20xxx range)
 let portCounter = 20000;
-function _getNextPort(): number {
+function getNextPort(): number {
 	return portCounter++;
 }
 
@@ -41,7 +41,7 @@ describe("gRPC Error Scenarios Integration Tests", () => {
 					schema: TEST_PROTO,
 					serviceName: TEST_SERVICE,
 				}),
-				targetAddress: { host: "127.0.0.1", port: 20999 },
+				targetAddress: { host: "127.0.0.1", port: getNextPort() },
 			});
 
 			const scenario = new TestScenario({
@@ -51,7 +51,7 @@ describe("gRPC Error Scenarios Integration Tests", () => {
 
 			const tc = testCase("Connection refused", (test) => {
 				const api = test.use(client);
-				api.request("GetUser", { user_id: 1 });
+				api.request("GetUser", { payload: { user_id: 1 } });
 			});
 
 			try {
@@ -71,7 +71,7 @@ describe("gRPC Error Scenarios Integration Tests", () => {
 					schema: TEST_PROTO,
 					serviceName: TEST_SERVICE,
 				}),
-				targetAddress: { host: "127.0.0.1", port: 20998 },
+				targetAddress: { host: "127.0.0.1", port: getNextPort() },
 			});
 
 			const scenario = new TestScenario({
@@ -81,7 +81,7 @@ describe("gRPC Error Scenarios Integration Tests", () => {
 
 			const tc = testCase("Server unavailable", (test) => {
 				const api = test.use(client);
-				api.request("GetUser", { user_id: 1 });
+				api.request("GetUser", { payload: { user_id: 1 } });
 			});
 
 			// Should either throw or return failed result

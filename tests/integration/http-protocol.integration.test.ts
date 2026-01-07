@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 
 interface TestApiService {
 	getResource: {
-		request: { method: "GET"; path: "/resource/:id" };
+		request: { method: "GET"; path: "/resource/{id}", headers?: { Authorization: string, "X-Custom-Header": string } };
 		response: { code: 200; body: { id: string; data: string } };
 	};
 	createResource: {
@@ -21,12 +21,12 @@ interface TestApiService {
 		response: { code: 201; body: { id: string; data: string } };
 	};
 	updateResource: {
-		request: { method: "PUT"; path: "/resource/:id"; body: { data: string } };
+		request: { method: "PUT"; path: "/resource/{id}"; body: { data: string } };
 		response: { code: 200; body: { id: string; data: string } };
 	};
 	deleteResource: {
-		request: { method: "DELETE"; path: "/resource/:id" };
-		response: { code: 204 };
+		request: { method: "DELETE"; path: "/resource/{id}" };
+		response: { code: 200, body: { message: string }};
 	};
 	notFound: {
 		request: { method: "GET"; path: "/missing" };
@@ -163,10 +163,10 @@ describe("HTTP Protocol Integration Tests", () => {
 			scenario.init((test) => {
 				test
 					.use(server)
-					.onRequest("updateResource", { method: "PUT", path: "/resource/456" })
+					.onRequest("updateResource", { method: "PUT", path: "/resource/{id}" })
 					.mockResponse((req) => ({
 						code: 200,
-						body: { id: "456", data: (req.body as { data: string })?.data ?? "" },
+						body: { id: "456", data: req.body.data },
 					}));
 			});
 
@@ -190,6 +190,7 @@ describe("HTTP Protocol Integration Tests", () => {
 		it("should handle DELETE request", async () => {
 			const port = getNextPort();
 			let deleteReceived = false;
+			let capturedReq: unknown = null;
 
 			const server = new Server("backend", {
 				protocol: new HttpProtocol<TestApiService>(),
@@ -209,10 +210,13 @@ describe("HTTP Protocol Integration Tests", () => {
 			scenario.init((test) => {
 				test
 					.use(server)
-					.onRequest("deleteResource", { method: "DELETE", path: "/resource/789" })
-					.mockResponse(() => {
+					.onRequest("deleteResource", { method: "DELETE", path: "/resource/{id}" })
+					.mockResponse((req) => {
 						deleteReceived = true;
-						return { code: 200, body: {} };
+						capturedReq = req;
+						const id = req.params?.id ?? "unknown";
+						// Use 200 instead of 204 because 204 No Content shouldn't have a body
+						return { code: 200, body: { message: `Resource ${id} deleted` } };
 					});
 			});
 
@@ -220,12 +224,14 @@ describe("HTTP Protocol Integration Tests", () => {
 				const api = test.use(client);
 
 				api.request("deleteResource", { method: "DELETE", path: "/resource/789" });
-				api.onResponse("deleteResource").assert((res) => res.code === 200);
+				api.onResponse("deleteResource").assert((res) => res.code === 200 && res.body.message === "Resource 789 deleted");
 			});
 
 			const result = await scenario.run(tc);
 			expect(result.passed).toBe(true);
 			expect(deleteReceived).toBe(true);
+			expect(capturedReq).not.toBeNull();
+			expect((capturedReq as { params?: { id: string } })?.params?.id).toBe("789");
 		});
 	});
 
@@ -316,7 +322,7 @@ describe("HTTP Protocol Integration Tests", () => {
 	describe("Headers", () => {
 		it("should pass custom headers in request", async () => {
 			const port = getNextPort();
-			let _receivedHeaders: Record<string, string> | undefined;
+			let receivedHeaders: Record<string, string | undefined> | undefined;
 
 			const server = new Server("backend", {
 				protocol: new HttpProtocol<TestApiService>(),
@@ -338,7 +344,7 @@ describe("HTTP Protocol Integration Tests", () => {
 					.use(server)
 					.onRequest("getResource", { method: "GET", path: "/resource/1" })
 					.mockResponse((req) => {
-						_receivedHeaders = req.headers as Record<string, string>;
+						receivedHeaders = req.headers;
 						return {
 							code: 200,
 							body: { id: "1", data: "with headers" },
@@ -362,6 +368,10 @@ describe("HTTP Protocol Integration Tests", () => {
 
 			const result = await scenario.run(tc);
 			expect(result.passed).toBe(true);
+			expect(receivedHeaders).toBeDefined();
+			// HTTP headers are case-insensitive, Node.js lowercases them
+			expect(receivedHeaders?.authorization ?? receivedHeaders?.Authorization).toBe("Bearer token123");
+			expect(receivedHeaders?.["x-custom-header"] ?? receivedHeaders?.["X-Custom-Header"]).toBe("custom-value");
 		});
 
 		it("should return custom headers in response", async () => {
@@ -446,8 +456,7 @@ describe("HTTP Protocol Integration Tests", () => {
 				api.request("getResource", {
 					method: "GET",
 					path: "/resource/slow",
-					timeout: 500,
-				});
+				}, 500);
 				api.onResponse("getResource").assert((res) => res.code === 200);
 			});
 

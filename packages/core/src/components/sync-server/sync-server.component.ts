@@ -145,7 +145,7 @@ export class Server<A extends ISyncProtocol = ISyncProtocol> extends BaseCompone
 		}
 
 		// Clear hooks
-		this.hookRegistry.clear();
+		this.clearHooks();
 	}
 
 	/**
@@ -153,11 +153,21 @@ export class Server<A extends ISyncProtocol = ISyncProtocol> extends BaseCompone
 	 * Called by the protocol when a request is received
 	 */
 	async handleIncomingRequest(messageType: string, request: A["$request"]): Promise<A["$response"] | null> {
-		// Process through hooks (includes mock response generation)
-		const processedMessage = await this.hookRegistry.executeHooks({
-			type: messageType,
-			payload: request,
-		});
+		const message = { type: messageType, payload: request };
+
+		// Find matching hook
+		const hook = this.findMatchingHook(message);
+		if (!hook) {
+			// No matching hook - check if we're in proxy mode
+			if (this.isProxy) {
+				return this.forwardRequest(messageType, request);
+			}
+			// Mock mode with no handler - return null to let protocol send default 404
+			return null;
+		}
+
+		// Execute the matched hook (params already extracted by adapter)
+		const processedMessage = await this.executeHook(hook, message);
 
 		// If message was dropped by a hook, return null
 		if (!processedMessage) {

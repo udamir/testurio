@@ -10,19 +10,33 @@
  * - 8.3: Parallel broadcast sends
  */
 
-import type { Hook, Message } from "testurio";
-import { HookRegistry } from "testurio";
+import type { Hook, IBaseProtocol, ITestCaseBuilder, Message } from "testurio";
+import { BaseComponent } from "testurio";
 import { beforeEach, describe, expect, it } from "vitest";
 
+/**
+ * Minimal test component that extends BaseComponent for testing hooks
+ */
+class TestComponent extends BaseComponent<IBaseProtocol> {
+	protected async doStart(): Promise<void> {}
+	protected async doStop(): Promise<void> {}
+	createStepBuilder(_builder: ITestCaseBuilder): unknown {
+		return {};
+	}
+}
+
+// Minimal protocol mock
+const mockProtocol = {} as IBaseProtocol;
+
 describe("Component Fixes", () => {
-	describe("5.3 Hook Execution Order", () => {
-		let registry: HookRegistry;
+	describe("5.3 First Match Hook Execution", () => {
+		let component: TestComponent;
 
 		beforeEach(() => {
-			registry = new HookRegistry();
+			component = new TestComponent("test", mockProtocol);
 		});
 
-		it("should execute hooks in registration order", async () => {
+		it("should execute only the first matching hook", async () => {
 			const executionOrder: string[] = [];
 
 			const hooks: Hook[] = [
@@ -30,7 +44,7 @@ describe("Component Fixes", () => {
 					id: "hook-first",
 					componentName: "test",
 					phase: "test",
-					messageTypes: "TestMessage",
+					messageType: "TestMessage",
 					handlers: [
 						{
 							type: "proxy",
@@ -46,7 +60,7 @@ describe("Component Fixes", () => {
 					id: "hook-second",
 					componentName: "test",
 					phase: "test",
-					messageTypes: "TestMessage",
+					messageType: "TestMessage",
 					handlers: [
 						{
 							type: "proxy",
@@ -58,51 +72,34 @@ describe("Component Fixes", () => {
 					],
 					persistent: false,
 				},
-				{
-					id: "hook-third",
-					componentName: "test",
-					phase: "test",
-					messageTypes: "TestMessage",
-					handlers: [
-						{
-							type: "proxy",
-							execute: async (msg) => {
-								executionOrder.push("third");
-								return msg;
-							},
-						},
-					],
-					persistent: false,
-				},
 			];
 
-			registry.registerHooks(hooks);
+			hooks.forEach((hook) => component.registerHook(hook));
 
 			const message: Message = {
 				type: "TestMessage",
 				payload: {},
 			};
 
-			await registry.executeHooks(message);
+			await component.executeMatchingHook(message);
 
-			// Hooks should execute in registration order
-			expect(executionOrder).toEqual(["first", "second", "third"]);
+			// Only first matching hook should execute
+			expect(executionOrder).toEqual(["first"]);
 		});
 
-		it("should maintain order regardless of hook specificity", async () => {
+		it("should skip non-matching hooks and execute first match", async () => {
 			const executionOrder: string[] = [];
 
-			// Register less specific hook first
-			registry.registerHook({
-				id: "hook-generic",
+			component.registerHook({
+				id: "hook-other",
 				componentName: "test",
 				phase: "test",
-				messageTypes: ["TestMessage", "OtherMessage"], // Array = less specific
+				messageType: "OtherMessage",
 				handlers: [
 					{
 						type: "proxy",
 						execute: async (msg) => {
-							executionOrder.push("generic");
+							executionOrder.push("other");
 							return msg;
 						},
 					},
@@ -110,18 +107,16 @@ describe("Component Fixes", () => {
 				persistent: false,
 			});
 
-			// Register more specific hook second
-			registry.registerHook({
-				id: "hook-specific",
+			component.registerHook({
+				id: "hook-target",
 				componentName: "test",
 				phase: "test",
-				messageTypes: "TestMessage", // String = more specific
-				matcher: { type: "traceId", value: "trace-123" }, // Even more specific
+				messageType: "TestMessage",
 				handlers: [
 					{
 						type: "proxy",
 						execute: async (msg) => {
-							executionOrder.push("specific");
+							executionOrder.push("target");
 							return msg;
 						},
 					},
@@ -132,25 +127,24 @@ describe("Component Fixes", () => {
 			const message: Message = {
 				type: "TestMessage",
 				payload: {},
-				traceId: "trace-123",
 			};
 
-			await registry.executeHooks(message);
+			await component.executeMatchingHook(message);
 
-			// Should execute in registration order, not by specificity
-			expect(executionOrder).toEqual(["generic", "specific"]);
+			// Should skip non-matching and execute first match
+			expect(executionOrder).toEqual(["target"]);
 		});
 	});
 
 	describe("4.4 Unhandled Error Tracking", () => {
 		it("should return null when hook handler fails (message dropped)", async () => {
-			const registry = new HookRegistry();
+			const component = new TestComponent("test-error", mockProtocol);
 
-			registry.registerHook({
+			component.registerHook({
 				id: "hook-error",
 				componentName: "test",
 				phase: "test",
-				messageTypes: "TestMessage",
+				messageType: "TestMessage",
 				handlers: [
 					{
 						type: "proxy",
@@ -168,18 +162,18 @@ describe("Component Fixes", () => {
 			};
 
 			// Hook handler errors result in message being dropped (null)
-			const result = await registry.executeHooks(message);
+			const result = await component.executeMatchingHook(message);
 			expect(result).toBeNull();
 		});
 
 		it("should return null when hook drops message", async () => {
-			const registry = new HookRegistry();
+			const component = new TestComponent("test-drop", mockProtocol);
 
-			registry.registerHook({
+			component.registerHook({
 				id: "hook-drop",
 				componentName: "test",
 				phase: "test",
-				messageTypes: "TestMessage",
+				messageType: "TestMessage",
 				handlers: [
 					{
 						type: "drop",
@@ -199,7 +193,7 @@ describe("Component Fixes", () => {
 			};
 
 			// Drop should return null
-			const result = await registry.executeHooks(message);
+			const result = await component.executeMatchingHook(message);
 			expect(result).toBeNull();
 		});
 	});

@@ -168,8 +168,8 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 			id: generateHookId(),
 			componentName: this.client.name,
 			phase: "test",
-			messageTypes,
-			matcher: payloadMatcher,
+			messageType: messageTypes,
+			payloadMatcher,
 			handlers: [],
 			persistent: false,
 			timeout,
@@ -191,8 +191,8 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 			id: generateHookId(),
 			componentName: this.client.name,
 			phase: "test",
-			messageTypes,
-			matcher: payloadMatcher,
+			messageType: messageTypes,
+			payloadMatcher,
 			handlers: [
 				{
 					type: "proxy",
@@ -244,18 +244,15 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 	/**
 	 * Register event handler (hook) for server messages
 	 *
-	 * @param messageType - Message type(s) to match (from serverMessages)
+	 * @param messageType - Message type to match (from serverMessages)
 	 * @param matcher - Optional payload matcher (traceId string or filter function)
 	 * @param timeout - Optional timeout in milliseconds
 	 */
-	onEvent<K extends keyof ServerMessages<ProtocolMessages<P>>>(
-		messageType: K | K[],
+	onEvent<K extends keyof ServerMessages<ProtocolMessages<P>> & string>(
+		messageType: K,
 		matcher?: string | ((payload: ServerMessages<ProtocolMessages<P>>[K]) => boolean),
 		timeout?: number
 	): AsyncClientHookBuilder<ServerMessages<ProtocolMessages<P>>[K], ProtocolMessages<P>> {
-		// Convert message types to string or string[]
-		const messageTypes = Array.isArray(messageType) ? (messageType as string[]) : (messageType as string);
-
 		// Build payload matcher if provided
 		const payloadMatcher = this.buildPayloadMatcher(matcher);
 
@@ -263,8 +260,8 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 			id: generateHookId(),
 			componentName: this.client.name,
 			phase: "test",
-			messageTypes,
-			matcher: payloadMatcher,
+			messageType,
+			payloadMatcher,
 			handlers: [],
 			persistent: false,
 			timeout,
@@ -279,7 +276,7 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 	/**
 	 * Build payload matcher from string (traceId) or function
 	 */
-	private buildPayloadMatcher<T>(matcher?: string | ((payload: T) => boolean)): Hook["matcher"] {
+	private buildPayloadMatcher<T>(matcher?: string | ((payload: T) => boolean)): Hook["payloadMatcher"] {
 		if (!matcher) return undefined;
 
 		if (typeof matcher === "string") {

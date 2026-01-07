@@ -112,12 +112,7 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 			throw new Error(`AsyncClient ${this.name} has no connection`);
 		}
 
-		// Process message through hooks
-		const processedMessage = await this.hookRegistry.executeHooks(message);
-
-		if (processedMessage) {
-			await this._connection.send(processedMessage);
-		}
+		await this._connection.send(message);
 	}
 
 	/**
@@ -178,7 +173,7 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 		this._connection.onMessage(async (event: Message) => {
 			try {
 				// Process through hooks
-				const processedEvent = await this.hookRegistry.executeHooks(event);
+				const processedEvent = await this.executeMatchingHook(event);
 
 				if (processedEvent) {
 					// Find matching pending handler
@@ -222,6 +217,6 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 			await this._connection.close();
 			this._connection = undefined;
 		}
-		this.hookRegistry.clear();
+		this.clearHooks();
 	}
 }

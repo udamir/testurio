@@ -14,14 +14,19 @@ import type { ProtocolService } from "../../protocols/base";
  * - HTTP: Full request with body, query, params, headers
  * - gRPC: Request payload directly
  *
+ * Checks for `serverRequest` first (server-specific type with required params),
+ * falls back to `request` for protocols without server-specific types.
+ *
  * @template A - Protocol type
  * @template K - Operation/method key
  */
 export type ExtractServerRequest<A, K extends keyof ProtocolService<A>> = ProtocolService<A>[K] extends {
-	request: infer R;
+	serverRequest: infer R;
 }
 	? R
-	: ProtocolService<A>[K];
+	: ProtocolService<A>[K] extends { request: infer R }
+		? R
+		: ProtocolService<A>[K];
 
 /**
  * Extract server response type from protocol.

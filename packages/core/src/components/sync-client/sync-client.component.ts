@@ -136,6 +136,6 @@ export class Client<P extends ISyncProtocol = ISyncProtocol> extends BaseCompone
 			await this._clientAdapter.close();
 			this._clientAdapter = undefined;
 		}
-		this.hookRegistry.clear();
+		this.clearHooks();
 	}
 }

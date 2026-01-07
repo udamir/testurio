@@ -143,16 +143,11 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 			throw new Error(`AsyncServer ${this.name} is not started`);
 		}
 
-		// Process message through hooks
-		const processedMessage = await this.hookRegistry.executeHooks(message);
-
-		if (processedMessage) {
-			// Send to all connections in parallel
-			const sendPromises = Array.from(this._sessions.values()).map((session) =>
-				session.incoming.send(processedMessage).catch(() => {})
-			);
-			await Promise.all(sendPromises);
-		}
+		// Send to all connections in parallel
+		const sendPromises = Array.from(this._sessions.values()).map((session) =>
+			session.incoming.send(message).catch(() => {})
+		);
+		await Promise.all(sendPromises);
 	}
 
 	/**
@@ -199,8 +194,8 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 		// Set up message handler to route through hooks
 		connection.onMessage(async (message: Message) => {
 			try {
-				// Execute hooks from hookRegistry
-				const processedMessage = await this.hookRegistry.executeHooks(message);
+				// Execute hooks
+				const processedMessage = await this.executeMatchingHook(message);
 
 				// If hook produced a response (different type), send it back
 				if (processedMessage && processedMessage.type !== message.type) {
@@ -267,7 +262,7 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 		// Set up backend→client event forwarding
 		session.outgoing.onMessage(async (event: Message) => {
 			// Process through hooks
-			const processedEvent = await this.hookRegistry.executeHooks(event);
+			const processedEvent = await this.executeMatchingHook(event);
 
 			// Forward to client (if not dropped by hooks)
 			if (processedEvent && session.incoming.isConnected) {
@@ -312,6 +307,6 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Base
 			this._serverAdapter = undefined;
 		}
 		this._sessions.clear();
-		this.hookRegistry.clear();
+		this.clearHooks();
 	}
 }

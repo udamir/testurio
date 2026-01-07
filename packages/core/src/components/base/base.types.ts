@@ -5,7 +5,7 @@
  */
 
 import type { TestPhase } from "../../execution/execution.types";
-import type { Message } from "../../protocols/base";
+import type { Message, MessageMatcher } from "../../protocols/base";
 
 // =============================================================================
 // Payload Matchers
@@ -40,16 +40,17 @@ export type PayloadMatcher = TraceIdPayloadMatcher | FunctionPayloadMatcher;
  * Hook - represents a registered message interceptor
  *
  * Matching is two-level:
- * 1. Message type(s) - protocol level, filters which messages trigger this hook
- * 2. Payload matcher - hook level, filters by traceId or custom function
+ * 1. messageTypes - string for exact match, function for custom matching
+ * 2. payloadMatcher - filters by traceId or custom function
  */
 export interface Hook<T = unknown> {
 	id: string;
 	componentName: string;
 	phase: TestPhase;
-	options?: Record<string, unknown>;
-	messageTypes: string | string[];
-	matcher?: PayloadMatcher;
+	/** Message type matching - string for exact match, function for custom */
+	messageType: string | MessageMatcher<T>;
+	/** Payload-level matcher (traceId or custom function) */
+	payloadMatcher?: PayloadMatcher;
 	handlers: HookHandler<T>[];
 	persistent: boolean;
 	timeout?: number;
@@ -84,33 +85,6 @@ export class DropMessageError extends Error {
 	}
 }
 
-/**
- * Hook execution error
- */
-export class HookError extends Error {
-	constructor(
-		message: string,
-		public readonly hookId: string,
-		public readonly cause?: Error
-	) {
-		super(message);
-		this.name = "HookError";
-	}
-}
-
-/**
- * Timeout error
- */
-export class TimeoutError extends Error {
-	constructor(
-		message: string,
-		public readonly timeout: number
-	) {
-		super(message);
-		this.name = "TimeoutError";
-	}
-}
-
 // =============================================================================
 // Hook Builder Interfaces
 // =============================================================================
@@ -133,35 +107,6 @@ export interface BaseHookBuilder<TPayload> {
 export interface SyncHookBuilder<TPayload = unknown, TResponse = unknown> extends BaseHookBuilder<TPayload> {
 	proxy(handler?: (payload: TPayload) => TPayload | Promise<TPayload>): this;
 	mockResponse(handler: (payload: TPayload) => TResponse | Promise<TResponse>): this;
-}
-
-// =============================================================================
-// Hook Execution Types
-// =============================================================================
-
-/**
- * Hook execution context
- */
-export interface HookExecutionContext<T> {
-	hook: Hook<T>;
-	originalMessage: Message<T>;
-	currentMessage: Message<T>;
-	handlerIndex: number;
-	totalHandlers: number;
-	abortSignal?: AbortSignal;
-}
-
-/**
- * Hook execution result
- */
-export interface HookExecutionResult<T> {
-	hook: Hook<T>;
-	success: boolean;
-	originalMessage: Message<T>;
-	transformedMessage: Message<T> | null;
-	duration: number;
-	error?: Error;
-	metadata?: Record<string, unknown>;
 }
 
 // =============================================================================

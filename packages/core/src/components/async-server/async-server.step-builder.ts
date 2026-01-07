@@ -64,7 +64,7 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 	 * @param messageType - Message type to wait for
 	 * @param options - Optional timeout and matcher
 	 */
-	waitMessage<K extends keyof ClientMessages<ProtocolMessages<P>>>(
+	waitMessage<K extends keyof ClientMessages<ProtocolMessages<P>> & string>(
 		messageType: K,
 		options?: {
 			timeout?: number;
@@ -72,7 +72,6 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 		}
 	): AsyncServerHookBuilder<ClientMessages<ProtocolMessages<P>>[K], ProtocolMessages<P>> {
 		const timeout = options?.timeout ?? 5000;
-		const messageTypes = messageType as string;
 
 		// Build payload matcher if provided
 		const payloadMatcher = this.buildPayloadMatcher(options?.matcher);
@@ -81,8 +80,8 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 			id: generateHookId(),
 			componentName: this.server.name,
 			phase: "test",
-			messageTypes,
-			matcher: payloadMatcher,
+			messageType,
+			payloadMatcher,
 			handlers: [],
 			persistent: false,
 			timeout,
@@ -103,8 +102,8 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 			id: generateHookId(),
 			componentName: this.server.name,
 			phase: "test",
-			messageTypes,
-			matcher: payloadMatcher,
+			messageType,
+			payloadMatcher,
 			handlers: [
 				{
 					type: "proxy",
@@ -125,7 +124,7 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 		this.testBuilder.registerStep({
 			type: "waitForMessage",
 			componentName: this.server.name,
-			messageType: messageTypes,
+			messageType,
 			timeout,
 			description: `Wait for ${String(messageType)} message`,
 			action: async () => {
@@ -139,7 +138,7 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 
 				// Wait for message with timeout
 				const timeoutPromise = new Promise<never>((_, reject) => {
-					setTimeout(() => reject(new Error(`Timeout waiting for message: ${messageTypes}`)), timeout);
+					setTimeout(() => reject(new Error(`Timeout waiting for message: ${messageType}`)), timeout);
 				});
 				const msg = await Promise.race([messagePromise, timeoutPromise]);
 
@@ -159,16 +158,13 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 	 * In mock mode: Handle incoming messages from clients
 	 * In proxy mode: Handle messages from client (downstream direction)
 	 *
-	 * @param messageType - Message type(s) to match (from clientMessages)
+	 * @param messageType - Message type to match (from clientMessages)
 	 * @param matcher - Optional payload matcher (traceId string or filter function)
 	 */
-	onMessage<K extends keyof ClientMessages<ProtocolMessages<P>>>(
-		messageType: K | K[],
+	onMessage<K extends keyof ClientMessages<ProtocolMessages<P>> & string>(
+		messageType: K,
 		matcher?: string | ((payload: ClientMessages<ProtocolMessages<P>>[K]) => boolean)
 	): AsyncServerHookBuilder<ClientMessages<ProtocolMessages<P>>[K], ProtocolMessages<P>> {
-		// Convert message types to string or string[]
-		const messageTypes = Array.isArray(messageType) ? (messageType as string[]) : (messageType as string);
-
 		// Build payload matcher if provided
 		const payloadMatcher = this.buildPayloadMatcher(matcher);
 
@@ -176,8 +172,8 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 			id: generateHookId(),
 			componentName: this.server.name,
 			phase: "test",
-			messageTypes,
-			matcher: payloadMatcher,
+			messageType,
+			payloadMatcher,
 			handlers: [],
 			persistent: false,
 			metadata: this.server.isProxy ? { direction: "downstream" } : undefined,
@@ -193,18 +189,16 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 	 * Register event handler for events from target server (proxy mode only)
 	 * Handles messages in upstream direction: target → proxy → client
 	 *
-	 * @param messageType - Message type(s) to match (from serverMessages)
+	 * @param messageType - Message type to match (from serverMessages)
 	 * @param matcher - Optional payload matcher (traceId string or filter function)
 	 */
-	onEvent<K extends keyof ServerMessages<ProtocolMessages<P>>>(
-		messageType: K | K[],
+	onEvent<K extends keyof ServerMessages<ProtocolMessages<P>> & string>(
+		messageType: K,
 		matcher?: string | ((payload: ServerMessages<ProtocolMessages<P>>[K]) => boolean)
 	): AsyncServerHookBuilder<ServerMessages<ProtocolMessages<P>>[K], ProtocolMessages<P>> {
 		if (!this.server.isProxy) {
 			throw new Error(`onEvent() is only available in proxy mode. Server "${this.server.name}" is in mock mode.`);
 		}
-
-		const messageTypes = Array.isArray(messageType) ? (messageType as string[]) : (messageType as string);
 
 		const payloadMatcher = this.buildPayloadMatcher(matcher);
 
@@ -212,8 +206,8 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 			id: generateHookId(),
 			componentName: this.server.name,
 			phase: "test",
-			messageTypes,
-			matcher: payloadMatcher,
+			messageType,
+			payloadMatcher,
 			handlers: [],
 			persistent: false,
 			metadata: {
@@ -230,7 +224,7 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 	/**
 	 * Build payload matcher from string (traceId) or function
 	 */
-	private buildPayloadMatcher<T>(matcher?: string | ((payload: T) => boolean)): Hook["matcher"] {
+	private buildPayloadMatcher<T>(matcher?: string | ((payload: T) => boolean)): Hook["payloadMatcher"] {
 		if (!matcher) return undefined;
 
 		if (typeof matcher === "string") {

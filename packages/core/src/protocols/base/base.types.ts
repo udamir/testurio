@@ -201,6 +201,23 @@ export interface IBaseProtocol<M = unknown, TServerAdapter = unknown, TClientAda
 }
 
 // =============================================================================
+// Request Matching
+// =============================================================================
+
+/**
+ * Message type matcher function
+ * @param messageType - Operation identifier (method name, message type, etc.)
+ * @param payload - Protocol-specific request data
+ * @returns true if matched, false otherwise
+ *
+ * Uses method signature pattern to achieve bivariance, allowing
+ * MessageMatcher<HttpRequest> to be assignable to MessageMatcher<unknown>.
+ */
+export type MessageMatcher<T = unknown> = {
+	messageMatcher(messageType: string, payload: T): boolean;
+}["messageMatcher"];
+
+// =============================================================================
 // Sync Protocol (HTTP, gRPC Unary)
 // =============================================================================
 
@@ -218,6 +235,17 @@ export interface ISyncProtocol<M extends SyncOperations = SyncOperations, TReq =
 
 	/** Phantom type for response type inference */
 	readonly $response: TRes;
+
+	/**
+	 * Create request matcher from options.
+	 * If returns function, it will be used for matching.
+	 * If returns string or not implemented, exact string matching is used.
+	 *
+	 * @param messageType - Operation identifier
+	 * @param payload - Protocol-specific request data
+	 * @returns Matcher function or string for exact match
+	 */
+	createMessageTypeMatcher?(messageType: string, payload: TReq): MessageMatcher<TReq> | string;
 }
 
 /**
