@@ -8,6 +8,7 @@
 import type { ITestCaseBuilder } from "../../execution";
 import type { IBaseProtocol, Message, MessageMatcher } from "../../protocols/base";
 import type { Hook, PayloadMatcher } from "./base.types";
+import { DropMessageError } from "./base.types";
 
 /**
  * Component state
@@ -97,8 +98,16 @@ export abstract class BaseComponent<P extends IBaseProtocol = IBaseProtocol, TSt
 				current = await handler.execute(current);
 			}
 			return current;
-		} catch {
-			return null;
+		} catch (error) {
+			// DropMessageError is expected - return null to indicate message was dropped
+			if (error instanceof DropMessageError) {
+				return null;
+			}
+			// Track and re-throw other errors (e.g., assertion failures)
+			if (error instanceof Error) {
+				this.trackUnhandledError(error);
+			}
+			throw error;
 		}
 	}
 

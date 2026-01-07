@@ -182,7 +182,7 @@ describe("Error Scenarios Integration Tests", () => {
 	// 6.4 Handler Errors
 	// ============================================================
 	describe("6.4 Handler Errors", () => {
-		it("should handle errors thrown in mock handlers", async () => {
+		it("should fail test when errors thrown in mock handlers", async () => {
 			const backendServer = createHttpMock("backend", 6320);
 			const apiClient = createHttpClient("api", 6320);
 
@@ -190,8 +190,6 @@ describe("Error Scenarios Integration Tests", () => {
 				name: "Handler Error Test",
 				components: [backendServer, apiClient],
 			});
-
-			let responseData: ErrorHttpService["getError"]["response"] | undefined;
 
 			const tc = testCase("Request with handler error", (test) => {
 				const api = test.use(apiClient);
@@ -202,16 +200,15 @@ describe("Error Scenarios Integration Tests", () => {
 					throw new Error("Simulated handler error");
 				});
 				api.onResponse("getError").assert((res) => {
-					responseData = res;
-					return true;
+					// The response will be a 500 error with the error message
+					return res.code === 500;
 				});
 			});
 
+			// Test should fail because handler threw an error (detected as unhandled error)
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
-			expect(responseData?.body).toMatchObject({
-				error: expect.any(String),
-			});
+			expect(result.passed).toBe(false);
+			expect(result.testCases[0].error).toContain("Simulated handler error");
 		});
 	});
 

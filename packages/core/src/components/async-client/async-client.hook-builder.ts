@@ -36,14 +36,27 @@ export class AsyncClientHookBuilder<TPayload, _M = unknown> {
 
 	/**
 	 * Add assertion handler
+	 *
+	 * @param descriptionOrHandler - Description string or handler function
+	 * @param handler - Handler function (if first param is description)
 	 */
-	assert(handler: (payload: TPayload) => boolean | Promise<boolean>): this {
+	assert(
+		descriptionOrHandler: string | ((payload: TPayload) => boolean | Promise<boolean>),
+		handler?: (payload: TPayload) => boolean | Promise<boolean>
+	): this {
+		const description = typeof descriptionOrHandler === "string" ? descriptionOrHandler : undefined;
+		const predicate = typeof descriptionOrHandler === "function" ? descriptionOrHandler : handler!;
+
 		this.addHandler({
 			type: "assert",
+			metadata: description ? { description } : undefined,
 			execute: async (msg: Message<TPayload>) => {
-				const result = await Promise.resolve(handler(msg.payload));
+				const result = await Promise.resolve(predicate(msg.payload));
 				if (!result) {
-					throw new Error(`Assertion failed for message type: ${msg.type}`);
+					const errorMsg = description
+						? `Assertion failed: ${description}`
+						: `Assertion failed for message type: ${msg.type}`;
+					throw new Error(errorMsg);
 				}
 				return msg;
 			},
@@ -53,13 +66,23 @@ export class AsyncClientHookBuilder<TPayload, _M = unknown> {
 
 	/**
 	 * Add proxy handler (forward message, optionally transform)
+	 *
+	 * @param descriptionOrHandler - Description string or handler function
+	 * @param handler - Handler function (if first param is description)
 	 */
-	proxy(handler?: (payload: TPayload) => TPayload | Promise<TPayload>): this {
+	proxy(
+		descriptionOrHandler?: string | ((payload: TPayload) => TPayload | Promise<TPayload>),
+		handler?: (payload: TPayload) => TPayload | Promise<TPayload>
+	): this {
+		const description = typeof descriptionOrHandler === "string" ? descriptionOrHandler : undefined;
+		const transformer = typeof descriptionOrHandler === "function" ? descriptionOrHandler : handler;
+
 		this.addHandler({
 			type: "proxy",
+			metadata: description ? { description } : undefined,
 			execute: async (msg: Message<TPayload>) => {
-				if (handler) {
-					const transformedPayload = await Promise.resolve(handler(msg.payload));
+				if (transformer) {
+					const transformedPayload = await Promise.resolve(transformer(msg.payload));
 					return {
 						...msg,
 						payload: transformedPayload,
@@ -74,12 +97,19 @@ export class AsyncClientHookBuilder<TPayload, _M = unknown> {
 
 	/**
 	 * Add delay handler
+	 *
+	 * @param descriptionOrMs - Description string or delay in ms
+	 * @param ms - Delay in ms (if first param is description)
 	 */
-	delay(ms: number | (() => number)): this {
+	delay(descriptionOrMs: string | number | (() => number), ms?: number | (() => number)): this {
+		const description = typeof descriptionOrMs === "string" ? descriptionOrMs : undefined;
+		const delayValue = typeof descriptionOrMs === "string" ? ms! : descriptionOrMs;
+
 		this.addHandler({
 			type: "delay",
+			metadata: description ? { description } : undefined,
 			execute: async (msg: Message<TPayload>) => {
-				const delayMs = typeof ms === "function" ? ms() : ms;
+				const delayMs = typeof delayValue === "function" ? delayValue() : delayValue;
 				await new Promise((resolve) => setTimeout(resolve, delayMs));
 				return msg;
 			},

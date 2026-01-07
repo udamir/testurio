@@ -12,8 +12,16 @@ import type { RequestTracker } from "./sync-client.step-builder";
  *
  * Builder for handling responses in a declarative way.
  */
+/**
+ * Assertion with optional description
+ */
+interface Assertion<T> {
+	fn: (res: T) => boolean | undefined;
+	description?: string;
+}
+
 export class SyncClientHookBuilder<TResponse = unknown> {
-	private assertions: Array<(res: TResponse) => boolean | undefined> = [];
+	private assertions: Array<Assertion<TResponse>> = [];
 
 	constructor(
 		private componentName: string,
@@ -29,9 +37,18 @@ export class SyncClientHookBuilder<TResponse = unknown> {
 	/**
 	 * Assert on response - can also capture data in callback
 	 * Return true/false for assertion, or undefined to just capture data
+	 *
+	 * @param descriptionOrPredicate - Description string or predicate function
+	 * @param predicate - Predicate function (if first param is description)
 	 */
-	assert(predicate: (res: TResponse) => boolean | undefined): this {
-		this.assertions.push(predicate);
+	assert(
+		descriptionOrPredicate: string | ((res: TResponse) => boolean | undefined),
+		predicate?: (res: TResponse) => boolean | undefined
+	): this {
+		const description = typeof descriptionOrPredicate === "string" ? descriptionOrPredicate : undefined;
+		const fn = typeof descriptionOrPredicate === "function" ? descriptionOrPredicate : predicate!;
+
+		this.assertions.push({ fn, description });
 		return this;
 	}
 
@@ -49,9 +66,12 @@ export class SyncClientHookBuilder<TResponse = unknown> {
 
 				// Run all assertions
 				for (const assertion of this.assertions) {
-					const result = assertion(response);
+					const result = assertion.fn(response);
 					if (result === false) {
-						throw new Error(`Response assertion failed for ${this.messageType}`);
+						const errorMsg = assertion.description
+							? `Assertion failed: ${assertion.description}`
+							: `Response assertion failed for ${this.messageType}`;
+						throw new Error(errorMsg);
 					}
 				}
 			},

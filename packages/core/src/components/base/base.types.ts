@@ -94,8 +94,14 @@ export class DropMessageError extends Error {
  */
 export interface BaseHookBuilder<TPayload> {
 	readonly hookId: string;
+	/** Assert without description */
 	assert(handler: (payload: TPayload) => boolean | Promise<boolean>): this;
+	/** Assert with description for better error messages */
+	assert(description: string, handler: (payload: TPayload) => boolean | Promise<boolean>): this;
+	/** Delay without description */
 	delay(ms: number | (() => number)): this;
+	/** Delay with description */
+	delay(description: string, ms: number | (() => number)): this;
 	drop(): this;
 }
 
@@ -105,8 +111,14 @@ export interface BaseHookBuilder<TPayload> {
  * @template TResponse - Response type (what mockResponse should return)
  */
 export interface SyncHookBuilder<TPayload = unknown, TResponse = unknown> extends BaseHookBuilder<TPayload> {
+	/** Proxy without description */
 	proxy(handler?: (payload: TPayload) => TPayload | Promise<TPayload>): this;
+	/** Proxy with description */
+	proxy(description: string, handler?: (payload: TPayload) => TPayload | Promise<TPayload>): this;
+	/** Mock response without description */
 	mockResponse(handler: (payload: TPayload) => TResponse | Promise<TResponse>): this;
+	/** Mock response with description */
+	mockResponse(description: string, handler: (payload: TPayload) => TResponse | Promise<TResponse>): this;
 }
 
 // =============================================================================

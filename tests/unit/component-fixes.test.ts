@@ -137,7 +137,7 @@ describe("Component Fixes", () => {
 	});
 
 	describe("4.4 Unhandled Error Tracking", () => {
-		it("should return null when hook handler fails (message dropped)", async () => {
+		it("should throw and track error when hook handler fails", async () => {
 			const component = new TestComponent("test-error", mockProtocol);
 
 			component.registerHook({
@@ -161,9 +161,11 @@ describe("Component Fixes", () => {
 				payload: {},
 			};
 
-			// Hook handler errors result in message being dropped (null)
-			const result = await component.executeMatchingHook(message);
-			expect(result).toBeNull();
+			// Hook handler errors are thrown and tracked (not silently dropped)
+			await expect(component.executeMatchingHook(message)).rejects.toThrow("Hook execution failed");
+			// Error should be tracked for detection by test scenario
+			expect(component.getUnhandledErrors()).toHaveLength(1);
+			expect(component.getUnhandledErrors()[0].message).toBe("Hook execution failed");
 		});
 
 		it("should return null when hook drops message", async () => {

@@ -118,18 +118,28 @@ export class HttpServerAdapter implements ISyncServerAdapter {
 			params,
 		};
 
-		const response = await this.requestHandler?.(messageType, payload);
-		if (response) {
-			this.respond(traceId, response);
-			return;
-		}
+		try {
+			const response = await this.requestHandler?.(messageType, payload);
+			if (response) {
+				this.respond(traceId, response);
+				return;
+			}
 
-		// No handler processed the request - send 404
-		this.respond(traceId, {
-			code: 404,
-			headers: {},
-			body: { error: "Not Found" },
-		});
+			// No handler processed the request - send 404
+			this.respond(traceId, {
+				code: 404,
+				headers: {},
+				body: { error: "Not Found" },
+			});
+		} catch (error) {
+			// Handler threw an error (e.g., assertion failed) - return 500 response
+			// The error is already tracked by the component
+			this.respond(traceId, {
+				code: 500,
+				headers: {},
+				body: { error: error instanceof Error ? error.message : "Internal Server Error" },
+			});
+		}
 	}
 
 	private readRequestBody(req: http.IncomingMessage): Promise<unknown> {

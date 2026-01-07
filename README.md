@@ -368,23 +368,37 @@ const clientAdapter = await wsProtocol.createClient({ targetAddress });
 
 ### Hook Methods
 
+All hook methods accept an optional description parameter for better error messages and debugging.
+
 #### Sync Protocols (HTTP, gRPC Unary)
 
 ```typescript
 backend.onRequest('messageType', options?)
-  .mockResponse((req) => ({ status, headers, body }))  // Return response
-  .delay(ms)                                           // Add latency
-  .drop();                                             // Drop request
+  .assert('request should have valid body', (req) => req.body !== null)  // With description
+  .mockResponse('return user list', (req) => ({ code: 200, body: [] }))  // With description
+  .delay('simulate network latency', 100)                                 // With description
+  .proxy('add tracing header', (req) => ({ ...req, headers: { ...req.headers, 'X-Trace': '123' } }))
+  .drop();
+
+// Client assertions with descriptions
+client.onResponse('getUsers')
+  .assert('status should be 200', (res) => res.code === 200)
+  .assert('body should be array', (res) => Array.isArray(res.body));
 ```
 
 #### Async Protocols (WebSocket, TCP, gRPC Stream)
 
 ```typescript
 backend.onMessage('MessageType')
-  .mockEvent('ResponseType', (payload) => response)   // Send response event
-  .proxy((payload) => transformedPayload)             // Forward/transform
-  .delay(ms)                                          // Add latency
-  .drop();                                            // Drop message
+  .assert('payload should have id', (payload) => payload.id !== undefined)
+  .mockEvent('respond with confirmation', 'ResponseType', (payload) => response)
+  .proxy('transform payload', (payload) => transformedPayload)
+  .delay('simulate processing', 100)
+  .drop();
+
+// Client assertions with descriptions
+asyncClient.onEvent('pong')
+  .assert('seq should match', (payload) => payload.seq === 1);
 ```
 
 ## API Reference
@@ -428,27 +442,41 @@ const tc = testCase('Test name', (test) => {
 ```typescript
 // Sync (HTTP, gRPC Unary)
 client.request('messageType', options, traceId?);
-client.onResponse('messageType', traceId?).assert((res) => boolean);
+client.onResponse('messageType', traceId?)
+  .assert((res) => boolean)                         // Without description
+  .assert('description', (res) => boolean);         // With description
 
 // Async (WebSocket, TCP)
 asyncClient.sendMessage('MessageType', payload, traceId?);
-asyncClient.onEvent('ResponseType', matcher?).assert((payload) => boolean);
+asyncClient.onEvent('ResponseType', matcher?)
+  .assert((payload) => boolean)                     // Without description
+  .assert('description', (payload) => boolean);    // With description
 asyncClient.waitMessage('ResponseType', { timeout?, matcher? });
 ```
 
 ### Mock API
 
 ```typescript
-// Sync
+// Sync - all methods accept optional description as first parameter
 mock.onRequest('messageType', options?)
-  .mockResponse((req) => response)
-  .delay(ms)
+  .assert('description', (req) => boolean)         // Assert with description
+  .mockResponse((req) => response)                 // Without description
+  .mockResponse('description', (req) => response)  // With description
+  .delay(ms)                                       // Without description
+  .delay('description', ms)                        // With description
+  .proxy((req) => transformedReq)                  // Without description
+  .proxy('description', (req) => transformedReq)   // With description
   .drop();
 
-// Async
+// Async - all methods accept optional description as first parameter
 asyncMock.onMessage('MessageType', matcher?)
-  .mockEvent('ResponseType', (payload) => response)
-  .delay(ms)
+  .assert('description', (payload) => boolean)                    // Assert with description
+  .mockEvent('ResponseType', (payload) => response)               // Without description
+  .mockEvent('description', 'ResponseType', (payload) => response) // With description
+  .delay(ms)                                                      // Without description
+  .delay('description', ms)                                       // With description
+  .proxy((payload) => transformed)                                // Without description
+  .proxy('description', (payload) => transformed)                 // With description
   .drop();
 ```
 

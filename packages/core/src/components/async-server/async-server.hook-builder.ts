@@ -27,17 +27,34 @@ export class AsyncServerHookBuilder<TPayload, M extends AsyncMessages = AsyncMes
 	 * messages with their own type.
 	 *
 	 * @template K - Response message type key (from serverMessages)
-	 * @param responseType - The message type for the response event
-	 * @param handler - Function that generates the response payload
+	 * @param descriptionOrResponseType - Description string or response type
+	 * @param responseTypeOrHandler - Response type (if first param is description) or handler
+	 * @param handler - Handler function (if first param is description)
 	 */
 	mockEvent<K extends keyof ServerMessages<M> & string>(
-		responseType: K,
-		handler: (payload: TPayload) => ServerMessages<M>[K] | Promise<ServerMessages<M>[K]>
+		descriptionOrResponseType: string | K,
+		responseTypeOrHandler:
+			| K
+			| ((payload: TPayload) => ServerMessages<M>[K] | Promise<ServerMessages<M>[K]>),
+		handler?: (payload: TPayload) => ServerMessages<M>[K] | Promise<ServerMessages<M>[K]>
 	): this {
+		// Determine if first param is description or response type
+		// If responseTypeOrHandler is a function, then first param is the response type
+		const isFirstParamDescription = typeof responseTypeOrHandler !== "function";
+
+		const description = isFirstParamDescription ? (descriptionOrResponseType as string) : undefined;
+		const responseType = isFirstParamDescription
+			? (responseTypeOrHandler as K)
+			: (descriptionOrResponseType as K);
+		const responseHandler = isFirstParamDescription
+			? handler!
+			: (responseTypeOrHandler as (payload: TPayload) => ServerMessages<M>[K] | Promise<ServerMessages<M>[K]>);
+
 		this.addHandler({
 			type: "mock",
+			metadata: description ? { description } : undefined,
 			execute: async (msg: Message) => {
-				const responsePayload = await Promise.resolve(handler(msg.payload as TPayload));
+				const responsePayload = await Promise.resolve(responseHandler(msg.payload as TPayload));
 				// Create a new response message (separate from the original)
 				// The protocol will send this back to the client
 				return {

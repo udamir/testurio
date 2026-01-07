@@ -378,6 +378,11 @@ export class TestScenario {
 		const builder = this.createBuilder();
 		let testCaseComponents: Component[] = [];
 
+		// Clear unhandled errors before test case
+		for (const component of this.components.values()) {
+			component.clearUnhandledErrors();
+		}
+
 		const result = await testCase.execute(builder, {
 			failFast: true,
 			onBeforeExecute: async () => {
@@ -392,22 +397,46 @@ export class TestScenario {
 			},
 		});
 
+		// Check for unhandled errors from components (e.g., server-side assertion failures)
+		const unhandledErrors: Error[] = [];
+		for (const component of this.components.values()) {
+			unhandledErrors.push(...component.getUnhandledErrors());
+		}
+
+		// If test passed but there are unhandled errors, mark as failed
+		let finalResult = result;
+		if (result.passed && unhandledErrors.length > 0) {
+			const firstError = unhandledErrors[0];
+			finalResult = {
+				...result,
+				passed: false,
+				error: firstError.message,
+				stackTrace: firstError.stack,
+				failedSteps: result.failedSteps + 1,
+			};
+		}
+
 		// Cleanup test-case-scoped components
 		if (testCaseComponents.length > 0) {
 			await this.cleanupTestCaseComponents(testCaseComponents);
 		}
 
+		// Clear test case hooks from all components
+		for (const component of this.components.values()) {
+			component.clearTestCaseHooks();
+		}
+
 		// Record interactions if enabled
-		if (this.config.recording && result.interactions) {
-			this.interactions.push(...result.interactions);
+		if (this.config.recording && finalResult.interactions) {
+			this.interactions.push(...finalResult.interactions);
 		}
 
 		// Notify reporters
 		for (const reporter of this.reporters) {
-			reporter.onTestCaseComplete?.(result);
+			reporter.onTestCaseComplete?.(finalResult);
 		}
 
-		return result;
+		return finalResult;
 	}
 
 	/**
