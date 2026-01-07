@@ -9,7 +9,7 @@
 import type { TestPhase } from "../../execution";
 import type { ISyncProtocol, ProtocolRequestOptions, ProtocolService } from "../../protocols/base";
 import type { Hook } from "../base";
-import { generateHookId } from "../base";
+import { generateHookId } from "../../utils";
 import type { Server } from "./sync-server.component";
 import { SyncHookBuilderImpl } from "./sync-server.hook-builder";
 import type { ExtractServerRequest, ExtractServerResponse } from "./sync-server.types";

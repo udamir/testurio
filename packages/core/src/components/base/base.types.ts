@@ -4,7 +4,7 @@
  * Types for hook system, handlers, and builders.
  */
 
-import type { TestPhase } from "../../execution/execution.types";
+import type { TestPhase } from "../../execution";
 import type { Message, MessageMatcher } from "../../protocols/base";
 
 // =============================================================================

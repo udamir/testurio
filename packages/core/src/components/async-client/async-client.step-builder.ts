@@ -6,7 +6,7 @@
 
 import type { ITestCaseBuilder } from "../../execution/execution.types";
 import type { ClientMessages, IAsyncProtocol, Message, ProtocolMessages, ServerMessages } from "../../protocols/base";
-import { generateHookId } from "../base";
+import { generateHookId } from "../../utils";
 import type { Hook } from "../base/base.types";
 import type { AsyncClient } from "./async-client.component";
 import { AsyncClientHookBuilder } from "./async-client.hook-builder";

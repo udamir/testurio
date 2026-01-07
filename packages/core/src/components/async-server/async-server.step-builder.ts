@@ -9,9 +9,9 @@
 import type { ITestCaseBuilder } from "../../execution/execution.types";
 import type { ClientMessages, IAsyncProtocol, Message, ProtocolMessages, ServerMessages } from "../../protocols/base";
 import type { Hook } from "../base";
-import { generateHookId } from "../base";
 import type { AsyncServer } from "./async-server.component";
 import { AsyncServerHookBuilder } from "./async-server.hook-builder";
+import { generateHookId } from "../../utils";
 
 /**
  * Async Server Step Builder

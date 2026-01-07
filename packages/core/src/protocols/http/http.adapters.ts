@@ -6,7 +6,7 @@
 
 import * as http from "node:http";
 import type { ISyncClientAdapter, ISyncServerAdapter } from "../base";
-import { generateId } from "../base";
+import { generateId } from "../../utils";
 import type { HttpRequest, HttpRequestOptions, HttpResponse } from "./http.types";
 
 interface RoutePattern {
@@ -101,11 +101,19 @@ export class HttpServerAdapter implements ISyncServerAdapter {
 		// Extract params at parsing time
 		const params = this.extractParams(method, path);
 
+		// Convert Node.js IncomingHttpHeaders to flat string values
+		// (HTTP headers can have multiple values as arrays, we take the first)
+		// TODO: support array headers?
+		const headers: Record<string, string | undefined> = {};
+		for (const [key, value] of Object.entries(req.headers)) {
+			headers[key] = Array.isArray(value) ? value[0] : value;
+		}
+
 		const payload: HttpRequest = {
 			method,
 			path,
 			query,
-			headers: req.headers,
+			headers,
 			body,
 			params,
 		};

@@ -52,3 +52,5 @@ export * from "./protocols/base";
 export * from "./protocols/http";
 // Recording (Interaction, InteractionRecorder, etc.)
 export * from "./recording";
+
+export * from "./utils";

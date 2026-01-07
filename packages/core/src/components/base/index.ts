@@ -9,4 +9,3 @@
 
 export * from "./base.component";
 export * from "./base.types";
-export * from "./utils";
