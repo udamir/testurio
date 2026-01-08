@@ -354,6 +354,39 @@ Protocols are stateless adapter factories. Components own the adapters and manag
 | `PostgresAdapter`  | `@testurio/adapter-pg`     | `Pool`      | PostgreSQL database          |
 | `MongoAdapter`     | `@testurio/adapter-mongo`  | `Db`        | MongoDB database             |
 
+### Custom Codecs
+
+WebSocket and TCP protocols support custom message encoding/decoding via codecs. By default, JSON is used.
+
+```typescript
+import { JsonCodec } from 'testurio';
+import { WebSocketProtocol } from '@testurio/protocol-ws';
+import { TcpProtocol } from '@testurio/protocol-tcp';
+
+// JSON codec with custom date handling
+const jsonWithDates = new JsonCodec({
+  reviver: (key, value) => {
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
+      return new Date(value);
+    }
+    return value;
+  },
+});
+
+// Use with WebSocket
+const wsProtocol = new WebSocketProtocol({
+  codec: jsonWithDates,
+});
+
+// Use with TCP (binary codecs require length-prefixed framing)
+const tcpProtocol = new TcpProtocol({
+  codec: myBinaryCodec,
+  lengthFieldLength: 4,  // Required for binary codecs
+});
+```
+
+See [examples/custom-codecs](./examples/custom-codecs/) for MessagePack and Protobuf codec examples.
+
 ```typescript
 // Sync protocols: createServer() / createClient() return adapters
 const httpProtocol = new HttpProtocol<ServiceDef>();

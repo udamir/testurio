@@ -93,7 +93,7 @@ export class WebSocketProtocol<S extends WsServiceDefinition = WsServiceDefiniti
 	 * Component owns the returned adapter
 	 */
 	async createServer(config: ServerProtocolConfig): Promise<IAsyncServerAdapter> {
-		return WsServerAdapter.create(config.listenAddress.host, config.listenAddress.port);
+		return WsServerAdapter.create(config.listenAddress.host, config.listenAddress.port, this._options.codec);
 	}
 
 	/**
@@ -109,7 +109,8 @@ export class WebSocketProtocol<S extends WsServiceDefinition = WsServiceDefiniti
 			config.targetAddress.port,
 			config.targetAddress.path,
 			config.tls?.enabled,
-			connectionTimeout
+			connectionTimeout,
+			this._options.codec
 		);
 	}
 }

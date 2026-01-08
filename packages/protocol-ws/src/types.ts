@@ -4,7 +4,7 @@
  * Type definitions for WebSocket protocol.
  */
 
-import type { Message } from "testurio";
+import type { Codec, Message } from "testurio";
 
 // =============================================================================
 // WebSocket Service Definition
@@ -47,6 +47,18 @@ export interface WsProtocolOptions {
 	timeout?: number;
 	/** Subprotocols to use */
 	protocols?: string | string[];
+	/**
+	 * Message codec for encoding/decoding.
+	 * Defaults to JsonCodec if not specified.
+	 *
+	 * @example MessagePack codec
+	 * ```typescript
+	 * const protocol = new WebSocketProtocol({
+	 *   codec: new MessagePackCodec(),
+	 * });
+	 * ```
+	 */
+	codec?: Codec<string | Uint8Array>;
 }
 
 // =============================================================================

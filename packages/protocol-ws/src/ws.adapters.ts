@@ -4,7 +4,8 @@
  * Server and client adapters for WebSocket protocol.
  */
 
-import type { IAsyncClientAdapter, IAsyncServerAdapter, Message } from "testurio";
+import type { Codec, IAsyncClientAdapter, IAsyncServerAdapter, Message } from "testurio";
+import { CodecError, defaultJsonCodec } from "testurio";
 import { WebSocket, WebSocketServer } from "ws";
 
 /**
@@ -18,9 +19,11 @@ export class WsServerAdapter implements IAsyncServerAdapter {
 	private connectionCounter = 0;
 	private serverErrorHandler?: (error: Error) => void;
 	private lastError?: Error;
+	private codec: Codec<string | Uint8Array>;
 
-	constructor(server: WebSocketServer) {
+	constructor(server: WebSocketServer, codec?: Codec<string | Uint8Array>) {
 		this.server = server;
+		this.codec = codec ?? defaultJsonCodec;
 	}
 
 	/**
@@ -32,16 +35,19 @@ export class WsServerAdapter implements IAsyncServerAdapter {
 
 	/**
 	 * Create and start WebSocket server adapter
+	 * @param host - Host to listen on
+	 * @param port - Port to listen on
+	 * @param codec - Optional codec for message encoding/decoding
 	 */
-	static async create(host: string, port: number): Promise<WsServerAdapter> {
+	static async create(host: string, port: number, codec?: Codec<string | Uint8Array>): Promise<WsServerAdapter> {
 		return new Promise((resolve, reject) => {
 			const server = new WebSocketServer({ host, port });
-			const adapter = new WsServerAdapter(server);
+			const adapter = new WsServerAdapter(server, codec);
 			let started = false;
 
 			server.on("connection", (socket) => {
 				const connId = `ws-${++adapter.connectionCounter}`;
-				const clientAdapter = new WsClientAdapter(socket, connId);
+				const clientAdapter = new WsClientAdapter(socket, connId, adapter.codec);
 				adapter.connections.set(connId, clientAdapter);
 
 				socket.on("close", () => {
@@ -114,28 +120,20 @@ export class WsClientAdapter implements IAsyncClientAdapter {
 	readonly id: string;
 	private socket: WebSocket;
 	private lastError?: Error;
+	private codec: Codec<string | Uint8Array>;
 
 	private messageHandler?: (message: Message) => void;
 	private closeHandler?: () => void;
 	private errorHandler?: (error: Error) => void;
 
-	constructor(socket: WebSocket, id: string) {
+	constructor(socket: WebSocket, id: string, codec?: Codec<string | Uint8Array>) {
 		this.socket = socket;
 		this.id = id;
+		this.codec = codec ?? defaultJsonCodec;
 
 		// Setup socket event handlers
 		socket.on("message", (data) => {
-			try {
-				const message = JSON.parse(data.toString()) as Message;
-				this.messageHandler?.(message);
-			} catch (error) {
-				// Failed to parse message - create a parsing error
-				const parseError = new Error(
-					`Failed to parse WebSocket message: ${error instanceof Error ? error.message : String(error)}`
-				);
-				this.lastError = parseError;
-				this.errorHandler?.(parseError);
-			}
+			this.handleIncomingMessage(data);
 		});
 
 		socket.on("close", () => {
@@ -146,6 +144,40 @@ export class WsClientAdapter implements IAsyncClientAdapter {
 			this.lastError = err;
 			this.errorHandler?.(err);
 		});
+	}
+
+	/**
+	 * Handle incoming WebSocket message using codec
+	 */
+	private async handleIncomingMessage(data: Buffer | ArrayBuffer | Buffer[]): Promise<void> {
+		try {
+			// Convert data to the format expected by codec
+			let input: string | Uint8Array;
+			if (this.codec.wireFormat === "text") {
+				input = data.toString();
+			} else {
+				// Binary format
+				if (Buffer.isBuffer(data)) {
+					input = new Uint8Array(data);
+				} else if (data instanceof ArrayBuffer) {
+					input = new Uint8Array(data);
+				} else {
+					// Array of buffers - concatenate
+					input = new Uint8Array(Buffer.concat(data));
+				}
+			}
+
+			const message = await this.codec.decode(input);
+			this.messageHandler?.(message);
+		} catch (error) {
+			// Wrap non-CodecError in CodecError
+			const codecError =
+				error instanceof CodecError
+					? error
+					: CodecError.decodeError(this.codec.name, error instanceof Error ? error : new Error(String(error)));
+			this.lastError = codecError;
+			this.errorHandler?.(codecError);
+		}
 	}
 
 	/**
@@ -162,13 +194,15 @@ export class WsClientAdapter implements IAsyncClientAdapter {
 	 * @param path - Optional URL path
 	 * @param tls - Use secure WebSocket (wss)
 	 * @param connectionTimeout - Connection timeout in ms (default: 5000)
+	 * @param codec - Optional codec for message encoding/decoding
 	 */
 	static async create(
 		host: string,
 		port: number,
 		path?: string,
 		tls?: boolean,
-		connectionTimeout?: number
+		connectionTimeout?: number,
+		codec?: Codec<string | Uint8Array>
 	): Promise<WsClientAdapter> {
 		const protocol = tls ? "wss" : "ws";
 		const urlPath = path || "";
@@ -189,7 +223,7 @@ export class WsClientAdapter implements IAsyncClientAdapter {
 
 			socket.on("open", () => {
 				if (timeoutId) clearTimeout(timeoutId);
-				const adapter = new WsClientAdapter(socket, `client-${Date.now()}`);
+				const adapter = new WsClientAdapter(socket, `client-${Date.now()}`, codec);
 				resolve(adapter);
 			});
 
@@ -204,7 +238,17 @@ export class WsClientAdapter implements IAsyncClientAdapter {
 		if (this.socket.readyState !== WebSocket.OPEN) {
 			throw new Error("WebSocket is not open");
 		}
-		this.socket.send(JSON.stringify(message));
+
+		try {
+			const encoded = await this.codec.encode(message);
+			this.socket.send(encoded);
+		} catch (error) {
+			// Wrap non-CodecError in CodecError
+			if (error instanceof CodecError) {
+				throw error;
+			}
+			throw CodecError.encodeError(this.codec.name, error instanceof Error ? error : new Error(String(error)), message);
+		}
 	}
 
 	async close(): Promise<void> {

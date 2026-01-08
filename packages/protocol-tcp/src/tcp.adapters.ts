@@ -4,7 +4,8 @@
  * Server and client adapters for TCP protocol.
  */
 
-import type { IAsyncClientAdapter, IAsyncServerAdapter, Message } from "testurio";
+import type { Codec, IAsyncClientAdapter, IAsyncServerAdapter, Message } from "testurio";
+import { CodecError, defaultJsonCodec } from "testurio";
 import { TcpClient } from "./tcp.client";
 import { TcpServer } from "./tcp.server";
 import type { ISocket, TcpProtocolOptions } from "./types";
@@ -122,6 +123,7 @@ export class TcpClientAdapter implements IAsyncClientAdapter {
 	private options: TcpProtocolOptions;
 	private _connected: boolean;
 	private lastError?: Error;
+	private codec: Codec<string | Uint8Array>;
 
 	private messageHandler?: (message: Message) => void;
 	private closeHandler?: () => void;
@@ -129,6 +131,7 @@ export class TcpClientAdapter implements IAsyncClientAdapter {
 
 	constructor(socketOrId: ISocket | string, options: TcpProtocolOptions) {
 		this.options = options;
+		this.codec = options.codec ?? defaultJsonCodec;
 		if (typeof socketOrId === "string") {
 			this.id = socketOrId;
 			this._connected = false;
@@ -189,23 +192,49 @@ export class TcpClientAdapter implements IAsyncClientAdapter {
 			throw new Error("Socket is not connected");
 		}
 
-		const json = JSON.stringify(message);
-		const delimiter = this.options.delimiter ?? "\n";
+		try {
+			const encoded = await this.codec.encode(message);
+			const delimiter = this.options.delimiter ?? "\n";
 
-		if (this.options.lengthFieldLength) {
-			const data = new TextEncoder().encode(json);
-			if (this.socket) {
-				await this.socket.send(data);
-			} else if (this.tcpClient) {
-				await this.tcpClient.send(data);
+			// Convert encoded data to Uint8Array for sending
+			let data: Uint8Array;
+			if (typeof encoded === "string") {
+				if (this.options.lengthFieldLength) {
+					data = new TextEncoder().encode(encoded);
+				} else {
+					data = new TextEncoder().encode(encoded + delimiter);
+				}
+			} else {
+				// Binary data - append delimiter as bytes if needed
+				if (this.options.lengthFieldLength) {
+					data = encoded;
+				} else {
+					const delimiterBytes = new TextEncoder().encode(delimiter);
+					const combined = new Uint8Array(encoded.length + delimiterBytes.length);
+					combined.set(encoded);
+					combined.set(delimiterBytes, encoded.length);
+					data = combined;
+				}
 			}
-		} else {
-			const data = new TextEncoder().encode(json + delimiter);
-			if (this.socket) {
-				await this.socket.write(data);
-			} else if (this.tcpClient) {
-				await this.tcpClient.write(data);
+
+			if (this.options.lengthFieldLength) {
+				if (this.socket) {
+					await this.socket.send(data);
+				} else if (this.tcpClient) {
+					await this.tcpClient.send(data);
+				}
+			} else {
+				if (this.socket) {
+					await this.socket.write(data);
+				} else if (this.tcpClient) {
+					await this.tcpClient.write(data);
+				}
 			}
+		} catch (error) {
+			if (error instanceof CodecError) {
+				throw error;
+			}
+			throw CodecError.encodeError(this.codec.name, error instanceof Error ? error : new Error(String(error)), message);
 		}
 	}
 
@@ -239,18 +268,29 @@ export class TcpClientAdapter implements IAsyncClientAdapter {
 
 	/** Internal: handle incoming message data */
 	_handleMessage(data: string | Uint8Array): void {
-		try {
-			const str = typeof data === "string" ? data : new TextDecoder().decode(data);
-			const message = JSON.parse(str) as Message;
-			this.messageHandler?.(message);
-		} catch (error) {
-			// Failed to parse message - create a parsing error
-			const parseError = new Error(
-				`Failed to parse TCP message: ${error instanceof Error ? error.message : String(error)}`
-			);
-			this.lastError = parseError;
-			this.errorHandler?.(parseError);
+		this._handleMessageAsync(data).catch((error) => {
+			const codecError =
+				error instanceof CodecError
+					? error
+					: CodecError.decodeError(this.codec.name, error instanceof Error ? error : new Error(String(error)));
+			this.lastError = codecError;
+			this.errorHandler?.(codecError);
+		});
+	}
+
+	/** Internal: async message handling */
+	private async _handleMessageAsync(data: string | Uint8Array): Promise<void> {
+		// Convert data to the format expected by codec
+		let input: string | Uint8Array;
+		if (this.codec.wireFormat === "text") {
+			input = typeof data === "string" ? data : new TextDecoder().decode(data);
+		} else {
+			// Binary format
+			input = typeof data === "string" ? new TextEncoder().encode(data) : data;
 		}
+
+		const message = await this.codec.decode(input);
+		this.messageHandler?.(message);
 	}
 
 	/** Internal: handle close event */

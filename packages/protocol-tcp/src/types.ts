@@ -4,7 +4,7 @@
  * Type definitions for TCP protocol.
  */
 
-import type { Message } from "testurio";
+import type { Codec, Message } from "testurio";
 
 // =============================================================================
 // TCP Service Definition
@@ -66,6 +66,11 @@ export interface TcpProtocolOptions {
 	serverName?: string;
 	/** Skip TLS certificate verification */
 	insecureSkipVerify?: boolean;
+	/**
+	 * Message codec for encoding/decoding.
+	 * Defaults to JsonCodec if not specified.
+	 */
+	codec?: Codec<string | Uint8Array>;
 }
 
 // =============================================================================
