@@ -4,8 +4,8 @@
  * Tests DataSource component integration with TestScenario and network components.
  */
 
-import { describe, it, expect } from "vitest";
-import { TestScenario, testCase, Client, Server, HttpProtocol, DataSource } from "testurio";
+import { Client, DataSource, HttpProtocol, Server, TestScenario, testCase } from "testurio";
+import { describe, expect, it } from "vitest";
 import { createFakeAdapter, createInMemoryClient, type InMemoryClient } from "../mocks/fakeAdapter";
 
 // Service definition for typed HTTP requests

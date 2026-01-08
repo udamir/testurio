@@ -15,8 +15,11 @@ import type { RequestTracker } from "./sync-client.step-builder";
 /**
  * Assertion with optional description
  */
+
+type Predicate<T> = (res: T) => boolean;
+
 interface Assertion<T> {
-	fn: (res: T) => boolean | undefined;
+	fn: Predicate<T>;
 	description?: string;
 }
 
@@ -41,12 +44,14 @@ export class SyncClientHookBuilder<TResponse = unknown> {
 	 * @param descriptionOrPredicate - Description string or predicate function
 	 * @param predicate - Predicate function (if first param is description)
 	 */
-	assert(
-		descriptionOrPredicate: string | ((res: TResponse) => boolean | undefined),
-		predicate?: (res: TResponse) => boolean | undefined
+	assert<T extends string | Predicate<TResponse>>(
+		descriptionOrPredicate: T,
+		predicate?: T extends string ? Predicate<TResponse> : never
 	): this {
-		const description = typeof descriptionOrPredicate === "string" ? descriptionOrPredicate : undefined;
-		const fn = typeof descriptionOrPredicate === "function" ? descriptionOrPredicate : predicate!;
+		const [description, fn] =
+			typeof descriptionOrPredicate === "string"
+				? [descriptionOrPredicate, predicate as Predicate<TResponse>]
+				: ["", descriptionOrPredicate];
 
 		this.assertions.push({ fn, description });
 		return this;

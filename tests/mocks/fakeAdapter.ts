@@ -5,11 +5,7 @@
  * without real database connections.
  */
 
-import type {
-	DataSourceAdapter,
-	DataSourceAdapterEvents,
-	Unsubscribe,
-} from "testurio";
+import type { DataSourceAdapter, DataSourceAdapterEvents, Unsubscribe } from "testurio";
 
 // =============================================================================
 // In-Memory Client
@@ -119,15 +115,9 @@ export function createFakeAdapter<TClient = InMemoryClient>(
 	const fakeClient = (client ?? createInMemoryClient()) as TClient;
 	const adapterConfig = config ?? {};
 	let connected = adapterConfig.initialConnected ?? false;
-	const eventHandlers = new Map<
-		keyof DataSourceAdapterEvents,
-		Set<(data: unknown) => void>
-	>();
+	const eventHandlers = new Map<keyof DataSourceAdapterEvents, Set<(data: unknown) => void>>();
 
-	const emit = <K extends keyof DataSourceAdapterEvents>(
-		event: K,
-		data: DataSourceAdapterEvents[K]
-	): void => {
+	const emit = <K extends keyof DataSourceAdapterEvents>(event: K, data: DataSourceAdapterEvents[K]): void => {
 		const handlers = eventHandlers.get(event);
 		if (handlers) {
 			for (const handler of handlers) {
@@ -142,15 +132,11 @@ export function createFakeAdapter<TClient = InMemoryClient>(
 
 		async init(): Promise<void> {
 			if (adapterConfig.operationDelay) {
-				await new Promise((resolve) =>
-					setTimeout(resolve, adapterConfig.operationDelay)
-				);
+				await new Promise((resolve) => setTimeout(resolve, adapterConfig.operationDelay));
 			}
 
 			if (adapterConfig.failOnInit) {
-				const error = new Error(
-					"FakeAdapter: init failed (configured to fail)"
-				);
+				const error = new Error("FakeAdapter: init failed (configured to fail)");
 				emit("error", error);
 				throw error;
 			}
@@ -162,15 +148,11 @@ export function createFakeAdapter<TClient = InMemoryClient>(
 
 		async dispose(): Promise<void> {
 			if (adapterConfig.operationDelay) {
-				await new Promise((resolve) =>
-					setTimeout(resolve, adapterConfig.operationDelay)
-				);
+				await new Promise((resolve) => setTimeout(resolve, adapterConfig.operationDelay));
 			}
 
 			if (adapterConfig.failOnDispose) {
-				const error = new Error(
-					"FakeAdapter: dispose failed (configured to fail)"
-				);
+				const error = new Error("FakeAdapter: dispose failed (configured to fail)");
 				emit("error", error);
 				throw error;
 			}
@@ -198,7 +180,7 @@ export function createFakeAdapter<TClient = InMemoryClient>(
 			if (!eventHandlers.has(event)) {
 				eventHandlers.set(event, new Set());
 			}
-			eventHandlers.get(event)!.add(handler as (data: unknown) => void);
+			eventHandlers.get(event)?.add(handler as (data: unknown) => void);
 
 			return () => {
 				eventHandlers.get(event)?.delete(handler as (data: unknown) => void);

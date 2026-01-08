@@ -6,7 +6,7 @@
  */
 
 import type { ITestCaseBuilder, TestStep } from "../../execution";
-import type { DataSourceExecBuilder, DATASOURCE_STEP_TYPE } from "./datasource.types";
+import type { DATASOURCE_STEP_TYPE, DataSourceExecBuilder } from "./datasource.types";
 
 /**
  * Internal step configuration
@@ -63,7 +63,7 @@ export class DataSourceExecBuilderImpl<T> implements DataSourceExecBuilder<T> {
 		predicate?: (result: T) => boolean | Promise<boolean>
 	): this {
 		const description = typeof descriptionOrPredicate === "string" ? descriptionOrPredicate : undefined;
-		const assertFn = typeof descriptionOrPredicate === "function" ? descriptionOrPredicate : predicate!;
+		const assertFn = typeof descriptionOrPredicate === "function" ? descriptionOrPredicate : predicate;
 
 		this.config.assertPredicate = assertFn;
 		this.config.assertDescription = description;
@@ -138,7 +138,7 @@ export class DataSourceExecBuilderImpl<T> implements DataSourceExecBuilder<T> {
  * Execute a promise with timeout
  */
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-	let timeoutId: ReturnType<typeof setTimeout>;
+	let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
 	const timeoutPromise = new Promise<never>((_, reject) => {
 		timeoutId = setTimeout(() => {
@@ -148,10 +148,10 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T
 
 	try {
 		const result = await Promise.race([promise, timeoutPromise]);
-		clearTimeout(timeoutId!);
+		timeoutId && clearTimeout(timeoutId);
 		return result;
 	} catch (error) {
-		clearTimeout(timeoutId!);
+		timeoutId && clearTimeout(timeoutId);
 		throw error;
 	}
 }

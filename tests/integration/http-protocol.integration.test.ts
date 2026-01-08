@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 
 interface TestApiService {
 	getResource: {
-		request: { method: "GET"; path: "/resource/{id}", headers?: { Authorization: string, "X-Custom-Header": string } };
+		request: { method: "GET"; path: "/resource/{id}"; headers?: { Authorization: string; "X-Custom-Header": string } };
 		response: { code: 200; body: { id: string; data: string } };
 	};
 	createResource: {
@@ -26,7 +26,7 @@ interface TestApiService {
 	};
 	deleteResource: {
 		request: { method: "DELETE"; path: "/resource/{id}" };
-		response: { code: 200, body: { message: string }};
+		response: { code: 200; body: { message: string } };
 	};
 	notFound: {
 		request: { method: "GET"; path: "/missing" };
@@ -224,7 +224,9 @@ describe("HTTP Protocol Integration Tests", () => {
 				const api = test.use(client);
 
 				api.request("deleteResource", { method: "DELETE", path: "/resource/789" });
-				api.onResponse("deleteResource").assert((res) => res.code === 200 && res.body.message === "Resource 789 deleted");
+				api
+					.onResponse("deleteResource")
+					.assert((res) => res.code === 200 && res.body.message === "Resource 789 deleted");
 			});
 
 			const result = await scenario.run(tc);
@@ -453,10 +455,14 @@ describe("HTTP Protocol Integration Tests", () => {
 			const tc = testCase("Request times out", (test) => {
 				const api = test.use(client);
 
-				api.request("getResource", {
-					method: "GET",
-					path: "/resource/slow",
-				}, 500);
+				api.request(
+					"getResource",
+					{
+						method: "GET",
+						path: "/resource/slow",
+					},
+					500
+				);
 				api.onResponse("getResource").assert((res) => res.code === 200);
 			});
 

@@ -61,7 +61,9 @@ export type HasPathParams<T extends string> = T extends `${string}{${string}}${s
 /**
  * Transform HTTP request type to expand path templates
  */
-export type ExpandHttpRequest<T> = T extends { path: infer P extends string } ? Omit<T, "path"> & { path: ExpandPath<P> } : T;
+export type ExpandHttpRequest<T> = T extends { path: infer P extends string }
+	? Omit<T, "path"> & { path: ExpandPath<P> }
+	: T;
 
 /**
  * Extract path parameter names as union type
@@ -75,9 +77,8 @@ export type ExtractPathParamNames<T extends string> = T extends `${string}{${inf
 /**
  * Extract path parameters as typed object
  */
-export type ExtractPathParams<T extends string> = ExtractPathParamNames<T> extends never
-	? Record<string, never>
-	: { [K in ExtractPathParamNames<T>]: string };
+export type ExtractPathParams<T extends string> =
+	ExtractPathParamNames<T> extends never ? Record<string, never> : { [K in ExtractPathParamNames<T>]: string };
 
 /**
  * Make headers flexible - preserve user-defined header keys for autocomplete,

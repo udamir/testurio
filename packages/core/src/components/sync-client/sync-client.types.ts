@@ -47,13 +47,14 @@ type ProtocolRawResponse<A> = A extends { $response: infer R } ? R : unknown;
  * type StrictReq = ExtractRequestData<HttpProtocol<MyApi>, "getUsers">; // { method: "GET"; path: "/users" }
  * ```
  */
-export type ExtractRequestData<A, K> = IsSyncLooseMode<ProtocolService<A>> extends true
-	? ProtocolRawRequest<A>
-	: K extends keyof ProtocolService<A>
-		? ProtocolService<A>[K] extends { request: infer R }
-			? R
-			: ProtocolService<A>[K]
-		: ProtocolRawRequest<A>;
+export type ExtractRequestData<A, K> =
+	IsSyncLooseMode<ProtocolService<A>> extends true
+		? ProtocolRawRequest<A>
+		: K extends keyof ProtocolService<A>
+			? ProtocolService<A>[K] extends { request: infer R }
+				? R
+				: ProtocolService<A>[K]
+			: ProtocolRawRequest<A>;
 
 /**
  * Extract client response type from protocol.
@@ -78,10 +79,11 @@ export type ExtractRequestData<A, K> = IsSyncLooseMode<ProtocolService<A>> exten
  * type StrictRes = ExtractClientResponse<HttpProtocol<MyApi>, "getUsers">; // { code: 200; body: User[] }
  * ```
  */
-export type ExtractClientResponse<A, K> = IsSyncLooseMode<ProtocolService<A>> extends true
-	? ProtocolRawResponse<A>
-	: K extends keyof ProtocolService<A>
-		? ProtocolService<A>[K] extends { response: infer R }
-			? R
-			: ProtocolService<A>[K]
-		: ProtocolRawResponse<A>;
+export type ExtractClientResponse<A, K> =
+	IsSyncLooseMode<ProtocolService<A>> extends true
+		? ProtocolRawResponse<A>
+		: K extends keyof ProtocolService<A>
+			? ProtocolService<A>[K] extends { response: infer R }
+				? R
+				: ProtocolService<A>[K]
+			: ProtocolRawResponse<A>;

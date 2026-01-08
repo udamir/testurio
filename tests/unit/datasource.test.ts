@@ -4,12 +4,11 @@
  * Unit tests for DataSource component, step builder, and testing utilities.
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
-import { createFakeAdapter, createInMemoryClient } from "../mocks/fakeAdapter";
-import type { InMemoryClient } from "../mocks/fakeAdapter";
-import { TestCaseBuilder } from "testurio";
 import type { Component } from "testurio";
-import { DataSource } from "testurio";
+import { DataSource, TestCaseBuilder } from "testurio";
+import { beforeEach, describe, expect, it } from "vitest";
+import type { InMemoryClient } from "../mocks/fakeAdapter";
+import { createFakeAdapter, createInMemoryClient } from "../mocks/fakeAdapter";
 
 describe("DataSource", () => {
 	describe("lifecycle", () => {

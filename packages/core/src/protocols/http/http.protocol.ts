@@ -18,7 +18,13 @@ import type {
 } from "../base";
 import { BaseSyncProtocol } from "../base";
 import { HttpClientAdapter, HttpServerAdapter } from "./http.adapters";
-import type { DefaultHttpOperations, HttpOperations, HttpRequest, HttpResponse, TransformHttpService } from "./http.types";
+import type {
+	DefaultHttpOperations,
+	HttpOperations,
+	HttpRequest,
+	HttpResponse,
+	TransformHttpService,
+} from "./http.types";
 
 /**
  * HTTP protocol options

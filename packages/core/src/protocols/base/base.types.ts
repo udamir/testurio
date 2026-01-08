@@ -430,9 +430,8 @@ export type IsAsyncLooseMode<M> = M extends { clientMessages: infer C }
  * type StrictId = SyncOperationId<HttpProtocol<MyApi>>; // "getUsers" | "createUser"
  * ```
  */
-export type SyncOperationId<A> = IsSyncLooseMode<ProtocolService<A>> extends true
-	? string
-	: keyof ProtocolService<A> & string;
+export type SyncOperationId<A> =
+	IsSyncLooseMode<ProtocolService<A>> extends true ? string : keyof ProtocolService<A> & string;
 
 /**
  * Extract client message type from async protocol with loose mode support.
@@ -441,9 +440,8 @@ export type SyncOperationId<A> = IsSyncLooseMode<ProtocolService<A>> extends tru
  * @template A - Protocol type
  * @returns string (loose mode) or union of message type keys (strict mode)
  */
-export type AsyncClientMessageType<A> = IsAsyncLooseMode<ProtocolMessages<A>> extends true
-	? string
-	: keyof ClientMessages<ProtocolMessages<A>> & string;
+export type AsyncClientMessageType<A> =
+	IsAsyncLooseMode<ProtocolMessages<A>> extends true ? string : keyof ClientMessages<ProtocolMessages<A>> & string;
 
 /**
  * Extract server message type from async protocol with loose mode support.
@@ -452,9 +450,8 @@ export type AsyncClientMessageType<A> = IsAsyncLooseMode<ProtocolMessages<A>> ex
  * @template A - Protocol type
  * @returns string (loose mode) or union of message type keys (strict mode)
  */
-export type AsyncServerMessageType<A> = IsAsyncLooseMode<ProtocolMessages<A>> extends true
-	? string
-	: keyof ServerMessages<ProtocolMessages<A>> & string;
+export type AsyncServerMessageType<A> =
+	IsAsyncLooseMode<ProtocolMessages<A>> extends true ? string : keyof ServerMessages<ProtocolMessages<A>> & string;
 
 /**
  * Extract client message payload type with loose mode fallback.
@@ -463,11 +460,12 @@ export type AsyncServerMessageType<A> = IsAsyncLooseMode<ProtocolMessages<A>> ex
  * @template A - Protocol type
  * @template K - Message type key
  */
-export type ExtractClientPayload<A, K> = IsAsyncLooseMode<ProtocolMessages<A>> extends true
-	? unknown
-	: K extends keyof ClientMessages<ProtocolMessages<A>>
-		? ClientMessages<ProtocolMessages<A>>[K]
-		: unknown;
+export type ExtractClientPayload<A, K> =
+	IsAsyncLooseMode<ProtocolMessages<A>> extends true
+		? unknown
+		: K extends keyof ClientMessages<ProtocolMessages<A>>
+			? ClientMessages<ProtocolMessages<A>>[K]
+			: unknown;
 
 /**
  * Extract server message payload type with loose mode fallback.
@@ -476,11 +474,12 @@ export type ExtractClientPayload<A, K> = IsAsyncLooseMode<ProtocolMessages<A>> e
  * @template A - Protocol type
  * @template K - Message type key
  */
-export type ExtractServerPayload<A, K> = IsAsyncLooseMode<ProtocolMessages<A>> extends true
-	? unknown
-	: K extends keyof ServerMessages<ProtocolMessages<A>>
-		? ServerMessages<ProtocolMessages<A>>[K]
-		: unknown;
+export type ExtractServerPayload<A, K> =
+	IsAsyncLooseMode<ProtocolMessages<A>> extends true
+		? unknown
+		: K extends keyof ServerMessages<ProtocolMessages<A>>
+			? ServerMessages<ProtocolMessages<A>>[K]
+			: unknown;
 
 // =============================================================================
 // Async Message Format Types

@@ -36,18 +36,17 @@
  * ```
  */
 
-export { MongoAdapter, createMongoAdapter } from "./mongo.adapter.js";
-export type { MongoAdapterConfig } from "./mongo.types.js";
-
 // Re-export common MongoDB types for convenience
 export type {
-  Db,
-  Collection,
-  Document,
-  Filter,
-  FindOptions,
-  InsertOneResult,
-  UpdateResult,
-  DeleteResult,
-  MongoClient,
+	Collection,
+	Db,
+	DeleteResult,
+	Document,
+	Filter,
+	FindOptions,
+	InsertOneResult,
+	MongoClient,
+	UpdateResult,
 } from "mongodb";
+export { createMongoAdapter, MongoAdapter } from "./mongo.adapter.js";
+export type { MongoAdapterConfig } from "./mongo.types.js";

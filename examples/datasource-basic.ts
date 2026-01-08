@@ -10,12 +10,12 @@
 
 import {
 	Client,
+	createFakeAdapter,
+	createInMemoryClient,
 	DataSource,
 	HttpProtocol,
 	Server,
 	TestScenario,
-	createFakeAdapter,
-	createInMemoryClient,
 	testCase,
 } from "testurio";
 

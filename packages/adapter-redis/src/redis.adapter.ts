@@ -142,7 +142,7 @@ export class RedisAdapter implements DataSourceAdapter<Redis, RedisAdapterConfig
 		if (!this.eventHandlers.has(event)) {
 			this.eventHandlers.set(event, new Set());
 		}
-		this.eventHandlers.get(event)!.add(handler as (data: unknown) => void);
+		this.eventHandlers.get(event)?.add(handler as (data: unknown) => void);
 
 		return () => {
 			this.eventHandlers.get(event)?.delete(handler as (data: unknown) => void);

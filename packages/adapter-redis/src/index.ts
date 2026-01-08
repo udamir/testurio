@@ -36,8 +36,7 @@
  * ```
  */
 
-export { RedisAdapter, createRedisAdapter } from "./redis.adapter";
-export type { RedisAdapterConfig } from "./redis.types";
-
 // Re-export Redis type from ioredis for convenience
 export type { Redis } from "ioredis";
+export { createRedisAdapter, RedisAdapter } from "./redis.adapter";
+export type { RedisAdapterConfig } from "./redis.types";

@@ -41,8 +41,7 @@
  * ```
  */
 
-export { PostgresAdapter, createPostgresAdapter } from "./pg.adapter.js";
-export type { PostgresAdapterConfig } from "./pg.types.js";
-
 // Re-export Pool type for convenience
 export type { Pool, PoolClient, QueryResult, QueryResultRow } from "pg";
+export { createPostgresAdapter, PostgresAdapter } from "./pg.adapter.js";
+export type { PostgresAdapterConfig } from "./pg.types.js";

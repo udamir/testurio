@@ -6,12 +6,12 @@
  *   request() -> mock handles -> onResponse()
  */
 
-import type { ExtractClientResponse, ExtractRequestData } from "./sync-client.types";
-import type { ISyncProtocol, SyncOperationId } from "../../protocols/base";
 import type { ITestCaseBuilder } from "../../execution/execution.types";
-import { SyncClientHookBuilder } from "./sync-client.hook-builder";
-import type { Client } from "./sync-client.component";
+import type { ISyncProtocol, SyncOperationId } from "../../protocols/base";
 import { generateRequestId } from "../../utils";
+import type { Client } from "./sync-client.component";
+import { SyncClientHookBuilder } from "./sync-client.hook-builder";
+import type { ExtractClientResponse, ExtractRequestData } from "./sync-client.types";
 
 /**
  * Request entry for tracking correlation

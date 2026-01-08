@@ -33,9 +33,7 @@ export class AsyncServerHookBuilder<TPayload, M extends AsyncMessages = AsyncMes
 	 */
 	mockEvent<K extends keyof ServerMessages<M> & string>(
 		descriptionOrResponseType: string | K,
-		responseTypeOrHandler:
-			| K
-			| ((payload: TPayload) => ServerMessages<M>[K] | Promise<ServerMessages<M>[K]>),
+		responseTypeOrHandler: K | ((payload: TPayload) => ServerMessages<M>[K] | Promise<ServerMessages<M>[K]>),
 		handler?: (payload: TPayload) => ServerMessages<M>[K] | Promise<ServerMessages<M>[K]>
 	): this {
 		// Determine if first param is description or response type
@@ -43,18 +41,16 @@ export class AsyncServerHookBuilder<TPayload, M extends AsyncMessages = AsyncMes
 		const isFirstParamDescription = typeof responseTypeOrHandler !== "function";
 
 		const description = isFirstParamDescription ? (descriptionOrResponseType as string) : undefined;
-		const responseType = isFirstParamDescription
-			? (responseTypeOrHandler as K)
-			: (descriptionOrResponseType as K);
+		const responseType = isFirstParamDescription ? (responseTypeOrHandler as K) : (descriptionOrResponseType as K);
 		const responseHandler = isFirstParamDescription
-			? handler!
+			? handler
 			: (responseTypeOrHandler as (payload: TPayload) => ServerMessages<M>[K] | Promise<ServerMessages<M>[K]>);
 
 		this.addHandler({
 			type: "mock",
 			metadata: description ? { description } : undefined,
 			execute: async (msg: Message) => {
-				const responsePayload = await Promise.resolve(responseHandler(msg.payload as TPayload));
+				const responsePayload = await Promise.resolve(responseHandler?.(msg.payload as TPayload));
 				// Create a new response message (separate from the original)
 				// The protocol will send this back to the client
 				return {

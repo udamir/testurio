@@ -5,8 +5,8 @@
  */
 
 import * as http from "node:http";
-import type { ISyncClientAdapter, ISyncServerAdapter } from "../base";
 import { generateId } from "../../utils";
+import type { ISyncClientAdapter, ISyncServerAdapter } from "../base";
 import type { HttpRequest, HttpRequestOptions, HttpResponse } from "./http.types";
 
 interface RoutePattern {
@@ -63,12 +63,10 @@ export class HttpServerAdapter implements ISyncServerAdapter {
 	 */
 	private static compilePath(path: string): { regex: RegExp; paramNames: string[] } {
 		const paramNames: string[] = [];
-		const regexStr = path
-			.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-			.replace(/\\{([^}]+)\\}/g, (_, name: string) => {
-				paramNames.push(name);
-				return "([^/]+)";
-			});
+		const regexStr = path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\\{([^}]+)\\}/g, (_, name: string) => {
+			paramNames.push(name);
+			return "([^/]+)";
+		});
 		return { regex: new RegExp(`^${regexStr}$`), paramNames };
 	}
 

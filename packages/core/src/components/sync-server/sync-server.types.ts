@@ -40,15 +40,16 @@ type ProtocolRawResponse<A> = A extends { $response: infer R } ? R : unknown;
  * @template A - Protocol type
  * @template K - Operation/method key
  */
-export type ExtractServerRequest<A, K> = IsSyncLooseMode<ProtocolService<A>> extends true
-	? ProtocolRawRequest<A>
-	: K extends keyof ProtocolService<A>
-		? ProtocolService<A>[K] extends { serverRequest: infer R }
-			? R
-			: ProtocolService<A>[K] extends { request: infer R }
+export type ExtractServerRequest<A, K> =
+	IsSyncLooseMode<ProtocolService<A>> extends true
+		? ProtocolRawRequest<A>
+		: K extends keyof ProtocolService<A>
+			? ProtocolService<A>[K] extends { serverRequest: infer R }
 				? R
-				: ProtocolService<A>[K]
-		: ProtocolRawRequest<A>;
+				: ProtocolService<A>[K] extends { request: infer R }
+					? R
+					: ProtocolService<A>[K]
+			: ProtocolRawRequest<A>;
 
 /**
  * Extract server response type from protocol.
@@ -63,12 +64,13 @@ export type ExtractServerRequest<A, K> = IsSyncLooseMode<ProtocolService<A>> ext
  * @template A - Protocol type
  * @template K - Operation/method key
  */
-export type ExtractServerResponse<A, K> = IsSyncLooseMode<ProtocolService<A>> extends true
-	? ProtocolRawResponse<A>
-	: K extends keyof ProtocolService<A>
-		? ProtocolService<A>[K] extends { responses: infer R }
-			? R
-			: ProtocolService<A>[K] extends { response: infer R }
+export type ExtractServerResponse<A, K> =
+	IsSyncLooseMode<ProtocolService<A>> extends true
+		? ProtocolRawResponse<A>
+		: K extends keyof ProtocolService<A>
+			? ProtocolService<A>[K] extends { responses: infer R }
 				? R
-				: ProtocolService<A>[K]
-		: ProtocolRawResponse<A>;
+				: ProtocolService<A>[K] extends { response: infer R }
+					? R
+					: ProtocolService<A>[K]
+			: ProtocolRawResponse<A>;

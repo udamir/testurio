@@ -37,9 +37,7 @@ import type {
  * });
  * ```
  */
-export class DataSource<TClient, A extends DataSourceAdapter<TClient, unknown>>
-	implements IDataSource<TClient, A>
-{
+export class DataSource<TClient, A extends DataSourceAdapter<TClient, unknown>> implements IDataSource<TClient, A> {
 	private state: DataSourceState = "created";
 	private error?: Error;
 

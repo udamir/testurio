@@ -74,7 +74,9 @@ describe("Component Fixes", () => {
 				},
 			];
 
-			hooks.forEach((hook) => component.registerHook(hook));
+			hooks.forEach((hook) => {
+				component.registerHook(hook);
+			});
 
 			const message: Message = {
 				type: "TestMessage",

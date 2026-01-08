@@ -1,3 +1,6 @@
+// Disable for file
+// biome-ignore-all lint/correctness/noUnusedVariables: test of types
+
 /**
  * Type Tests for Flexible Protocol Types (Loose/Strict Mode)
  *
@@ -5,9 +8,20 @@
  * They don't run at runtime - they just need to compile without errors.
  */
 
-import type { HttpProtocol, Client, Server, HttpRequest, HttpResponse } from "../../packages/core/src";
-import type { ExtractRequestData, ExtractClientResponse } from "../../packages/core/src/components/sync-client/sync-client.types";
-import type { SyncOperationId, ProtocolService, IsSyncLooseMode } from "../../packages/core/src/protocols/base";
+import type { WebSocketProtocol, WsServiceDefinition } from "@testurio/protocol-ws";
+import type {
+	AsyncClientMessageType,
+	AsyncServerMessageType,
+	IsAsyncLooseMode,
+	IsSyncLooseMode,
+	ProtocolService,
+	SyncOperationId,
+} from "testurio";
+import type { HttpProtocol } from "../../packages/core/src";
+import type {
+	ExtractClientResponse,
+	ExtractRequestData,
+} from "../../packages/core/src/components/sync-client/sync-client.types";
 
 // =============================================================================
 // Test 1: Loose mode - HttpProtocol without type parameter
@@ -63,9 +77,6 @@ const _invalidOpId: StrictOpId = "invalidOp";
 // Test 3: Async loose mode detection
 // =============================================================================
 
-import type { IsAsyncLooseMode, AsyncClientMessageType, AsyncServerMessageType, ExtractClientPayload, ExtractServerPayload } from "../../packages/core/src/protocols/base";
-import type { WebSocketProtocol, WsServiceDefinition } from "../../packages/protocol-ws/src";
-
 // Loose mode - WebSocketProtocol without type parameter
 type LooseWsProtocol = WebSocketProtocol;
 type LooseWsMessages = ProtocolService<LooseWsProtocol>;
@@ -101,7 +112,7 @@ const _strictWsClientMsg2: StrictWsClientMsgType = "subscribe";
 // @ts-expect-error - "invalid" is not a valid client message type
 const _invalidWsClientMsg: StrictWsClientMsgType = "invalid";
 
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 describe("Flexible Protocol Types", () => {
 	it("compiles without type errors (compile-time verification)", () => {

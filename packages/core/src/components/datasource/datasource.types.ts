@@ -139,7 +139,11 @@ export interface DataSourceStepBuilder<TClient> {
 	 * .exec(async (client) => client.get("key"), { timeout: 5000 })
 	 */
 	exec<T>(callback: (client: TClient) => Promise<T>, options?: ExecOptions): DataSourceExecBuilder<T>;
-	exec<T>(description: string, callback: (client: TClient) => Promise<T>, options?: ExecOptions): DataSourceExecBuilder<T>;
+	exec<T>(
+		description: string,
+		callback: (client: TClient) => Promise<T>,
+		options?: ExecOptions
+	): DataSourceExecBuilder<T>;
 }
 
 /**

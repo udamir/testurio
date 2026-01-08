@@ -47,13 +47,13 @@ export class SyncHookBuilderImpl<TPayload = unknown, TResponse = unknown>
 		handler?: (payload: TPayload) => boolean | Promise<boolean>
 	): this {
 		const description = typeof descriptionOrHandler === "string" ? descriptionOrHandler : undefined;
-		const predicate = typeof descriptionOrHandler === "function" ? descriptionOrHandler : handler!;
+		const predicate = typeof descriptionOrHandler === "function" ? descriptionOrHandler : handler;
 
 		this.addHandler({
 			type: "assert",
 			metadata: description ? { description } : undefined,
 			execute: async (msg: Message<TPayload>) => {
-				const result = await Promise.resolve(predicate(msg.payload));
+				const result = await Promise.resolve(predicate?.(msg.payload));
 				if (!result) {
 					const errorMsg = description
 						? `Assertion failed: ${description}`
@@ -110,13 +110,13 @@ export class SyncHookBuilderImpl<TPayload = unknown, TResponse = unknown>
 		handler?: (payload: TPayload) => TResponse | Promise<TResponse>
 	): this {
 		const description = typeof descriptionOrHandler === "string" ? descriptionOrHandler : undefined;
-		const responseHandler = typeof descriptionOrHandler === "function" ? descriptionOrHandler : handler!;
+		const responseHandler = typeof descriptionOrHandler === "function" ? descriptionOrHandler : handler;
 
 		this.addHandler({
 			type: "mock",
 			metadata: description ? { description } : undefined,
 			execute: async (msg: Message<TPayload>) => {
-				const response = await Promise.resolve(responseHandler(msg.payload));
+				const response = await Promise.resolve(responseHandler?.(msg.payload));
 
 				// TODO: fix type
 				// Replace message payload with response
@@ -137,7 +137,7 @@ export class SyncHookBuilderImpl<TPayload = unknown, TResponse = unknown>
 	 */
 	delay(descriptionOrMs: string | number | (() => number), ms?: number | (() => number)): this {
 		const description = typeof descriptionOrMs === "string" ? descriptionOrMs : undefined;
-		const delayValue = typeof descriptionOrMs === "string" ? ms! : descriptionOrMs;
+		const delayValue = typeof descriptionOrMs === "string" ? ms : descriptionOrMs;
 
 		this.addHandler({
 			type: "delay",

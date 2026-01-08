@@ -66,7 +66,9 @@ describe("BaseComponent Hook Functionality", () => {
 				},
 			];
 
-			hooks.forEach((hook) => component.registerHook(hook));
+			hooks.forEach((hook) => {
+				component.registerHook(hook);
+			});
 
 			expect(component.getAllHooks()).toHaveLength(2);
 		});
@@ -173,7 +175,9 @@ describe("BaseComponent Hook Functionality", () => {
 				},
 			];
 
-			hooks.forEach((hook) => component.registerHook(hook));
+			hooks.forEach((hook) => {
+				component.registerHook(hook);
+			});
 			expect(component.getAllHooks()).toHaveLength(2);
 
 			component.clearTestCaseHooks();

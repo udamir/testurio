@@ -59,7 +59,7 @@ describe("Timeout Integration Tests", () => {
 				const backend = test.use(server);
 
 				// Make request with inline timeout option
-				api.request("getSlow", { method: "GET", path: "/slow" }, 2000 );
+				api.request("getSlow", { method: "GET", path: "/slow" }, 2000);
 				backend
 					.onRequest("getSlow", { method: "GET", path: "/slow" })
 					.delay(100)

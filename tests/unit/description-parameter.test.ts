@@ -4,13 +4,13 @@
  * Tests for optional description parameter on builder methods.
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-	Client,
-	Server,
 	AsyncClient,
 	AsyncServer,
+	Client,
 	HttpProtocol,
+	Server,
 	TestScenario,
 	testCase,
 } from "../../packages/core/src";
@@ -258,12 +258,10 @@ describe("Description Parameter", () => {
 				const back = test.use(backend);
 
 				api.request("test", { method: "GET", path: "/data" });
-				prx
-					.onRequest("test", { method: "GET", path: "/data" })
-					.proxy("add tracing header", (req) => ({
-						...req,
-						headers: { ...req.headers, "X-Trace-Id": "123" },
-					}));
+				prx.onRequest("test", { method: "GET", path: "/data" }).proxy("add tracing header", (req) => ({
+					...req,
+					headers: { ...req.headers, "X-Trace-Id": "123" },
+				}));
 				back.onRequest("test", { method: "GET", path: "/data" }).mockResponse(() => ({
 					code: 200,
 					body: { data: "test" },
@@ -383,12 +381,10 @@ describe("Description Parameter", () => {
 				const server = test.use(wsServer);
 
 				client.sendMessage("subscribe", { channel: "updates" });
-				server
-					.onMessage("subscribe")
-					.mockEvent("respond with subscription confirmation", "subscribed", () => ({
-						id: "sub-123",
-						status: "active",
-					}));
+				server.onMessage("subscribe").mockEvent("respond with subscription confirmation", "subscribed", () => ({
+					id: "sub-123",
+					status: "active",
+				}));
 				client.onEvent("subscribed").assert((payload) => payload.status === "active");
 			});
 

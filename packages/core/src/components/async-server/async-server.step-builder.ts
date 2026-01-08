@@ -16,10 +16,10 @@ import type {
 	Message,
 	ProtocolMessages,
 } from "../../protocols/base";
+import { generateHookId } from "../../utils";
 import type { Hook } from "../base";
 import type { AsyncServer } from "./async-server.component";
 import { AsyncServerHookBuilder } from "./async-server.hook-builder";
-import { generateHookId } from "../../utils";
 
 /**
  * Async Server Step Builder
