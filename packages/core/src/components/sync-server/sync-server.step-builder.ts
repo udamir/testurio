@@ -6,9 +6,9 @@
  * Implements the declarative sequential pattern.
  */
 
+import { generateId } from "../../utils";
 import type { TestPhase } from "../../execution";
 import type { ISyncProtocol, ProtocolRequestOptions, SyncOperationId } from "../../protocols/base";
-import { generateHookId } from "../../utils";
 import type { Hook } from "../base";
 import type { Server } from "./sync-server.component";
 import { SyncHookBuilderImpl } from "./sync-server.hook-builder";
@@ -59,7 +59,7 @@ export class SyncServerStepBuilder<A extends ISyncProtocol = ISyncProtocol> {
 		}
 
 		const hook: Hook<ExtractServerRequest<A, K>> = {
-			id: generateHookId(),
+			id: generateId("hook_"),
 			componentName: this.server.name,
 			phase: this.testPhase,
 			messageType,
@@ -95,7 +95,7 @@ export class SyncServerStepBuilder<A extends ISyncProtocol = ISyncProtocol> {
 		}
 
 		const hook: Hook<ExtractServerResponse<A, K>> = {
-			id: generateHookId(),
+			id: generateId("hook_"),
 			componentName: this.server.name,
 			phase: this.testPhase,
 			messageType: operationId,

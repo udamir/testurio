@@ -14,7 +14,7 @@ import type {
 	Message,
 	ProtocolMessages,
 } from "../../protocols/base";
-import { generateHookId } from "../../utils";
+import { generateId } from "../../utils";
 import type { Hook } from "../base/base.types";
 import type { AsyncClient } from "./async-client.component";
 import { AsyncClientHookBuilder } from "./async-client.hook-builder";
@@ -187,7 +187,7 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 
 		// Hook for user handlers (executed manually in step action)
 		const hook: Hook = {
-			id: generateHookId(),
+			id: generateId("hook_"),
 			componentName: this.client.name,
 			phase: "test",
 			messageType: messageTypes,
@@ -210,7 +210,7 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 		// Create a capture hook that signals when message arrives
 		// This hook is registered immediately during BUILD phase to capture early messages
 		const captureHook: Hook = {
-			id: generateHookId(),
+			id: generateId("hook_"),
 			componentName: this.client.name,
 			phase: "test",
 			messageType: messageTypes,
@@ -287,7 +287,7 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 		const payloadMatcher = this.buildPayloadMatcher(matcher);
 
 		const hook: Hook = {
-			id: generateHookId(),
+			id: generateId("hook_"),
 			componentName: this.client.name,
 			phase: "test",
 			messageType: messageType as string,

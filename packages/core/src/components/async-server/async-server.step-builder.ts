@@ -16,7 +16,7 @@ import type {
 	Message,
 	ProtocolMessages,
 } from "../../protocols/base";
-import { generateHookId } from "../../utils";
+import { generateId } from "../../utils";
 import type { Hook } from "../base";
 import type { AsyncServer } from "./async-server.component";
 import { AsyncServerHookBuilder } from "./async-server.hook-builder";
@@ -93,7 +93,7 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 		const payloadMatcher = this.buildPayloadMatcher(options?.matcher);
 
 		const hook: Hook = {
-			id: generateHookId(),
+			id: generateId("hook_"),
 			componentName: this.server.name,
 			phase: "test",
 			messageType,
@@ -115,7 +115,7 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 
 		// Create a capture hook that signals when message arrives
 		const captureHook: Hook = {
-			id: generateHookId(),
+			id: generateId(),
 			componentName: this.server.name,
 			phase: "test",
 			messageType,
@@ -193,7 +193,7 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 		const payloadMatcher = this.buildPayloadMatcher(matcher);
 
 		const hook: Hook = {
-			id: generateHookId(),
+			id: generateId(),
 			componentName: this.server.name,
 			phase: "test",
 			messageType: messageType as string,
@@ -235,7 +235,7 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 		const payloadMatcher = this.buildPayloadMatcher(matcher);
 
 		const hook: Hook = {
-			id: generateHookId(),
+			id: generateId(),
 			componentName: this.server.name,
 			phase: "test",
 			messageType: messageType as string,

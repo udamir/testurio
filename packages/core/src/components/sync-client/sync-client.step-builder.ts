@@ -8,7 +8,7 @@
 
 import type { ITestCaseBuilder } from "../../execution/execution.types";
 import type { ISyncProtocol, SyncOperationId } from "../../protocols/base";
-import { generateRequestId } from "../../utils";
+import { generateId } from "../../utils";
 import type { Client } from "./sync-client.component";
 import { SyncClientHookBuilder } from "./sync-client.hook-builder";
 import type { ExtractClientResponse, ExtractRequestData } from "./sync-client.types";
@@ -34,7 +34,7 @@ export class RequestTracker {
 	 * Track a request
 	 */
 	trackRequest(messageType: string, traceId?: string): string {
-		const id = traceId ?? generateRequestId();
+		const id = traceId ?? generateId("req_");
 		const entries = this.requests.get(messageType) ?? [];
 		entries.push({ traceId: id, messageType, matched: false });
 		this.requests.set(messageType, entries);
