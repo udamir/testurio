@@ -217,7 +217,7 @@ export class GrpcUnaryClientAdapter implements ISyncClientAdapter {
 		const grpcMetadata = createGrpcMetadata(options?.metadata);
 
 		// Access client methods via typed interface
-		const clientMethods = this.client as GrpcClientMethods;
+		const clientMethods = this.client as unknown as GrpcClientMethods;
 		const method = clientMethods[messageType];
 
 		if (typeof method !== "function") {
@@ -234,37 +234,21 @@ export class GrpcUnaryClientAdapter implements ISyncClientAdapter {
 
 		return new Promise((resolve, reject) => {
 			// Use .call() to preserve the this binding to the client
-			if (callOptions) {
-				unaryMethod.call(this.client, payload, grpcMetadata, callOptions, (err, response) => {
-					if (err) {
-						const error = new Error(err.message) as Error & {
-							code?: number;
-							details?: string;
-						};
-						error.code = err.code;
-						error.details = err.details;
-						reject(error);
-					} else {
-						const wrappedResponse = { payload: response } as TRes;
-						resolve(wrappedResponse);
-					}
-				});
-			} else {
-				unaryMethod.call(this.client, payload, grpcMetadata, (err, response) => {
-					if (err) {
-						const error = new Error(err.message) as Error & {
-							code?: number;
-							details?: string;
-						};
-						error.code = err.code;
-						error.details = err.details;
-						reject(error);
-					} else {
-						const wrappedResponse = { payload: response } as TRes;
-						resolve(wrappedResponse);
-					}
-				});
-			}
+			// Always pass call options (empty object if no timeout) to avoid TypeScript overload issues
+			unaryMethod.call(this.client, payload, grpcMetadata, callOptions ?? {}, (err, response) => {
+				if (err) {
+					const error = new Error(err.message) as Error & {
+						code?: number;
+						details?: string;
+					};
+					error.code = err.code;
+					error.details = err.details;
+					reject(error);
+				} else {
+					const wrappedResponse = { payload: response } as TRes;
+					resolve(wrappedResponse);
+				}
+			});
 		});
 	}
 

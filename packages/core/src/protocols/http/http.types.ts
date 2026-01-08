@@ -137,7 +137,7 @@ export type WithRequiredParams<T> = T extends { path: infer P extends string }
  * // }
  * ```
  */
-export type TransformHttpService<S extends HttpOperations> = {
+export type TransformHttpService<S> = {
 	[K in keyof S]: S[K] extends { request: infer R; response: infer Res }
 		? { request: ExpandHttpRequest<R>; serverRequest: WithRequiredParams<R>; response: Res }
 		: S[K];
@@ -208,13 +208,90 @@ export interface HttpResponse<TBody = unknown> {
 	body?: TBody;
 }
 
+// =============================================================================
+// Loose Mode Support (Flexible Protocol Types)
+// =============================================================================
+
+/**
+ * Default HTTP operations - allows any string key (loose mode)
+ * When HttpProtocol is used without type parameter, this allows
+ * any operation ID with standard HttpRequest/HttpResponse types.
+ *
+ * @example
+ * ```typescript
+ * // Loose mode - any operation ID is valid
+ * const client = new Client('api', {
+ *   protocol: new HttpProtocol(),  // No type parameter
+ *   targetAddress: { host: 'localhost', port: 3000 },
+ * });
+ *
+ * // Any string works as operation ID
+ * api.request('anyOperation', { method: 'GET', path: '/any' });
+ * api.onResponse('anyOperation').assert((res) => res.code === 200);
+ * ```
+ */
+export interface DefaultHttpOperations {
+	[key: string]: SyncOperation<HttpRequest, HttpResponse>;
+}
+
 /**
  * HTTP Service definition - maps operation IDs to HTTP operations
- * This is a constraint type for HttpProtocol generic parameter.
+ *
+ * @template T - Service definition type
+ *   - If T has index signature: loose mode (any string key)
+ *   - If T has specific keys: strict mode (only defined keys)
+ *
+ * Uses mapped type `[K in keyof T]:` which does NOT require T to have
+ * an index signature - it only maps over the actual keys of T.
+ *
+ * @example
+ * ```typescript
+ * // Strict mode - specific keys only, no index signature required
+ * interface MyApi {
+ *   getUsers: { request: {...}; response: {...} };
+ * }
+ * type Strict = HttpOperations<MyApi>; // { getUsers: SyncOperation }
+ * ```
  */
 export type HttpOperations<T = object> = {
-	[K in keyof T]?: SyncOperation<HttpRequest, HttpResponse>;
+	[K in keyof T]: SyncOperation<HttpRequest, HttpResponse>;
 };
+
+/**
+ * Check if protocol is in loose mode (using default operations)
+ *
+ * @template S - Service definition from protocol
+ * @returns true if loose mode, false if strict mode
+ *
+ * Detection logic:
+ * - If `string extends keyof S` is true, it means S has an index signature
+ * - Index signature = loose mode (any string key is valid)
+ * - Specific keys only = strict mode (only defined keys are valid)
+ *
+ * @example
+ * ```typescript
+ * type Loose = IsHttpLooseMode<DefaultHttpOperations>; // true
+ * type Strict = IsHttpLooseMode<{ getUsers: {...} }>; // false
+ * ```
+ */
+export type IsHttpLooseMode<S> = string extends keyof S ? true : false;
+
+/**
+ * Get valid operation ID type based on mode
+ *
+ * @template A - Protocol type
+ * @returns string (loose mode) or keyof service (strict mode)
+ *
+ * @example
+ * ```typescript
+ * // Loose mode protocol
+ * type LooseId = HttpOperationId<HttpProtocol>; // string
+ *
+ * // Strict mode protocol
+ * type StrictId = HttpOperationId<HttpProtocol<MyApi>>; // "getUsers" | "createUser"
+ * ```
+ */
+export type HttpOperationId<S> = IsHttpLooseMode<S> extends true ? string : keyof S & string;
 
 /**
  * HTTP Protocol type marker

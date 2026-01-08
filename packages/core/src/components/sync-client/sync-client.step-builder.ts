@@ -7,7 +7,7 @@
  */
 
 import type { ExtractClientResponse, ExtractRequestData } from "./sync-client.types";
-import type { ISyncProtocol, ProtocolService } from "../../protocols/base";
+import type { ISyncProtocol, SyncOperationId } from "../../protocols/base";
 import type { ITestCaseBuilder } from "../../execution/execution.types";
 import { SyncClientHookBuilder } from "./sync-client.hook-builder";
 import type { Client } from "./sync-client.component";
@@ -96,7 +96,7 @@ export class SyncClientStepBuilder<A extends ISyncProtocol = ISyncProtocol> {
 	private requestTracker: RequestTracker;
 
 	constructor(
-		private client: Client,
+		private client: Client<A>,
 		private testBuilder: ITestCaseBuilder
 	) {
 		// Get or create request tracker from the client component
@@ -107,15 +107,19 @@ export class SyncClientStepBuilder<A extends ISyncProtocol = ISyncProtocol> {
 	/**
 	 * Send a request (generic API for all sync protocols)
 	 *
+	 * In loose mode (no type parameter on protocol):
+	 * - messageType accepts any string
+	 * - data is typed as the protocol's raw request type (e.g., HttpRequest)
+	 *
+	 * In strict mode (with type parameter):
+	 * - messageType is constrained to defined operation IDs
+	 * - data is typed according to service definition
+	 *
 	 * @param messageType - Message type identifier (operationId for HTTP, method name for gRPC)
 	 * @param data - Request data (type comes directly from service definition)
 	 * @param timeout - Optional request timeout in milliseconds
 	 */
-	request<K extends keyof ProtocolService<A> & string>(
-		messageType: K,
-		data: ExtractRequestData<A, K>,
-		timeout?: number
-	): void {
+	request<K extends SyncOperationId<A>>(messageType: K, data: ExtractRequestData<A, K>, timeout?: number): void {
 		const traceId = this.requestTracker.trackRequest(messageType);
 
 		this.testBuilder.registerStep({
@@ -133,15 +137,17 @@ export class SyncClientStepBuilder<A extends ISyncProtocol = ISyncProtocol> {
 	/**
 	 * Handle a response (declarative, sequential)
 	 *
-	 * For typed protocols (e.g., GrpcProtocol<Service>), the response type
-	 * is inferred from the service definition.
-	 * For untyped protocols, use explicit type parameter: onResponse<"messageType", MyType>("messageType")
+	 * In loose mode (no type parameter on protocol):
+	 * - Returns hook builder with protocol's raw response type (e.g., HttpResponse)
+	 *
+	 * In strict mode (with type parameter):
+	 * - Returns hook builder with typed response from service definition
 	 *
 	 * @param messageType - Message type to match
 	 * @param traceId - Optional traceId for explicit correlation
 	 *                  If omitted, matches last request of this messageType
 	 */
-	onResponse<K extends keyof ProtocolService<A> & string, TResponse = ExtractClientResponse<A, K>>(
+	onResponse<K extends SyncOperationId<A>, TResponse = ExtractClientResponse<A, K>>(
 		messageType: K,
 		traceId?: string
 	): SyncClientHookBuilder<TResponse> {

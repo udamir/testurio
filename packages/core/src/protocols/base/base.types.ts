@@ -360,6 +360,129 @@ export type ProtocolRequestOptions<A> = A extends { $request: infer R }
 	: Record<string, unknown>;
 
 // =============================================================================
+// Loose Mode Detection (Flexible Protocol Types)
+// =============================================================================
+
+/**
+ * Generic loose mode detection for sync protocols.
+ * Checks if the service definition has an index signature (any string key).
+ *
+ * @template S - Service definition type
+ * @returns true if loose mode (index signature), false if strict mode (specific keys)
+ *
+ * Detection logic:
+ * - If `string extends keyof S`, the type has an index signature `[key: string]: T`
+ * - Index signature = loose mode (any string key is valid as operation ID)
+ * - Specific keys only = strict mode (only defined keys are valid)
+ *
+ * @example
+ * ```typescript
+ * // Loose mode - index signature
+ * type Loose = IsSyncLooseMode<{ [key: string]: { request: any; response: any } }>; // true
+ *
+ * // Strict mode - specific keys
+ * type Strict = IsSyncLooseMode<{ getUsers: { request: any; response: any } }>; // false
+ * ```
+ */
+export type IsSyncLooseMode<S> = string extends keyof S ? true : false;
+
+/**
+ * Generic loose mode detection for async protocols.
+ * Checks if the clientMessages has an index signature (any string key).
+ *
+ * @template M - Messages definition type with clientMessages/serverMessages
+ * @returns true if loose mode (index signature), false if strict mode (specific keys)
+ *
+ * @example
+ * ```typescript
+ * // Loose mode
+ * type Loose = IsAsyncLooseMode<{
+ *   clientMessages: { [key: string]: unknown };
+ *   serverMessages: { [key: string]: unknown };
+ * }>; // true
+ *
+ * // Strict mode
+ * type Strict = IsAsyncLooseMode<{
+ *   clientMessages: { ping: { seq: number } };
+ *   serverMessages: { pong: { seq: number } };
+ * }>; // false
+ * ```
+ */
+export type IsAsyncLooseMode<M> = M extends { clientMessages: infer C }
+	? string extends keyof C
+		? true
+		: false
+	: false;
+
+/**
+ * Extract operation ID type from sync protocol with loose mode support.
+ * Returns `string` for loose mode protocols, `keyof Service & string` for strict mode.
+ *
+ * @template A - Protocol type
+ * @returns string (loose mode) or union of operation keys (strict mode)
+ *
+ * @example
+ * ```typescript
+ * // Loose mode protocol (no type parameter)
+ * type LooseId = SyncOperationId<HttpProtocol>; // string
+ *
+ * // Strict mode protocol (with type parameter)
+ * type StrictId = SyncOperationId<HttpProtocol<MyApi>>; // "getUsers" | "createUser"
+ * ```
+ */
+export type SyncOperationId<A> = IsSyncLooseMode<ProtocolService<A>> extends true
+	? string
+	: keyof ProtocolService<A> & string;
+
+/**
+ * Extract client message type from async protocol with loose mode support.
+ * Returns `string` for loose mode protocols, `keyof clientMessages & string` for strict mode.
+ *
+ * @template A - Protocol type
+ * @returns string (loose mode) or union of message type keys (strict mode)
+ */
+export type AsyncClientMessageType<A> = IsAsyncLooseMode<ProtocolMessages<A>> extends true
+	? string
+	: keyof ClientMessages<ProtocolMessages<A>> & string;
+
+/**
+ * Extract server message type from async protocol with loose mode support.
+ * Returns `string` for loose mode protocols, `keyof serverMessages & string` for strict mode.
+ *
+ * @template A - Protocol type
+ * @returns string (loose mode) or union of message type keys (strict mode)
+ */
+export type AsyncServerMessageType<A> = IsAsyncLooseMode<ProtocolMessages<A>> extends true
+	? string
+	: keyof ServerMessages<ProtocolMessages<A>> & string;
+
+/**
+ * Extract client message payload type with loose mode fallback.
+ * Returns `unknown` for loose mode protocols, typed payload for strict mode.
+ *
+ * @template A - Protocol type
+ * @template K - Message type key
+ */
+export type ExtractClientPayload<A, K> = IsAsyncLooseMode<ProtocolMessages<A>> extends true
+	? unknown
+	: K extends keyof ClientMessages<ProtocolMessages<A>>
+		? ClientMessages<ProtocolMessages<A>>[K]
+		: unknown;
+
+/**
+ * Extract server message payload type with loose mode fallback.
+ * Returns `unknown` for loose mode protocols, typed payload for strict mode.
+ *
+ * @template A - Protocol type
+ * @template K - Message type key
+ */
+export type ExtractServerPayload<A, K> = IsAsyncLooseMode<ProtocolMessages<A>> extends true
+	? unknown
+	: K extends keyof ServerMessages<ProtocolMessages<A>>
+		? ServerMessages<ProtocolMessages<A>>[K]
+		: unknown;
+
+// =============================================================================
 // Async Message Format Types
 // =============================================================================
 

@@ -18,7 +18,7 @@ import type {
 } from "../base";
 import { BaseSyncProtocol } from "../base";
 import { HttpClientAdapter, HttpServerAdapter } from "./http.adapters";
-import type { HttpOperations, HttpRequest, HttpResponse, TransformHttpService } from "./http.types";
+import type { DefaultHttpOperations, HttpOperations, HttpRequest, HttpResponse, TransformHttpService } from "./http.types";
 
 /**
  * HTTP protocol options
@@ -42,7 +42,7 @@ export interface HttpProtocolOptions {
  *
  * @template T - HTTP service definition (operation ID → { request, response })
  */
-export class HttpProtocol<T extends HttpOperations = HttpOperations>
+export class HttpProtocol<T extends HttpOperations<T> = DefaultHttpOperations>
 	extends BaseSyncProtocol<TransformHttpService<T>, HttpRequest, HttpResponse>
 	implements ISyncProtocol<TransformHttpService<T>, HttpRequest, HttpResponse>
 {

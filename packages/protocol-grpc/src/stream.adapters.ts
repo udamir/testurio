@@ -196,7 +196,7 @@ export class GrpcStreamClientAdapter implements IAsyncClientAdapter {
 		const client = new ServiceClient(`${host}:${port}`, credentials);
 
 		// Access client methods via typed interface
-		const clientMethods = client as GrpcClientMethods;
+		const clientMethods = client as unknown as GrpcClientMethods;
 		const method = clientMethods[methodName];
 
 		if (typeof method !== "function") {

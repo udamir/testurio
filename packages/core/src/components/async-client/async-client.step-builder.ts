@@ -5,7 +5,15 @@
  */
 
 import type { ITestCaseBuilder } from "../../execution/execution.types";
-import type { ClientMessages, IAsyncProtocol, Message, ProtocolMessages, ServerMessages } from "../../protocols/base";
+import type {
+	AsyncClientMessageType,
+	AsyncServerMessageType,
+	ExtractClientPayload,
+	ExtractServerPayload,
+	IAsyncProtocol,
+	Message,
+	ProtocolMessages,
+} from "../../protocols/base";
 import { generateHookId } from "../../utils";
 import type { Hook } from "../base/base.types";
 import type { AsyncClient } from "./async-client.component";
@@ -79,12 +87,18 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 
 	/**
 	 * Send a message to server (from clientMessages)
+	 *
+	 * In loose mode (no type parameter on protocol):
+	 * - messageType accepts any string
+	 * - payload typed as `unknown`
+	 *
+	 * In strict mode (with type parameter):
+	 * - messageType constrained to defined client message types
+	 * - payload typed according to message definition
 	 */
-	sendMessage<K extends keyof ClientMessages<ProtocolMessages<P>>>(
+	sendMessage<K extends AsyncClientMessageType<P>>(
 		messageType: K,
-		payload:
-			| ClientMessages<ProtocolMessages<P>>[K]
-			| (() => ClientMessages<ProtocolMessages<P>>[K] | Promise<ClientMessages<ProtocolMessages<P>>[K]>),
+		payload: ExtractClientPayload<P, K> | (() => ExtractClientPayload<P, K> | Promise<ExtractClientPayload<P, K>>),
 		traceId?: string
 	): void {
 		this.testBuilder.registerStep({
@@ -95,7 +109,7 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 			action: async () => {
 				const payloadValue =
 					typeof payload === "function"
-						? await Promise.resolve((payload as () => ClientMessages<ProtocolMessages<P>>[K])())
+						? await Promise.resolve((payload as () => ExtractClientPayload<P, K>)())
 						: payload;
 				const message: Message = {
 					type: messageType as string,
@@ -147,16 +161,24 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 	 * Unlike onEvent which just registers a hook, waitEvent creates a step
 	 * that blocks until the event is received or timeout expires.
 	 *
+	 * In loose mode (no type parameter on protocol):
+	 * - messageType accepts any string
+	 * - payload typed as `unknown`
+	 *
+	 * In strict mode (with type parameter):
+	 * - messageType constrained to defined server message types
+	 * - payload typed according to message definition
+	 *
 	 * @param messageType - Message type to wait for (from serverMessages)
 	 * @param options - Optional timeout and matcher
 	 */
-	waitEvent<K extends keyof ServerMessages<ProtocolMessages<P>>>(
+	waitEvent<K extends AsyncServerMessageType<P>>(
 		messageType: K,
 		options?: {
 			timeout?: number;
-			matcher?: string | ((payload: ServerMessages<ProtocolMessages<P>>[K]) => boolean);
+			matcher?: string | ((payload: ExtractServerPayload<P, K>) => boolean);
 		}
-	): AsyncClientHookBuilder<ServerMessages<ProtocolMessages<P>>[K], ProtocolMessages<P>> {
+	): AsyncClientHookBuilder<ExtractServerPayload<P, K>, ProtocolMessages<P>> {
 		const timeout = options?.timeout ?? 5000;
 		const messageTypes = messageType as string;
 
@@ -238,21 +260,29 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 			},
 		});
 
-		return new AsyncClientHookBuilder<ServerMessages<ProtocolMessages<P>>[K], ProtocolMessages<P>>(hook);
+		return new AsyncClientHookBuilder<ExtractServerPayload<P, K>, ProtocolMessages<P>>(hook);
 	}
 
 	/**
 	 * Register event handler (hook) for server messages
 	 *
+	 * In loose mode (no type parameter on protocol):
+	 * - messageType accepts any string
+	 * - payload typed as `unknown`
+	 *
+	 * In strict mode (with type parameter):
+	 * - messageType constrained to defined server message types
+	 * - payload typed according to message definition
+	 *
 	 * @param messageType - Message type to match (from serverMessages)
 	 * @param matcher - Optional payload matcher (traceId string or filter function)
 	 * @param timeout - Optional timeout in milliseconds
 	 */
-	onEvent<K extends keyof ServerMessages<ProtocolMessages<P>> & string>(
+	onEvent<K extends AsyncServerMessageType<P>>(
 		messageType: K,
-		matcher?: string | ((payload: ServerMessages<ProtocolMessages<P>>[K]) => boolean),
+		matcher?: string | ((payload: ExtractServerPayload<P, K>) => boolean),
 		timeout?: number
-	): AsyncClientHookBuilder<ServerMessages<ProtocolMessages<P>>[K], ProtocolMessages<P>> {
+	): AsyncClientHookBuilder<ExtractServerPayload<P, K>, ProtocolMessages<P>> {
 		// Build payload matcher if provided
 		const payloadMatcher = this.buildPayloadMatcher(matcher);
 
@@ -260,7 +290,7 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 			id: generateHookId(),
 			componentName: this.client.name,
 			phase: "test",
-			messageType,
+			messageType: messageType as string,
 			payloadMatcher,
 			handlers: [],
 			persistent: false,
@@ -270,7 +300,7 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 		// Register hook first, then pass to builder
 		this.client.registerHook(hook);
 
-		return new AsyncClientHookBuilder<ServerMessages<ProtocolMessages<P>>[K], ProtocolMessages<P>>(hook);
+		return new AsyncClientHookBuilder<ExtractServerPayload<P, K>, ProtocolMessages<P>>(hook);
 	}
 
 	/**
