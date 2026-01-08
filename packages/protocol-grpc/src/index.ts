@@ -17,6 +17,7 @@
  * ```
  */
 
+export * from "./credentials";
 export * from "./metadata";
 export * from "./schema-loader";
 export * from "./stream.adapters";

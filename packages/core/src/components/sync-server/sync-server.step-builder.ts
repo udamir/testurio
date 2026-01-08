@@ -6,9 +6,9 @@
  * Implements the declarative sequential pattern.
  */
 
-import { generateId } from "../../utils";
 import type { TestPhase } from "../../execution";
 import type { ISyncProtocol, ProtocolRequestOptions, SyncOperationId } from "../../protocols/base";
+import { generateId } from "../../utils";
 import type { Hook } from "../base";
 import type { Server } from "./sync-server.component";
 import { SyncHookBuilderImpl } from "./sync-server.hook-builder";

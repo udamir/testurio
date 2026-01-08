@@ -2,33 +2,39 @@
  * gRPC Protocol Types
  *
  * Type definitions for gRPC protocols (unary and streaming).
+ * Supports both loose mode (no type parameters) and strict mode (with type parameters).
  *
- * @example Service Definition
+ * @example Loose Mode (any operation ID)
+ * ```typescript
+ * const client = new Client('api', {
+ *   protocol: new GrpcUnaryProtocol({ schema: 'service.proto' }),
+ *   targetAddress: { host: 'localhost', port: 50051 },
+ * });
+ *
+ * // Any operation ID is valid
+ * api.request('GetUser', { payload: { user_id: 42 } });
+ * ```
+ *
+ * @example Strict Mode (typed operations)
  * ```typescript
  * interface MyGrpcService {
  *   GetUser: {
- *     request: { payload: { user_id: number }; metadata?: GrpcMetadata };
- *     response: { payload: { name: string; email: string }; metadata?: GrpcMetadata };
- *   };
- *   CreateOrder: {
- *     request: { payload: CreateOrderPayload; metadata?: GrpcMetadata };
- *     response: { payload: CreateOrderResponse; metadata?: GrpcMetadata };
+ *     request: { user_id: number };
+ *     response: { name: string; email: string };
  *   };
  * }
- * ```
  *
- * @example Usage
- * ```typescript
  * const client = new Client('api', {
  *   protocol: new GrpcUnaryProtocol<MyGrpcService>({ schema: 'service.proto' }),
  *   targetAddress: { host: 'localhost', port: 50051 },
  * });
  *
- * // In test case - metadata in payload
- * api.request('GetUser', { payload: { user_id: 42 }, metadata: { authorization: 'Bearer token' } });
+ * // Only defined operations are valid
+ * api.request('GetUser', { payload: { user_id: 42 } });
  * ```
  */
 
+import type * as grpc from "@grpc/grpc-js";
 import type { Message, SyncRequestOptions } from "testurio";
 
 // =============================================================================
@@ -230,8 +236,6 @@ export interface GrpcRequestOptions extends SyncRequestOptions {
 // gRPC Client Method Types (for type-safe client access)
 // =============================================================================
 
-import type * as grpc from "@grpc/grpc-js";
-
 /**
  * gRPC call options for setting deadline, etc.
  */
@@ -267,4 +271,284 @@ export type GrpcStreamClientMethod = (metadata?: grpc.Metadata) => grpc.ClientDu
  */
 export interface GrpcClientMethods {
 	[methodName: string]: GrpcUnaryClientMethod | GrpcStreamClientMethod | undefined;
+}
+
+// =============================================================================
+// Flexible Type System (Loose/Strict Mode)
+// =============================================================================
+
+/**
+ * Generic gRPC request payload (loose mode)
+ * Allows any fields when no type parameter is provided.
+ */
+export interface GrpcRequestPayload {
+	[key: string]: unknown;
+}
+
+/**
+ * Generic gRPC response payload (loose mode)
+ * Allows any fields when no type parameter is provided.
+ */
+export interface GrpcResponsePayload {
+	[key: string]: unknown;
+}
+
+/**
+ * Generic gRPC message for streaming (loose mode)
+ */
+export interface GrpcMessagePayload {
+	[key: string]: unknown;
+}
+
+/**
+ * gRPC Unary operation definition
+ *
+ * @template TReq - Request type
+ * @template TRes - Response type
+ */
+export interface GrpcUnaryOperation<TReq = GrpcRequestPayload, TRes = GrpcResponsePayload> {
+	readonly request: TReq;
+	readonly response: TRes;
+}
+
+/**
+ * gRPC Stream operation definition
+ *
+ * @template TReq - Request/client message type
+ * @template TRes - Response/server message type
+ */
+export interface GrpcStreamOperation<TReq = GrpcMessagePayload, TRes = GrpcMessagePayload> {
+	readonly request: TReq;
+	readonly response: TRes;
+}
+
+/**
+ * Default gRPC unary operations - allows any string key (loose mode)
+ * When GrpcUnaryProtocol is used without type parameter, this allows
+ * any operation ID with generic request/response types.
+ */
+export interface DefaultGrpcUnaryOperations {
+	[key: string]: GrpcUnaryOperation<GrpcRequestPayload, GrpcResponsePayload>;
+}
+
+/**
+ * Default gRPC stream messages - allows any string key (loose mode)
+ * Matches AsyncMessages format required by BaseAsyncProtocol.
+ * When GrpcStreamProtocol is used without type parameter, this allows
+ * any message type with generic payload.
+ */
+export interface DefaultGrpcStreamMessages {
+	clientMessages: {
+		[key: string]: GrpcMessagePayload;
+	};
+	serverMessages: {
+		[key: string]: GrpcMessagePayload;
+	};
+}
+
+/**
+ * gRPC Unary Service definition - maps operation IDs to operations
+ *
+ * @template T - Service definition type
+ *   - If T is omitted or DefaultGrpcUnaryOperations: loose mode (any string key)
+ *   - If T is a specific interface: strict mode (only defined keys)
+ */
+export type GrpcUnaryOperations<T = DefaultGrpcUnaryOperations> = T extends DefaultGrpcUnaryOperations
+	? DefaultGrpcUnaryOperations
+	: {
+			[K in keyof T]: GrpcUnaryOperation<
+				T[K] extends { request: infer R } ? R : GrpcRequestPayload,
+				T[K] extends { response: infer S } ? S : GrpcResponsePayload
+			>;
+		};
+
+// =============================================================================
+// Mode Detection Types
+// =============================================================================
+
+/**
+ * Check if unary protocol is in loose mode (using default operations)
+ *
+ * @template S - Service definition from protocol
+ * @returns true if loose mode, false if strict mode
+ *
+ * Detection logic:
+ * - If `string extends keyof S` is true, it means S has an index signature
+ * - Index signature = loose mode
+ * - Specific keys only = strict mode
+ */
+export type IsGrpcLooseMode<S> = string extends keyof S ? true : false;
+
+/**
+ * Check if stream protocol is in loose mode (using default messages)
+ *
+ * @template M - Messages definition from protocol (with clientMessages/serverMessages)
+ * @returns true if loose mode, false if strict mode
+ *
+ * Detection logic:
+ * - If clientMessages has an index signature, it's loose mode
+ */
+export type IsGrpcStreamLooseMode<M> = M extends { clientMessages: infer C }
+	? string extends keyof C
+		? true
+		: false
+	: false;
+
+/**
+ * Get valid operation ID type based on mode
+ *
+ * @template S - Service definition
+ * @returns string (loose mode) or keyof service (strict mode)
+ */
+export type GrpcOperationId<S> = IsGrpcLooseMode<S> extends true ? string : keyof S & string;
+
+// =============================================================================
+// Type Extraction Helpers
+// =============================================================================
+
+/**
+ * Extract request type for an operation with loose mode fallback
+ *
+ * @template S - Service definition
+ * @template K - Operation key
+ */
+export type ExtractGrpcRequestData<S, K> =
+	IsGrpcLooseMode<S> extends true
+		? GrpcRequestPayload
+		: K extends keyof S
+			? S[K] extends { request: infer R }
+				? R
+				: GrpcRequestPayload
+			: GrpcRequestPayload;
+
+/**
+ * Extract response type for an operation with loose mode fallback
+ *
+ * @template S - Service definition
+ * @template K - Operation key
+ */
+export type ExtractGrpcResponseData<S, K> =
+	IsGrpcLooseMode<S> extends true
+		? GrpcResponsePayload
+		: K extends keyof S
+			? S[K] extends { response: infer R }
+				? R
+				: GrpcResponsePayload
+			: GrpcResponsePayload;
+
+/**
+ * Extract stream request/message type with loose mode fallback
+ */
+export type ExtractGrpcStreamRequest<S, K> =
+	IsGrpcLooseMode<S> extends true
+		? GrpcMessagePayload
+		: K extends keyof S
+			? S[K] extends { request: infer R }
+				? R
+				: GrpcMessagePayload
+			: GrpcMessagePayload;
+
+/**
+ * Extract stream response/message type with loose mode fallback
+ */
+export type ExtractGrpcStreamResponse<S, K> =
+	IsGrpcLooseMode<S> extends true
+		? GrpcMessagePayload
+		: K extends keyof S
+			? S[K] extends { response: infer R }
+				? R
+				: GrpcMessagePayload
+			: GrpcMessagePayload;
+
+// =============================================================================
+// Protocol Type Markers
+// =============================================================================
+
+/**
+ * gRPC stream options
+ */
+export interface GrpcStreamOptions {
+	/** Initial metadata to send with stream */
+	metadata?: Record<string, string>;
+}
+
+/**
+ * gRPC Unary Protocol type marker
+ *
+ * @template S - gRPC service definition
+ */
+export interface GrpcUnaryProtocolTypes<S extends GrpcUnaryOperations = DefaultGrpcUnaryOperations> {
+	readonly request: GrpcOperationRequest;
+	readonly response: GrpcOperationResponse;
+	readonly options: GrpcRequestOptions;
+	readonly service: S;
+	/** Marker for loose mode detection */
+	readonly isLooseMode: IsGrpcLooseMode<S>;
+}
+
+/**
+ * gRPC Stream Protocol type marker
+ *
+ * @template M - gRPC stream messages definition (with clientMessages/serverMessages)
+ */
+export interface GrpcStreamProtocolTypes<M = DefaultGrpcStreamMessages> {
+	readonly message: GrpcMessagePayload;
+	readonly options: GrpcStreamOptions;
+	/** Client messages definition */
+	readonly clientMessages: M extends { clientMessages: infer C } ? C : Record<string, unknown>;
+	/** Server messages definition */
+	readonly serverMessages: M extends { serverMessages: infer S } ? S : Record<string, unknown>;
+	/** Marker for loose mode detection */
+	readonly isLooseMode: IsGrpcStreamLooseMode<M>;
+}
+
+// =============================================================================
+// Type Guards
+// =============================================================================
+
+/**
+ * Type guard for gRPC service client constructor detection
+ *
+ * @param value - Value to check
+ * @returns true if value is a ServiceClientConstructor
+ */
+export function isServiceClient(value: unknown): value is grpc.ServiceClientConstructor {
+	return (
+		typeof value === "function" && "service" in value && typeof (value as Record<string, unknown>).service === "object"
+	);
+}
+
+/**
+ * Type guard for gRPC namespace (package) detection
+ *
+ * @param value - Value to check
+ * @returns true if value is a GrpcObject namespace
+ */
+export function isGrpcNamespace(value: unknown): value is grpc.GrpcObject {
+	return typeof value === "object" && value !== null && !("service" in value);
+}
+
+/**
+ * Type guard for response with grpcStatus field
+ *
+ * @param value - Value to check
+ * @returns true if value has grpcStatus property
+ */
+export function hasGrpcStatus(value: unknown): value is { grpcStatus: number; grpcMessage?: string } {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		"grpcStatus" in value &&
+		typeof (value as Record<string, unknown>).grpcStatus === "number"
+	);
+}
+
+/**
+ * Type guard for response/request with payload field
+ *
+ * @param value - Value to check
+ * @returns true if value has payload property
+ */
+export function hasPayload<T = unknown>(value: unknown): value is { payload: T } {
+	return typeof value === "object" && value !== null && "payload" in value;
 }

@@ -8,6 +8,7 @@
  * They don't run at runtime - they just need to compile without errors.
  */
 
+import type { GrpcStreamProtocol, GrpcUnaryProtocol } from "@testurio/protocol-grpc";
 import type { WebSocketProtocol, WsServiceDefinition } from "@testurio/protocol-ws";
 import type {
 	AsyncClientMessageType,
@@ -111,6 +112,90 @@ const _strictWsClientMsg1: StrictWsClientMsgType = "ping";
 const _strictWsClientMsg2: StrictWsClientMsgType = "subscribe";
 // @ts-expect-error - "invalid" is not a valid client message type
 const _invalidWsClientMsg: StrictWsClientMsgType = "invalid";
+
+// =============================================================================
+// Test 4: gRPC Unary - Loose mode (no type parameter)
+// =============================================================================
+
+type LooseGrpcUnaryProtocol = GrpcUnaryProtocol;
+type LooseGrpcUnaryService = ProtocolService<LooseGrpcUnaryProtocol>;
+type LooseGrpcUnaryMode = IsSyncLooseMode<LooseGrpcUnaryService>; // Should be true
+type LooseGrpcUnaryOpId = SyncOperationId<LooseGrpcUnaryProtocol>; // Should be string
+type LooseGrpcUnaryReq = ExtractRequestData<LooseGrpcUnaryProtocol, "AnyMethod">; // Should be GrpcOperationRequest
+type LooseGrpcUnaryRes = ExtractClientResponse<LooseGrpcUnaryProtocol, "AnyMethod">; // Should be GrpcOperationResponse
+
+const _looseGrpcUnaryMode: LooseGrpcUnaryMode = true;
+const _looseGrpcUnaryOpId: LooseGrpcUnaryOpId = "AnyMethodNameIsValid";
+// Verify request/response types are the protocol's raw types
+const _looseGrpcReqTest: LooseGrpcUnaryReq = { payload: { any: "data" } };
+const _looseGrpcResTest: LooseGrpcUnaryRes = { payload: { any: "response" } };
+
+// =============================================================================
+// Test 5: gRPC Unary - Strict mode (with type parameter)
+// =============================================================================
+
+interface MyGrpcService {
+	SayHello: {
+		request: { payload: { name: string } };
+		response: { payload: { message: string } };
+	};
+	SayGoodbye: {
+		request: { payload: { name: string } };
+		response: { payload: { farewell: string } };
+	};
+}
+
+type StrictGrpcUnaryProtocol = GrpcUnaryProtocol<MyGrpcService>;
+type StrictGrpcUnaryService = ProtocolService<StrictGrpcUnaryProtocol>;
+type StrictGrpcUnaryMode = IsSyncLooseMode<StrictGrpcUnaryService>; // Should be false
+type StrictGrpcUnaryOpId = SyncOperationId<StrictGrpcUnaryProtocol>; // Should be "SayHello" | "SayGoodbye"
+
+const _strictGrpcUnaryMode: StrictGrpcUnaryMode = false;
+const _strictGrpcUnaryOpId1: StrictGrpcUnaryOpId = "SayHello";
+const _strictGrpcUnaryOpId2: StrictGrpcUnaryOpId = "SayGoodbye";
+// @ts-expect-error - "InvalidMethod" is not a valid operation ID
+const _invalidGrpcUnaryOpId: StrictGrpcUnaryOpId = "InvalidMethod";
+
+// =============================================================================
+// Test 6: gRPC Stream - Loose mode (no type parameter)
+// =============================================================================
+
+type LooseGrpcStreamProtocol = GrpcStreamProtocol;
+type LooseGrpcStreamMessages = ProtocolService<LooseGrpcStreamProtocol>;
+type LooseGrpcStreamMode = IsAsyncLooseMode<LooseGrpcStreamMessages>; // Should be true
+type LooseGrpcStreamClientMsgType = AsyncClientMessageType<LooseGrpcStreamProtocol>; // Should be string
+type LooseGrpcStreamServerMsgType = AsyncServerMessageType<LooseGrpcStreamProtocol>; // Should be string
+
+const _looseGrpcStreamMode: LooseGrpcStreamMode = true;
+const _looseGrpcStreamClientMsg: LooseGrpcStreamClientMsgType = "AnyClientMessage";
+const _looseGrpcStreamServerMsg: LooseGrpcStreamServerMsgType = "AnyServerMessage";
+
+// =============================================================================
+// Test 7: gRPC Stream - Strict mode (with type parameter)
+// =============================================================================
+
+interface MyGrpcStreamService {
+	clientMessages: {
+		ChatMessage: { text: string; sender: string };
+		Ping: { seq: number };
+	};
+	serverMessages: {
+		ChatResponse: { text: string; timestamp: number };
+		Pong: { seq: number; latency: number };
+	};
+}
+
+type StrictGrpcStreamProtocol = GrpcStreamProtocol<MyGrpcStreamService>;
+type StrictGrpcStreamMessages = ProtocolService<StrictGrpcStreamProtocol>;
+type StrictGrpcStreamMode = IsAsyncLooseMode<StrictGrpcStreamMessages>; // Should be false
+type StrictGrpcStreamClientMsgType = AsyncClientMessageType<StrictGrpcStreamProtocol>; // Should be "ChatMessage" | "Ping"
+type StrictGrpcStreamServerMsgType = AsyncServerMessageType<StrictGrpcStreamProtocol>; // Should be "ChatResponse" | "Pong"
+
+const _strictGrpcStreamMode: StrictGrpcStreamMode = false;
+const _strictGrpcStreamClientMsg1: StrictGrpcStreamClientMsgType = "ChatMessage";
+const _strictGrpcStreamClientMsg2: StrictGrpcStreamClientMsgType = "Ping";
+// @ts-expect-error - "InvalidMessage" is not a valid client message type
+const _invalidGrpcStreamClientMsg: StrictGrpcStreamClientMsgType = "InvalidMessage";
 
 import { describe, expect, it } from "vitest";
 

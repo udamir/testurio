@@ -3,6 +3,29 @@
  *
  * Protocol for gRPC unary (request/response) calls.
  * Supports client connections, mock servers, and proxy servers.
+ *
+ * Flexible type system:
+ * - Loose mode (no type parameter): Any operation ID accepted
+ * - Strict mode (with type parameter): Only defined operations allowed
+ *
+ * @example Loose mode
+ * ```typescript
+ * const protocol = new GrpcUnaryProtocol({
+ *   schema: './greeter.proto',
+ * });
+ * // client.request('AnyMethod', { payload: { ... } })
+ * ```
+ *
+ * @example Strict mode
+ * ```typescript
+ * interface GreeterService {
+ *   SayHello: { request: { name: string }; response: { message: string } };
+ * }
+ * const protocol = new GrpcUnaryProtocol<GreeterService>({
+ *   schema: './greeter.proto',
+ * });
+ * // client.request('SayHello', { payload: { name: 'World' } })
+ * ```
  */
 
 import type * as grpc from "@grpc/grpc-js";
@@ -16,7 +39,13 @@ import type {
 } from "testurio";
 import { BaseSyncProtocol } from "testurio";
 import { GrpcBaseProtocol } from "./grpc-base";
-import type { GrpcOperationRequest, GrpcOperationResponse, GrpcOperations, GrpcUnaryProtocolOptions } from "./types";
+import type {
+	DefaultGrpcUnaryOperations,
+	GrpcOperationRequest,
+	GrpcOperationResponse,
+	GrpcUnaryOperations,
+	GrpcUnaryProtocolOptions,
+} from "./types";
 import { GrpcUnaryClientAdapter, GrpcUnaryServerAdapter } from "./unary.adapters";
 
 /**
@@ -25,10 +54,12 @@ import { GrpcUnaryClientAdapter, GrpcUnaryServerAdapter } from "./unary.adapters
  * Implements synchronous request/response pattern for gRPC unary calls.
  *
  * @template T - Service definition type for type-safe method calls
+ *   - If omitted: loose mode (any operation ID accepted)
+ *   - If provided: strict mode (only defined operations allowed)
  */
-export class GrpcUnaryProtocol<T extends GrpcOperations<T> = GrpcOperations>
-	extends BaseSyncProtocol<T, GrpcOperationRequest, GrpcOperationResponse>
-	implements ISyncProtocol<T, GrpcOperationRequest, GrpcOperationResponse>
+export class GrpcUnaryProtocol<T = DefaultGrpcUnaryOperations>
+	extends BaseSyncProtocol<GrpcUnaryOperations<T>, GrpcOperationRequest, GrpcOperationResponse>
+	implements ISyncProtocol<GrpcUnaryOperations<T>, GrpcOperationRequest, GrpcOperationResponse>
 {
 	readonly type = "grpc-unary";
 
@@ -132,6 +163,8 @@ export class GrpcUnaryProtocol<T extends GrpcOperations<T> = GrpcOperations>
 /**
  * Create gRPC unary protocol factory
  */
-export function createGrpcUnaryProtocol(): GrpcUnaryProtocol {
-	return new GrpcUnaryProtocol();
+export function createGrpcUnaryProtocol<T = DefaultGrpcUnaryOperations>(
+	options: GrpcUnaryProtocolOptions = {}
+): GrpcUnaryProtocol<T> {
+	return new GrpcUnaryProtocol<T>(options);
 }

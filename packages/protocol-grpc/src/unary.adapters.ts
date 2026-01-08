@@ -1,11 +1,12 @@
 /**
- * gRPC Unary Protocol Adapters (v3 Design)
+ * gRPC Unary Protocol Adapters
  *
- * Server and client adapters for gRPC unary protocol.
+ * Server and client adapters for gRPC unary (request/response) protocol.
  */
 
 import * as grpc from "@grpc/grpc-js";
 import type { ISyncClientAdapter, ISyncServerAdapter } from "testurio";
+import { createClientCredentials, createServerCredentials, type TlsConfig } from "./credentials";
 import { createGrpcMetadata, extractGrpcMetadata } from "./metadata";
 import type {
 	GrpcClientMethods,
@@ -14,10 +15,16 @@ import type {
 	GrpcUnaryClientMethod,
 	GrpcUnaryRequestOptions,
 } from "./types";
+import { hasGrpcStatus, hasPayload } from "./types";
+
+// =============================================================================
+// Server Adapter
+// =============================================================================
 
 /**
  * gRPC Unary Server Adapter
- * Wraps grpc.Server instance, owned by component
+ *
+ * Wraps grpc.Server instance for unary request/response calls.
  */
 export class GrpcUnaryServerAdapter implements ISyncServerAdapter {
 	private server: grpc.Server;
@@ -31,13 +38,13 @@ export class GrpcUnaryServerAdapter implements ISyncServerAdapter {
 	}
 
 	/**
-	 * Create and start gRPC server adapter
+	 * Create and start gRPC unary server adapter
 	 */
 	static async create(
 		host: string,
 		port: number,
 		serviceDefinitions: Map<string, grpc.ServiceDefinition>,
-		tls?: { ca?: string; cert?: string; key?: string }
+		tls?: TlsConfig
 	): Promise<GrpcUnaryServerAdapter> {
 		return new Promise((resolve, reject) => {
 			const server = new grpc.Server();
@@ -53,7 +60,7 @@ export class GrpcUnaryServerAdapter implements ISyncServerAdapter {
 				server.addService(serviceDefinition, implementation);
 			}
 
-			const credentials = adapter.createServerCredentials(tls);
+			const credentials = createServerCredentials(tls);
 
 			server.bindAsync(`${host}:${port}`, credentials, (err, _port) => {
 				if (err) {
@@ -63,23 +70,6 @@ export class GrpcUnaryServerAdapter implements ISyncServerAdapter {
 				resolve(adapter);
 			});
 		});
-	}
-
-	private createServerCredentials(tls?: { ca?: string; cert?: string; key?: string }): grpc.ServerCredentials {
-		if (tls) {
-			return grpc.ServerCredentials.createSsl(
-				tls.ca ? Buffer.from(tls.ca) : null,
-				tls.cert && tls.key
-					? [
-							{
-								cert_chain: Buffer.from(tls.cert),
-								private_key: Buffer.from(tls.key),
-							},
-						]
-					: []
-			);
-		}
-		return grpc.ServerCredentials.createInsecure();
 	}
 
 	private createServiceImplementation(serviceDefinition: grpc.ServiceDefinition): grpc.UntypedServiceImplementation {
@@ -98,7 +88,7 @@ export class GrpcUnaryServerAdapter implements ISyncServerAdapter {
 		return async (call, callback) => {
 			const rawPayload = call.request;
 			const metadata = extractGrpcMetadata(call.metadata);
-			const wrappedRequest = { payload: rawPayload, metadata };
+			const wrappedRequest: GrpcOperationRequest = { payload: rawPayload, metadata };
 
 			if (this.requestHandler) {
 				try {
@@ -112,27 +102,19 @@ export class GrpcUnaryServerAdapter implements ISyncServerAdapter {
 						return;
 					}
 
-					const response = result as
-						| {
-								payload?: unknown;
-								metadata?: Record<string, string>;
-								grpcStatus?: number;
-								grpcMessage?: string;
-						  }
-						| undefined;
-
-					if (response && typeof response === "object" && "grpcStatus" in response) {
-						const grpcStatus = response.grpcStatus as number;
-						if (grpcStatus !== 0) {
+					// Check for gRPC error status using type guard
+					if (hasGrpcStatus(result)) {
+						if (result.grpcStatus !== 0) {
 							callback({
-								code: grpcStatus,
-								message: (response.grpcMessage as string) || "Error",
+								code: result.grpcStatus,
+								message: result.grpcMessage || "Error",
 							});
 							return;
 						}
 					}
 
-					const responsePayload = response?.payload ?? response;
+					// Extract payload from response using type guard
+					const responsePayload = hasPayload(result) ? result.payload : result;
 					callback(null, responsePayload);
 					return;
 				} catch (error) {
@@ -169,9 +151,14 @@ export class GrpcUnaryServerAdapter implements ISyncServerAdapter {
 	}
 }
 
+// =============================================================================
+// Client Adapter
+// =============================================================================
+
 /**
  * gRPC Unary Client Adapter
- * Wraps grpc.Client instance, owned by component
+ *
+ * Client-side adapter for gRPC unary request/response calls.
  */
 export class GrpcUnaryClientAdapter implements ISyncClientAdapter {
 	private client: grpc.Client;
@@ -183,7 +170,8 @@ export class GrpcUnaryClientAdapter implements ISyncClientAdapter {
 	}
 
 	/**
-	 * Create gRPC client adapter
+	 * Create gRPC unary client adapter
+	 *
 	 * @param host - Target host
 	 * @param port - Target port
 	 * @param ServiceClient - gRPC service client constructor
@@ -194,23 +182,17 @@ export class GrpcUnaryClientAdapter implements ISyncClientAdapter {
 		host: string,
 		port: number,
 		ServiceClient: grpc.ServiceClientConstructor,
-		tls?: { ca?: string; cert?: string; key?: string },
+		tls?: TlsConfig,
 		requestTimeout?: number
 	): Promise<GrpcUnaryClientAdapter> {
-		const credentials = tls
-			? grpc.credentials.createSsl(
-					tls.ca ? Buffer.from(tls.ca) : undefined,
-					tls.key ? Buffer.from(tls.key) : undefined,
-					tls.cert ? Buffer.from(tls.cert) : undefined
-				)
-			: grpc.credentials.createInsecure();
-
+		const credentials = createClientCredentials(tls);
 		const client = new ServiceClient(`${host}:${port}`, credentials);
 		return new GrpcUnaryClientAdapter(client, requestTimeout);
 	}
 
 	async request<TReq = unknown, TRes = unknown>(messageType: string, data: TReq, timeout?: number): Promise<TRes> {
-		const isOptions = data && typeof data === "object" && "payload" in data;
+		// Check if data is wrapped in options format
+		const isOptions = hasPayload(data);
 		const options = isOptions ? (data as GrpcUnaryRequestOptions) : undefined;
 		const payload = isOptions ? options?.payload : data;
 
@@ -224,7 +206,7 @@ export class GrpcUnaryClientAdapter implements ISyncClientAdapter {
 			throw new Error(`Method ${messageType} not found on client`);
 		}
 
-		// Cast to unary method type and call with proper this binding
+		// Cast to unary method type
 		const unaryMethod = method as GrpcUnaryClientMethod;
 
 		// Calculate deadline from timeout

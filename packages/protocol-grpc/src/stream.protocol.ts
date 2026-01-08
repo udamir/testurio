@@ -3,6 +3,32 @@
  *
  * Protocol for gRPC bidirectional streaming.
  * Supports client connections, mock servers, and proxy servers.
+ *
+ * Flexible type system:
+ * - Loose mode (no type parameter): Any message type accepted
+ * - Strict mode (with type parameter): Only defined message types allowed
+ *
+ * @example Loose mode
+ * ```typescript
+ * const protocol = new GrpcStreamProtocol({
+ *   schema: './chat.proto',
+ *   methodName: 'Chat',
+ * });
+ * // client.send('Chat', { type: 'message', payload: { ... } })
+ * ```
+ *
+ * @example Strict mode
+ * ```typescript
+ * interface ChatService {
+ *   clientMessages: { message: { text: string } };
+ *   serverMessages: { reply: { text: string; timestamp: number } };
+ * }
+ * const protocol = new GrpcStreamProtocol<ChatService>({
+ *   schema: './chat.proto',
+ *   methodName: 'Chat',
+ * });
+ * // client.send('message', { type: 'message', payload: { text: 'Hello' } })
+ * ```
  */
 
 import type * as grpc from "@grpc/grpc-js";
@@ -17,18 +43,20 @@ import type {
 import { BaseAsyncProtocol } from "testurio";
 import { GrpcBaseProtocol } from "./grpc-base";
 import { GrpcStreamClientAdapter, GrpcStreamServerAdapter } from "./stream.adapters";
-import type { GrpcStreamProtocolOptions, GrpcStreamServiceDefinition } from "./types";
+import type { DefaultGrpcStreamMessages, GrpcStreamProtocolOptions } from "./types";
 
 /**
  * gRPC Stream Protocol
  *
  * Implements asynchronous bidirectional streaming for gRPC.
  *
- * @template S - Stream service definition type
+ * @template T - Stream service definition type with clientMessages/serverMessages
+ *   - If omitted: loose mode (any message type accepted)
+ *   - If provided: strict mode (only defined message types allowed)
  */
-export class GrpcStreamProtocol<S extends GrpcStreamServiceDefinition = GrpcStreamServiceDefinition>
-	extends BaseAsyncProtocol<S>
-	implements IAsyncProtocol<S>
+export class GrpcStreamProtocol<T extends DefaultGrpcStreamMessages = DefaultGrpcStreamMessages>
+	extends BaseAsyncProtocol<T>
+	implements IAsyncProtocol<T>
 {
 	readonly type = "grpc-stream";
 
@@ -130,6 +158,8 @@ export class GrpcStreamProtocol<S extends GrpcStreamServiceDefinition = GrpcStre
 /**
  * Create gRPC stream protocol factory
  */
-export function createGrpcStreamProtocol(): GrpcStreamProtocol {
-	return new GrpcStreamProtocol();
+export function createGrpcStreamProtocol<T extends DefaultGrpcStreamMessages = DefaultGrpcStreamMessages>(
+	options: GrpcStreamProtocolOptions = {}
+): GrpcStreamProtocol<T> {
+	return new GrpcStreamProtocol<T>(options);
 }

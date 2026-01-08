@@ -8,6 +8,7 @@ import * as path from "node:path";
 import * as grpc from "@grpc/grpc-js";
 import * as protoLoader from "@grpc/proto-loader";
 import type { SchemaDefinition } from "testurio";
+import { isGrpcNamespace, isServiceClient } from "./types";
 
 /**
  * Loaded gRPC package definition
@@ -16,6 +17,8 @@ export interface LoadedSchema {
 	packageDefinition: protoLoader.PackageDefinition;
 	grpcObject: grpc.GrpcObject;
 	services: Map<string, grpc.ServiceDefinition>;
+	/** Service client constructors mapped by name */
+	serviceClients: Map<string, grpc.ServiceClientConstructor>;
 }
 
 /**
@@ -50,36 +53,60 @@ export async function loadGrpcSchema(schemaPath: string | string[]): Promise<Loa
 	const grpcObject = grpc.loadPackageDefinition(packageDefinition);
 
 	const services = new Map<string, grpc.ServiceDefinition>();
-	extractServices(grpcObject, services);
+	const serviceClients = new Map<string, grpc.ServiceClientConstructor>();
+	extractServices(grpcObject, services, serviceClients);
 
-	return { packageDefinition, grpcObject, services };
+	return { packageDefinition, grpcObject, services, serviceClients };
 }
 
 /**
  * Extract services from gRPC object recursively
+ *
+ * @param obj - gRPC object to extract from
+ * @param services - Map to populate with service definitions
+ * @param serviceClients - Map to populate with service client constructors
+ * @param prefix - Current namespace prefix
  */
 export function extractServices(
 	obj: grpc.GrpcObject,
 	services: Map<string, grpc.ServiceDefinition>,
+	serviceClients: Map<string, grpc.ServiceClientConstructor>,
 	prefix = ""
 ): void {
 	for (const [key, value] of Object.entries(obj)) {
 		const fullName = prefix ? `${prefix}.${key}` : key;
 
-		if (typeof value === "function" && "service" in value) {
-			const serviceConstructor = value as grpc.ServiceClientConstructor;
-			services.set(fullName, serviceConstructor.service);
-			services.set(key, serviceConstructor.service);
-		} else if (typeof value === "object" && value !== null) {
-			extractServices(value as grpc.GrpcObject, services, fullName);
+		if (isServiceClient(value)) {
+			// Register by both short name and full package path
+			services.set(fullName, value.service);
+			services.set(key, value.service);
+			serviceClients.set(fullName, value);
+			serviceClients.set(key, value);
+		} else if (isGrpcNamespace(value)) {
+			// Recurse into namespace
+			extractServices(value, services, serviceClients, fullName);
 		}
 	}
 }
 
 /**
  * Get service client constructor by name from loaded schema
+ *
+ * First checks the serviceClients map for direct lookup,
+ * then falls back to navigating the gRPC object tree.
+ *
+ * @param schema - Loaded schema
+ * @param serviceName - Service name (can be simple or dot-separated path)
+ * @returns Service client constructor or undefined if not found
  */
 export function getServiceClient(schema: LoadedSchema, serviceName: string): grpc.ServiceClientConstructor | undefined {
+	// First try direct lookup from serviceClients map
+	const cached = schema.serviceClients.get(serviceName);
+	if (cached) {
+		return cached;
+	}
+
+	// Fall back to navigating the gRPC object tree
 	const parts = serviceName.split(".");
 	let current: unknown = schema.grpcObject;
 
@@ -91,8 +118,8 @@ export function getServiceClient(schema: LoadedSchema, serviceName: string): grp
 		}
 	}
 
-	if (typeof current === "function" && "service" in current) {
-		return current as grpc.ServiceClientConstructor;
+	if (isServiceClient(current)) {
+		return current;
 	}
 
 	return undefined;
