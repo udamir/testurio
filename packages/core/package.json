@@ -41,11 +41,11 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "build": "tsup src/index.ts --format cjs,esm --dts --sourcemap --clean",
     "test": "vitest run",
     "lint": "biome check src",
     "lint:fix": "biome check --write .",
-    "prepublish": "pnpm run lint && pnpm run test && pnpm run build"
+    "prepublish": "cp ../../README.md ./README.md && pnpm run lint && pnpm run test && pnpm run build"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",
