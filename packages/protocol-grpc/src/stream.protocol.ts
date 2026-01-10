@@ -43,7 +43,7 @@ import type {
 import { BaseAsyncProtocol } from "testurio";
 import { GrpcBaseProtocol } from "./grpc-base";
 import { GrpcStreamClientAdapter, GrpcStreamServerAdapter } from "./stream.adapters";
-import type { DefaultGrpcStreamMessages, GrpcStreamProtocolOptions } from "./types";
+import type { DefaultGrpcStreamMessages, GrpcStreamMessagesConstraint, GrpcStreamProtocolOptions } from "./types";
 
 /**
  * gRPC Stream Protocol
@@ -54,7 +54,7 @@ import type { DefaultGrpcStreamMessages, GrpcStreamProtocolOptions } from "./typ
  *   - If omitted: loose mode (any message type accepted)
  *   - If provided: strict mode (only defined message types allowed)
  */
-export class GrpcStreamProtocol<T extends DefaultGrpcStreamMessages = DefaultGrpcStreamMessages>
+export class GrpcStreamProtocol<T extends GrpcStreamMessagesConstraint = DefaultGrpcStreamMessages>
 	extends BaseAsyncProtocol<T>
 	implements IAsyncProtocol<T>
 {
@@ -158,7 +158,7 @@ export class GrpcStreamProtocol<T extends DefaultGrpcStreamMessages = DefaultGrp
 /**
  * Create gRPC stream protocol factory
  */
-export function createGrpcStreamProtocol<T extends DefaultGrpcStreamMessages = DefaultGrpcStreamMessages>(
+export function createGrpcStreamProtocol<T extends GrpcStreamMessagesConstraint = DefaultGrpcStreamMessages>(
 	options: GrpcStreamProtocolOptions = {}
 ): GrpcStreamProtocol<T> {
 	return new GrpcStreamProtocol<T>(options);

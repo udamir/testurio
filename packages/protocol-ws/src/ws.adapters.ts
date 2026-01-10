@@ -167,7 +167,7 @@ export class WsClientAdapter implements IAsyncClientAdapter {
 				}
 			}
 
-			const message = await this.codec.decode(input);
+			const message = await this.codec.decode<Message>(input);
 			this.messageHandler?.(message);
 		} catch (error) {
 			// Wrap non-CodecError in CodecError

@@ -3,9 +3,9 @@
  *
  * Default codec implementation using JSON serialization.
  * Supports custom reviver/replacer functions for advanced use cases.
+ * Works with any data type - protocol messages, MQ payloads, etc.
  */
 
-import type { Message } from "./base.types";
 import type { Codec, WireFormat } from "./codec.types";
 import { CodecError } from "./codec.types";
 
@@ -58,16 +58,18 @@ export interface JsonCodecOptions {
 }
 
 /**
- * JSON codec for text-based message serialization.
+ * JSON codec for text-based data serialization.
  *
- * This is the default codec used by WebSocket and TCP protocols
+ * This is the default codec used by protocols and MQ adapters
  * when no custom codec is specified.
  *
- * @example Basic usage (default)
+ * @template D - Data type being encoded/decoded (defaults to unknown)
+ *
+ * @example Basic usage
  * ```typescript
  * const codec = new JsonCodec();
- * const encoded = codec.encode({ type: "ping", payload: { seq: 1 } });
- * // '{"type":"ping","payload":{"seq":1}}'
+ * const encoded = codec.encode({ orderId: "123" });
+ * // '{"orderId":"123"}'
  * ```
  *
  * @example With date handling
@@ -80,6 +82,14 @@ export interface JsonCodecOptions {
  *     return value;
  *   }
  * });
+ * ```
+ *
+ * @example Typed codec
+ * ```typescript
+ * interface Order { orderId: string; amount: number; }
+ * const orderCodec = new JsonCodec<Order>();
+ * const order = orderCodec.decode('{"orderId":"123","amount":100}');
+ * // order is typed as Order
  * ```
  */
 export class JsonCodec implements Codec<string> {
@@ -97,29 +107,22 @@ export class JsonCodec implements Codec<string> {
 	}
 
 	/**
-	 * Encode a Message to JSON string
+	 * Encode data to JSON string
 	 */
-	encode(message: Message): string {
+	encode<D>(data: D): string {
 		try {
-			return JSON.stringify(message, this.replacer, this.space);
+			return JSON.stringify(data, this.replacer, this.space);
 		} catch (error) {
-			throw CodecError.encodeError(this.name, error instanceof Error ? error : new Error(String(error)), message);
+			throw CodecError.encodeError(this.name, error instanceof Error ? error : new Error(String(error)), data);
 		}
 	}
 
 	/**
-	 * Decode a JSON string to Message
+	 * Decode a JSON string to data
 	 */
-	decode(data: string): Message {
+	decode<D>(wire: string): D {
 		try {
-			const parsed = JSON.parse(data, this.reviver) as unknown;
-
-			// Validate basic Message structure
-			if (!isValidMessage(parsed)) {
-				throw new Error('Invalid message structure: missing "type" field');
-			}
-
-			return parsed;
+			return JSON.parse(wire, this.reviver) as D;
 		} catch (error) {
 			// If already a CodecError, rethrow
 			if (error instanceof CodecError) {
@@ -127,23 +130,11 @@ export class JsonCodec implements Codec<string> {
 			}
 
 			// Truncate large data for error message
-			const truncatedData = data.length > 200 ? `${data.slice(0, 200)}...` : data;
+			const truncatedData = wire.length > 200 ? `${wire.slice(0, 200)}...` : wire;
 
 			throw CodecError.decodeError(this.name, error instanceof Error ? error : new Error(String(error)), truncatedData);
 		}
 	}
-}
-
-/**
- * Type guard to validate Message structure
- */
-function isValidMessage(value: unknown): value is Message {
-	return (
-		typeof value === "object" &&
-		value !== null &&
-		"type" in value &&
-		typeof (value as Record<string, unknown>).type === "string"
-	);
 }
 
 /**

@@ -39,7 +39,7 @@ interface ErrorHttpService {
 	};
 	getError: {
 		request: { method: "GET"; path: "/error" };
-		response: { code: 200; body: { error: string } };
+		response: { code: 500; body: { error: string } };
 	};
 	getUnknown: {
 		request: { method: "GET"; path: "/unknown" };

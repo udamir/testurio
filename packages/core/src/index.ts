@@ -54,3 +54,5 @@ export * from "./protocols/http";
 export * from "./recording";
 
 export * from "./utils";
+
+export * from "./codecs";

@@ -1,11 +1,10 @@
 /**
  * Codec Types
  *
- * Defines interfaces for message encoding/decoding.
- * Codecs convert between Message objects and wire formats.
+ * Defines interfaces for data encoding/decoding.
+ * Codecs convert between data objects and wire formats.
+ * Used by both protocol adapters and MQ adapters.
  */
-
-import type { Message } from "./base.types";
 
 /**
  * Wire format type - indicates the encoded data format
@@ -13,20 +12,21 @@ import type { Message } from "./base.types";
 export type WireFormat = "text" | "binary";
 
 /**
- * Codec interface for message serialization/deserialization.
+ * Codec interface for data serialization/deserialization.
  *
- * Codecs are used by protocol adapters to convert between
- * the framework's Message type and wire formats.
+ * Codecs are used by adapters to convert between data objects and wire formats.
+ * Works with any data type - protocol messages, MQ payloads, etc.
  *
- * @template T - Wire format type (string for text, Uint8Array for binary)
+ * @template W - Wire format type (string for text, Uint8Array for binary)
+ * @template D - Data type being encoded/decoded (defaults to unknown)
  *
  * @example Text codec (JSON)
  * ```typescript
  * const jsonCodec: Codec<string> = {
  *   name: "json",
  *   wireFormat: "text",
- *   encode: (msg) => JSON.stringify(msg),
- *   decode: (data) => JSON.parse(data),
+ *   encode: (data) => JSON.stringify(data),
+ *   decode: (wire) => JSON.parse(wire),
  * };
  * ```
  *
@@ -35,12 +35,22 @@ export type WireFormat = "text" | "binary";
  * const msgpackCodec: Codec<Uint8Array> = {
  *   name: "msgpack",
  *   wireFormat: "binary",
- *   encode: (msg) => msgpack.encode(msg),
- *   decode: (data) => msgpack.decode(data),
+ *   encode: (data) => msgpack.encode(data),
+ *   decode: (wire) => msgpack.decode(wire),
+ * };
+ * ```
+ *
+ * @example Typed codec for specific data
+ * ```typescript
+ * const orderCodec: Codec<string, Order> = {
+ *   name: "json",
+ *   wireFormat: "text",
+ *   encode: (order) => JSON.stringify(order),
+ *   decode: (wire) => JSON.parse(wire) as Order,
  * };
  * ```
  */
-export interface Codec<T extends string | Uint8Array = string | Uint8Array> {
+export interface Codec<W extends string | Uint8Array = string | Uint8Array> {
 	/**
 	 * Human-readable codec name for error messages and debugging.
 	 * @example "json", "msgpack", "protobuf"
@@ -57,22 +67,22 @@ export interface Codec<T extends string | Uint8Array = string | Uint8Array> {
 	readonly wireFormat: WireFormat;
 
 	/**
-	 * Encode a Message object to wire format.
+	 * Encode data to wire format.
 	 *
-	 * @param message - The Message to encode
+	 * @param data - The data to encode
 	 * @returns Encoded data (string or Uint8Array) or Promise thereof
 	 * @throws CodecError if encoding fails
 	 */
-	encode(message: Message): T | Promise<T>;
+	encode<D = unknown>(data: D): W | Promise<W>;
 
 	/**
-	 * Decode wire format data to a Message object.
+	 * Decode wire format data to object.
 	 *
-	 * @param data - The wire format data to decode
-	 * @returns Decoded Message or Promise thereof
+	 * @param wire - The wire format data to decode
+	 * @returns Decoded data or Promise thereof
 	 * @throws CodecError if decoding fails
 	 */
-	decode(data: T): Message | Promise<Message>;
+	decode<D = unknown>(wire: W): D | Promise<D>;
 }
 
 /**

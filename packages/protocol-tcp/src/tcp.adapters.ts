@@ -289,7 +289,7 @@ export class TcpClientAdapter implements IAsyncClientAdapter {
 			input = typeof data === "string" ? new TextEncoder().encode(data) : data;
 		}
 
-		const message = await this.codec.decode(input);
+		const message = await this.codec.decode<Message>(input);
 		this.messageHandler?.(message);
 	}
 

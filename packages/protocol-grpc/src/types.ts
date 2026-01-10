@@ -339,11 +339,20 @@ export interface DefaultGrpcUnaryOperations {
  */
 export interface DefaultGrpcStreamMessages {
 	clientMessages: {
-		[key: string]: GrpcMessagePayload;
+		[key: string]: unknown;
 	};
 	serverMessages: {
-		[key: string]: GrpcMessagePayload;
+		[key: string]: unknown;
 	};
+}
+
+/**
+ * Base constraint for gRPC stream messages.
+ * Allows any object with clientMessages and serverMessages.
+ */
+export interface GrpcStreamMessagesConstraint {
+	clientMessages: Record<string, unknown>;
+	serverMessages: Record<string, unknown>;
 }
 
 /**

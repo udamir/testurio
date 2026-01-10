@@ -12,7 +12,7 @@ describe("TestCase", () => {
 
 	beforeEach(() => {
 		components = new Map<string, BaseComponent>();
-		builder = new TestCaseBuilder(components, {});
+		builder = new TestCaseBuilder(components);
 	});
 
 	describe("constructor", () => {

@@ -57,7 +57,7 @@ import { GrpcUnaryClientAdapter, GrpcUnaryServerAdapter } from "./unary.adapters
  *   - If omitted: loose mode (any operation ID accepted)
  *   - If provided: strict mode (only defined operations allowed)
  */
-export class GrpcUnaryProtocol<T = DefaultGrpcUnaryOperations>
+export class GrpcUnaryProtocol<T extends GrpcUnaryOperations = DefaultGrpcUnaryOperations>
 	extends BaseSyncProtocol<GrpcUnaryOperations<T>, GrpcOperationRequest, GrpcOperationResponse>
 	implements ISyncProtocol<GrpcUnaryOperations<T>, GrpcOperationRequest, GrpcOperationResponse>
 {
@@ -163,7 +163,7 @@ export class GrpcUnaryProtocol<T = DefaultGrpcUnaryOperations>
 /**
  * Create gRPC unary protocol factory
  */
-export function createGrpcUnaryProtocol<T = DefaultGrpcUnaryOperations>(
+export function createGrpcUnaryProtocol<T extends GrpcUnaryOperations = DefaultGrpcUnaryOperations>(
 	options: GrpcUnaryProtocolOptions = {}
 ): GrpcUnaryProtocol<T> {
 	return new GrpcUnaryProtocol<T>(options);

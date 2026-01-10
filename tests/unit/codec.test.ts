@@ -93,7 +93,7 @@ describe("JsonCodec", () => {
 				payload: { timestamp: "2024-01-15T12:00:00.000Z" },
 			});
 
-			const decoded = codec.decode(json);
+			const decoded = codec.decode<{ type: string; payload: { timestamp: Date } }>(json);
 
 			expect(decoded.payload.timestamp).toBeInstanceOf(Date);
 			expect((decoded.payload.timestamp as Date).toISOString()).toBe("2024-01-15T12:00:00.000Z");
@@ -269,21 +269,21 @@ describe("Custom Codec Implementation", () => {
 		const prefixCodec: Codec<string> = {
 			name: "prefix",
 			wireFormat: "text",
-			encode: (message: Message) => `PREFIX:${JSON.stringify(message)}`,
-			decode: (data: string) => {
-				if (!data.startsWith("PREFIX:")) {
+			encode: <D>(data: D) => `PREFIX:${JSON.stringify(data)}`,
+			decode: <D>(wire: string) => {
+				if (!wire.startsWith("PREFIX:")) {
 					throw new Error("Missing prefix");
 				}
-				return JSON.parse(data.slice(7)) as Message;
+				return JSON.parse(wire.slice(7)) as D;
 			},
 		};
 
 		const message: Message = { type: "test", payload: { value: 42 } };
-		const encoded = prefixCodec.encode(message);
+		const encoded = prefixCodec.encode(message) as string;
 
 		expect(encoded).toBe(`PREFIX:${JSON.stringify(message)}`);
 
-		const decoded = prefixCodec.decode(encoded);
+		const decoded = prefixCodec.decode<Message>(encoded);
 		expect(decoded).toEqual(message);
 	});
 
@@ -292,19 +292,19 @@ describe("Custom Codec Implementation", () => {
 		const asyncCodec: Codec<string> = {
 			name: "async",
 			wireFormat: "text",
-			encode: async (message: Message) => {
+			encode: async <D>(data: D) => {
 				await new Promise((r) => setTimeout(r, 1));
-				return JSON.stringify(message);
+				return JSON.stringify(data);
 			},
-			decode: async (data: string) => {
+			decode: async <D>(wire: string) => {
 				await new Promise((r) => setTimeout(r, 1));
-				return JSON.parse(data) as Message;
+				return JSON.parse(wire) as D;
 			},
 		};
 
 		const message: Message = { type: "async", payload: { value: "test" } };
 		const encoded = await asyncCodec.encode(message);
-		const decoded = await asyncCodec.decode(encoded);
+		const decoded = await asyncCodec.decode<Message>(encoded);
 
 		expect(decoded).toEqual(message);
 	});
@@ -314,22 +314,22 @@ describe("Custom Codec Implementation", () => {
 		const binaryCodec: Codec<Uint8Array> = {
 			name: "binary",
 			wireFormat: "binary",
-			encode: (message: Message) => {
-				const json = JSON.stringify(message);
+			encode: <D>(data: D) => {
+				const json = JSON.stringify(data);
 				return new TextEncoder().encode(json);
 			},
-			decode: (data: Uint8Array) => {
-				const json = new TextDecoder().decode(data);
-				return JSON.parse(json) as Message;
+			decode: <D>(wire: Uint8Array) => {
+				const json = new TextDecoder().decode(wire);
+				return JSON.parse(json) as D;
 			},
 		};
 
 		const message: Message = { type: "binary", payload: { bytes: [1, 2, 3] } };
-		const encoded = binaryCodec.encode(message);
+		const encoded = binaryCodec.encode(message) as Uint8Array;
 
 		expect(encoded).toBeInstanceOf(Uint8Array);
 
-		const decoded = binaryCodec.decode(encoded);
+		const decoded = binaryCodec.decode<Message>(encoded);
 		expect(decoded).toEqual(message);
 	});
 });

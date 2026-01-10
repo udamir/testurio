@@ -115,8 +115,8 @@ describe("Description Parameter", () => {
 				api
 					.onResponse("test")
 					.assert("status should be 200", (res) => res.code === 200)
-					.assert("should have name", (res) => res.body.name !== undefined)
-					.assert((res) => res.body.age === 30); // Mixed with no description
+					.assert("should have name", (res) => (res.body as { name?: string }).name !== undefined)
+					.assert((res) => (res.body as { age?: number }).age === 30); // Mixed with no description
 			});
 
 			const result = await scenario.run(tc);
