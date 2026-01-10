@@ -7,9 +7,10 @@
  */
 
 import type { TestPhase } from "../../execution";
-import type { ISyncProtocol, ProtocolRequestOptions, SyncOperationId } from "../../protocols/base";
+import type { ISyncProtocol, Message, ProtocolRequestOptions, SyncOperationId } from "../../protocols/base";
 import { generateId } from "../../utils";
 import type { Hook } from "../base";
+import { createMessageMatcher } from "../base";
 import type { Server } from "./sync-server.component";
 import { SyncHookBuilderImpl } from "./sync-server.hook-builder";
 import type { ExtractServerRequest, ExtractServerResponse } from "./sync-server.types";
@@ -58,18 +59,18 @@ export class SyncServerStepBuilder<A extends ISyncProtocol = ISyncProtocol> {
 			metadata.direction = "downstream";
 		}
 
-		const hook: Hook<ExtractServerRequest<A, K>> = {
+		const hook: Hook<Message<ExtractServerRequest<A, K>>> = {
 			id: generateId("hook_"),
 			componentName: this.server.name,
 			phase: this.testPhase,
-			messageType,
+			isMatch: createMessageMatcher(messageType),
 			handlers: [],
 			persistent: this.testPhase === "init",
 			metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
 		};
 
 		// Register hook first, then pass to builder
-		this.server.registerHook(hook as Hook);
+		this.server.registerHook(hook);
 
 		return new SyncHookBuilderImpl<ExtractServerRequest<A, K>, ExtractServerResponse<A, K>>(hook);
 	}
@@ -94,11 +95,11 @@ export class SyncServerStepBuilder<A extends ISyncProtocol = ISyncProtocol> {
 			throw new Error(`onResponse() is only available in proxy mode. Server "${this.server.name}" is in mock mode.`);
 		}
 
-		const hook: Hook<ExtractServerResponse<A, K>> = {
+		const hook: Hook<Message<ExtractServerResponse<A, K>>> = {
 			id: generateId("hook_"),
 			componentName: this.server.name,
 			phase: this.testPhase,
-			messageType: operationId,
+			isMatch: createMessageMatcher(operationId as string),
 			handlers: [],
 			persistent: this.testPhase === "init",
 			metadata: {
@@ -107,7 +108,7 @@ export class SyncServerStepBuilder<A extends ISyncProtocol = ISyncProtocol> {
 		};
 
 		// Register hook first, then pass to builder
-		this.server.registerHook(hook as Hook);
+		this.server.registerHook(hook);
 
 		return new SyncHookBuilderImpl<ExtractServerResponse<A, K>, ExtractServerResponse<A, K>>(hook);
 	}

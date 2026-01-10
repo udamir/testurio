@@ -7,8 +7,8 @@
  */
 
 import type { Message } from "../../protocols/base";
-import type { Hook, HookHandler } from "../base/base.types";
-import { DropMessageError } from "../base/base.types";
+import type { Hook, HookHandler } from "../base";
+import { DropMessageError } from "../base";
 
 /**
  * Async Client Hook Builder Implementation
@@ -25,7 +25,7 @@ export class AsyncClientHookBuilder<TPayload, _M = unknown> {
 	 *
 	 * @param hook - Already registered hook to add handlers to
 	 */
-	constructor(protected hook: Hook) {}
+	constructor(protected hook: Hook<Message<TPayload>>) {}
 
 	/**
 	 * Get the hook ID
@@ -132,9 +132,9 @@ export class AsyncClientHookBuilder<TPayload, _M = unknown> {
 
 	/**
 	 * Add a handler to the hook.
-	 * Handlers can return messages with different payload types (e.g., mockEvent returns response type).
+	 * Handlers work with Message<TPayload>.
 	 */
-	protected addHandler(handler: HookHandler<TPayload, unknown>): void {
-		this.hook.handlers.push(handler as HookHandler<unknown>);
+	protected addHandler(handler: HookHandler<Message<TPayload>, Message<unknown>>): void {
+		this.hook.handlers.push(handler);
 	}
 }

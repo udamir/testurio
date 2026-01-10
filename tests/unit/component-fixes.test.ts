@@ -10,14 +10,14 @@
  * - 8.3: Parallel broadcast sends
  */
 
-import type { Hook, IBaseProtocol, ITestCaseBuilder, Message } from "testurio";
+import type { Hook, ITestCaseBuilder, Message } from "testurio";
 import { BaseComponent } from "testurio";
 import { beforeEach, describe, expect, it } from "vitest";
 
 /**
  * Minimal test component that extends BaseComponent for testing hooks
  */
-class TestComponent extends BaseComponent<IBaseProtocol> {
+class TestComponent extends BaseComponent {
 	protected async doStart(): Promise<void> {}
 	protected async doStop(): Promise<void> {}
 	createStepBuilder(_builder: ITestCaseBuilder): unknown {
@@ -25,26 +25,23 @@ class TestComponent extends BaseComponent<IBaseProtocol> {
 	}
 }
 
-// Minimal protocol mock
-const mockProtocol = {} as IBaseProtocol;
-
 describe("Component Fixes", () => {
 	describe("5.3 First Match Hook Execution", () => {
 		let component: TestComponent;
 
 		beforeEach(() => {
-			component = new TestComponent("test", mockProtocol);
+			component = new TestComponent("test");
 		});
 
 		it("should execute only the first matching hook", async () => {
 			const executionOrder: string[] = [];
 
-			const hooks: Hook[] = [
+			const hooks: Hook<Message>[] = [
 				{
 					id: "hook-first",
 					componentName: "test",
 					phase: "test",
-					messageType: "TestMessage",
+					isMatch: (msg: Message) => msg.type === "TestMessage",
 					handlers: [
 						{
 							type: "proxy",
@@ -60,7 +57,7 @@ describe("Component Fixes", () => {
 					id: "hook-second",
 					componentName: "test",
 					phase: "test",
-					messageType: "TestMessage",
+					isMatch: (msg: Message) => msg.type === "TestMessage",
 					handlers: [
 						{
 							type: "proxy",
@@ -96,7 +93,7 @@ describe("Component Fixes", () => {
 				id: "hook-other",
 				componentName: "test",
 				phase: "test",
-				messageType: "OtherMessage",
+				isMatch: (msg: Message) => msg.type === "OtherMessage",
 				handlers: [
 					{
 						type: "proxy",
@@ -113,7 +110,7 @@ describe("Component Fixes", () => {
 				id: "hook-target",
 				componentName: "test",
 				phase: "test",
-				messageType: "TestMessage",
+				isMatch: (msg: Message) => msg.type === "TestMessage",
 				handlers: [
 					{
 						type: "proxy",
@@ -140,13 +137,13 @@ describe("Component Fixes", () => {
 
 	describe("4.4 Unhandled Error Tracking", () => {
 		it("should throw and track error when hook handler fails", async () => {
-			const component = new TestComponent("test-error", mockProtocol);
+			const component = new TestComponent("test-error");
 
 			component.registerHook({
 				id: "hook-error",
 				componentName: "test",
 				phase: "test",
-				messageType: "TestMessage",
+				isMatch: (msg: Message) => msg.type === "TestMessage",
 				handlers: [
 					{
 						type: "proxy",
@@ -171,13 +168,13 @@ describe("Component Fixes", () => {
 		});
 
 		it("should return null when hook drops message", async () => {
-			const component = new TestComponent("test-drop", mockProtocol);
+			const component = new TestComponent("test-drop");
 
 			component.registerHook({
 				id: "hook-drop",
 				componentName: "test",
 				phase: "test",
-				messageType: "TestMessage",
+				isMatch: (msg: Message) => msg.type === "TestMessage",
 				handlers: [
 					{
 						type: "drop",

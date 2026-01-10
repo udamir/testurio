@@ -14,7 +14,7 @@ import type {
 	Message,
 	TlsConfig,
 } from "../../protocols/base";
-import { BaseComponent } from "../base";
+import { ServiceComponent } from "../base";
 import { AsyncServerStepBuilder } from "./async-server.step-builder";
 
 /**
@@ -66,7 +66,7 @@ export interface AsyncServerOptions<A extends IAsyncProtocol = IAsyncProtocol> {
  * });
  * ```
  */
-export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends BaseComponent<
+export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends ServiceComponent<
 	P,
 	AsyncServerStepBuilder<P>
 > {

@@ -18,6 +18,7 @@ import type {
 } from "../../protocols/base";
 import { generateId } from "../../utils";
 import type { Hook } from "../base";
+import { createMessageMatcher } from "../base";
 import type { AsyncServer } from "./async-server.component";
 import { AsyncServerHookBuilder } from "./async-server.hook-builder";
 
@@ -92,38 +93,36 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 		// Build payload matcher if provided
 		const payloadMatcher = this.buildPayloadMatcher(options?.matcher);
 
-		const hook: Hook = {
+		const hook: Hook<Message<ExtractClientPayload<P, K>>> = {
 			id: generateId("hook_"),
 			componentName: this.server.name,
 			phase: "test",
-			messageType,
-			payloadMatcher,
+			isMatch: createMessageMatcher(messageType as string, payloadMatcher),
 			handlers: [],
 			persistent: false,
 			timeout,
 		};
 
 		// Create a promise that resolves when message is received
-		let resolveMessage: (msg: unknown) => void;
-		let capturedMessage: unknown = null;
-		const messagePromise = new Promise<unknown>((resolve) => {
-			resolveMessage = (msg: unknown) => {
+		let resolveMessage: (msg: Message<ExtractClientPayload<P, K>>) => void;
+		let capturedMessage: Message<ExtractClientPayload<P, K>> | null = null;
+		const messagePromise = new Promise<Message<ExtractClientPayload<P, K>>>((resolve) => {
+			resolveMessage = (msg: Message<ExtractClientPayload<P, K>>) => {
 				capturedMessage = msg;
 				resolve(msg);
 			};
 		});
 
 		// Create a capture hook that signals when message arrives
-		const captureHook: Hook = {
+		const captureHook: Hook<Message<ExtractClientPayload<P, K>>> = {
 			id: generateId(),
 			componentName: this.server.name,
 			phase: "test",
-			messageType,
-			payloadMatcher,
+			isMatch: createMessageMatcher(messageType as string, payloadMatcher),
 			handlers: [
 				{
 					type: "proxy",
-					execute: async (msg) => {
+					execute: async (msg: Message<ExtractClientPayload<P, K>>) => {
 						resolveMessage(msg);
 						return msg;
 					},
@@ -147,7 +146,7 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 				// If message already captured, execute user handlers immediately
 				if (capturedMessage) {
 					for (const handler of hook.handlers) {
-						await handler.execute(capturedMessage as Message);
+						await handler.execute(capturedMessage);
 					}
 					return;
 				}
@@ -160,7 +159,7 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 
 				// Execute user handlers with the received message
 				for (const handler of hook.handlers) {
-					await handler.execute(msg as Message);
+					await handler.execute(msg);
 				}
 			},
 		});
@@ -192,12 +191,11 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 		// Build payload matcher if provided
 		const payloadMatcher = this.buildPayloadMatcher(matcher);
 
-		const hook: Hook = {
+		const hook: Hook<Message<ExtractClientPayload<P, K>>> = {
 			id: generateId(),
 			componentName: this.server.name,
 			phase: "test",
-			messageType: messageType as string,
-			payloadMatcher,
+			isMatch: createMessageMatcher(messageType as string, payloadMatcher),
 			handlers: [],
 			persistent: false,
 			metadata: this.server.isProxy ? { direction: "downstream" } : undefined,
@@ -234,12 +232,11 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 
 		const payloadMatcher = this.buildPayloadMatcher(matcher);
 
-		const hook: Hook = {
+		const hook: Hook<Message<ExtractServerPayload<P, K>>> = {
 			id: generateId(),
 			componentName: this.server.name,
 			phase: "test",
-			messageType: messageType as string,
-			payloadMatcher,
+			isMatch: createMessageMatcher(messageType as string, payloadMatcher),
 			handlers: [],
 			persistent: false,
 			metadata: {
@@ -256,7 +253,9 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 	/**
 	 * Build payload matcher from string (traceId) or function
 	 */
-	private buildPayloadMatcher<T>(matcher?: string | ((payload: T) => boolean)): Hook["payloadMatcher"] {
+	private buildPayloadMatcher<T>(
+		matcher?: string | ((payload: T) => boolean)
+	): { type: "traceId"; value: string } | { type: "function"; fn: (payload: unknown) => boolean } | undefined {
 		if (!matcher) return undefined;
 
 		if (typeof matcher === "string") {

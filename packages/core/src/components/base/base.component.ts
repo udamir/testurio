@@ -1,14 +1,17 @@
 /**
  * Base Component
  *
- * Base class for all test components (Client, Mock, Proxy).
- * Includes hook management (registration and execution).
+ * Base class for all test components.
+ * Includes hook management (registration and execution) and lifecycle management.
+ *
+ * This class is message-agnostic - it works with any message type.
+ * Protocol-specific components should extend ServiceComponent instead.
+ * MQ components should extend MQComponent instead.
  */
 
 import type { ITestCaseBuilder } from "../../execution";
-import type { IBaseProtocol, Message, MessageMatcher } from "../../protocols/base";
-import type { Hook, PayloadMatcher } from "./base.types";
-import { DropMessageError } from "./base.types";
+import type { Hook } from "./base.types";
+import { DropMessageError } from "./base.utils";
 
 /**
  * Component state
@@ -18,10 +21,18 @@ export type ComponentState = "created" | "starting" | "started" | "stopping" | "
 /**
  * Base Component class
  *
- * @typeParam P - Protocol type
+ * Provides:
+ * - Hook management (message-agnostic)
+ * - Lifecycle management (start/stop)
+ * - Error tracking
+ *
+ * Does NOT include protocol or adapter - those belong in subclasses:
+ * - ServiceComponent<P> - for protocol-based components (HTTP, gRPC, WS, TCP)
+ * - MQComponent - for adapter-based components (Kafka, RabbitMQ, Redis)
+ *
  * @typeParam TStepBuilder - Step builder type returned by createStepBuilder
  */
-export abstract class BaseComponent<P extends IBaseProtocol = IBaseProtocol, TStepBuilder = unknown> {
+export abstract class BaseComponent<TStepBuilder = unknown> {
 	protected state: ComponentState = "created";
 	protected error?: Error;
 	protected hooks: Hook[] = [];
@@ -29,12 +40,9 @@ export abstract class BaseComponent<P extends IBaseProtocol = IBaseProtocol, TSt
 
 	/** Component name */
 	readonly name: string;
-	/** Protocol instance */
-	readonly protocol: P;
 
-	constructor(name: string, protocol: P) {
+	constructor(name: string) {
 		this.name = name;
-		this.protocol = protocol;
 	}
 
 	// =========================================================================
@@ -75,27 +83,44 @@ export abstract class BaseComponent<P extends IBaseProtocol = IBaseProtocol, TSt
 	}
 
 	// =========================================================================
-	// Hook Management
+	// Hook Management (Message-Agnostic)
 	// =========================================================================
 
-	registerHook<T>(hook: Hook<T>): void {
+	/**
+	 * Register a hook for message interception.
+	 * The hook's `isMatch` function determines which messages it handles.
+	 */
+	registerHook<TMessage>(hook: Hook<TMessage>): void {
 		this.hooks.push(hook as Hook);
 	}
 
-	findMatchingHook<T>(message: Message<T>): Hook<T> | null {
-		for (const hook of this.hooks as Hook<T>[]) {
-			if (this.matchHook(hook, message)) {
-				return hook;
+	/**
+	 * Find a hook that matches the given message.
+	 * Uses the hook's `isMatch` function for matching.
+	 * Errors thrown by `isMatch` are treated as no match.
+	 */
+	findMatchingHook<TMessage>(message: TMessage): Hook<TMessage> | null {
+		for (const hook of this.hooks) {
+			try {
+				if (hook.isMatch(message)) {
+					return hook as Hook<TMessage>;
+				}
+			} catch {
+				// Matcher error = no match
 			}
 		}
 		return null;
 	}
 
-	async executeHook<T>(hook: Hook<T>, message: Message<T>): Promise<Message<T> | null> {
+	/**
+	 * Execute a hook's handlers on a message.
+	 * Returns the processed message, or null if dropped.
+	 */
+	async executeHook<TMessage>(hook: Hook<TMessage>, message: TMessage): Promise<TMessage | null> {
 		try {
 			let current = message;
 			for (const handler of hook.handlers) {
-				current = await handler.execute(current);
+				current = (await handler.execute(current)) as TMessage;
 			}
 			return current;
 		} catch (error) {
@@ -111,31 +136,13 @@ export abstract class BaseComponent<P extends IBaseProtocol = IBaseProtocol, TSt
 		}
 	}
 
-	async executeMatchingHook<T>(message: Message<T>): Promise<Message<T> | null> {
+	/**
+	 * Find and execute a matching hook for the given message.
+	 * Returns the processed message, or the original if no hook matches.
+	 */
+	async executeMatchingHook<TMessage>(message: TMessage): Promise<TMessage | null> {
 		const hook = this.findMatchingHook(message);
 		return hook ? this.executeHook(hook, message) : message;
-	}
-
-	private matchHook<T>(hook: Hook<T>, message: Message<T>): boolean {
-		// Match message type
-		const typeMatches =
-			typeof hook.messageType === "function"
-				? (hook.messageType as MessageMatcher<T>)(message.type, message.payload)
-				: hook.messageType === message.type;
-
-		if (!typeMatches) return false;
-		if (!hook.payloadMatcher) return true;
-
-		// Match payload
-		const matcher = hook.payloadMatcher as PayloadMatcher;
-		if (matcher.type === "traceId") {
-			return message.traceId === matcher.value;
-		}
-		try {
-			return matcher.fn(message.payload);
-		} catch {
-			return false;
-		}
 	}
 
 	clearTestCaseHooks(): void {

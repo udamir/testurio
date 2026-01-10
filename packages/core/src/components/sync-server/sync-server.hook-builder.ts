@@ -7,7 +7,7 @@
 
 import type { Message } from "../../protocols/base";
 import type { Hook, HookHandler, SyncHookBuilder } from "../base/base.types";
-import { DropMessageError } from "../base/base.types";
+import { DropMessageError } from "../base";
 
 /**
  * Sync Hook Builder Implementation
@@ -27,7 +27,7 @@ export class SyncHookBuilderImpl<TPayload = unknown, TResponse = unknown>
 	 *
 	 * @param hook - Already registered hook to add handlers to
 	 */
-	constructor(private hook: Hook<TPayload>) {}
+	constructor(private hook: Hook<Message<TPayload>>) {}
 
 	/**
 	 * Get the hook ID
@@ -115,15 +115,14 @@ export class SyncHookBuilderImpl<TPayload = unknown, TResponse = unknown>
 		this.addHandler({
 			type: "mock",
 			metadata: description ? { description } : undefined,
-			execute: async (msg: Message<TPayload>) => {
+			execute: async (msg: Message<TPayload>): Promise<Message<TResponse>> => {
 				const response = await Promise.resolve(responseHandler?.(msg.payload));
 
-				// TODO: fix type
 				// Replace message payload with response
 				return {
 					type: "response",
-					payload: response,
-				} as Message<TPayload>;
+					payload: response as TResponse,
+				};
 			},
 		});
 		return this;
@@ -167,7 +166,7 @@ export class SyncHookBuilderImpl<TPayload = unknown, TResponse = unknown>
 	/**
 	 * Add a handler to the hook
 	 */
-	private addHandler(handler: HookHandler<TPayload>): void {
+	private addHandler(handler: HookHandler<Message<TPayload>, Message<unknown>>): void {
 		this.hook.handlers.push(handler);
 	}
 }

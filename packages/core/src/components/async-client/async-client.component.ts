@@ -7,7 +7,7 @@
 
 import type { ITestCaseBuilder } from "../../execution";
 import type { Address, IAsyncClientAdapter, IAsyncProtocol, Message, TlsConfig } from "../../protocols/base";
-import { BaseComponent } from "../base";
+import { ServiceComponent } from "../base";
 import { AsyncClientStepBuilder } from "./async-client.step-builder";
 
 /**
@@ -51,7 +51,7 @@ interface PendingMessage {
 	timeout: ReturnType<typeof setTimeout>;
 }
 
-export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends BaseComponent<
+export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends ServiceComponent<
 	P,
 	AsyncClientStepBuilder<P>
 > {

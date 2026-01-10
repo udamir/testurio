@@ -12,7 +12,7 @@
 
 import type { ITestCaseBuilder } from "../../execution/execution.types";
 import type { Address, ISyncClientAdapter, ISyncProtocol, ISyncServerAdapter, TlsConfig } from "../../protocols/base";
-import { BaseComponent } from "../base";
+import { ServiceComponent } from "../base";
 import { SyncServerStepBuilder } from "./sync-server.step-builder";
 
 /**
@@ -51,7 +51,7 @@ export interface ServerOptions<P extends ISyncProtocol = ISyncProtocol> {
  * });
  * ```
  */
-export class Server<A extends ISyncProtocol = ISyncProtocol> extends BaseComponent<A, SyncServerStepBuilder<A>> {
+export class Server<A extends ISyncProtocol = ISyncProtocol> extends ServiceComponent<A, SyncServerStepBuilder<A>> {
 	private readonly _listenAddress: Address;
 	private readonly _targetAddress?: Address;
 	private readonly _tls?: TlsConfig;

@@ -4,14 +4,14 @@
  * Tests for hook functionality in BaseComponent
  */
 
-import type { Hook, IBaseProtocol, ITestCaseBuilder, Message } from "testurio";
+import type { Hook, ITestCaseBuilder, Message } from "testurio";
 import { BaseComponent } from "testurio";
 import { beforeEach, describe, expect, it } from "vitest";
 
 /**
  * Minimal test component that extends BaseComponent for testing hooks
  */
-class TestComponent extends BaseComponent<IBaseProtocol> {
+class TestComponent extends BaseComponent {
 	protected async doStart(): Promise<void> {}
 	protected async doStop(): Promise<void> {}
 	createStepBuilder(_builder: ITestCaseBuilder): unknown {
@@ -19,23 +19,20 @@ class TestComponent extends BaseComponent<IBaseProtocol> {
 	}
 }
 
-// Minimal protocol mock
-const mockProtocol = {} as IBaseProtocol;
-
 describe("BaseComponent Hook Functionality", () => {
 	let component: TestComponent;
 
 	beforeEach(() => {
-		component = new TestComponent("test", mockProtocol);
+		component = new TestComponent("test");
 	});
 
 	describe("registerHook", () => {
 		it("should register a single hook", () => {
-			const hook: Hook = {
+			const hook: Hook<Message> = {
 				id: "hook-1",
 				componentName: "client",
 				phase: "test",
-				messageType: "Order",
+				isMatch: (msg: Message) => msg.type === "Order",
 				handlers: [],
 				persistent: false,
 			};
@@ -47,12 +44,12 @@ describe("BaseComponent Hook Functionality", () => {
 		});
 
 		it("should register multiple hooks", () => {
-			const hooks: Hook[] = [
+			const hooks: Hook<Message>[] = [
 				{
 					id: "hook-1",
 					componentName: "client",
 					phase: "test",
-					messageType: "Order",
+					isMatch: (msg: Message) => msg.type === "Order",
 					handlers: [],
 					persistent: false,
 				},
@@ -60,7 +57,7 @@ describe("BaseComponent Hook Functionality", () => {
 					id: "hook-2",
 					componentName: "proxy",
 					phase: "test",
-					messageType: "Payment",
+					isMatch: (msg: Message) => msg.type === "Payment",
 					handlers: [],
 					persistent: false,
 				},
@@ -74,11 +71,11 @@ describe("BaseComponent Hook Functionality", () => {
 		});
 
 		it("should store hooks in component", () => {
-			const hook: Hook = {
+			const hook: Hook<Message> = {
 				id: "hook-1",
 				componentName: "client",
 				phase: "test",
-				messageType: "Order",
+				isMatch: (msg: Message) => msg.type === "Order",
 				handlers: [],
 				persistent: false,
 			};
@@ -94,11 +91,11 @@ describe("BaseComponent Hook Functionality", () => {
 		it("should execute matching hooks", async () => {
 			let executed = false;
 
-			const hook: Hook = {
+			const hook: Hook<Message> = {
 				id: "hook-1",
 				componentName: "client",
 				phase: "test",
-				messageType: "Order",
+				isMatch: (msg: Message) => msg.type === "Order",
 				handlers: [
 					{
 						type: "proxy",
@@ -120,11 +117,11 @@ describe("BaseComponent Hook Functionality", () => {
 		});
 
 		it("should transform message through hooks", async () => {
-			const hook: Hook = {
+			const hook: Hook<Message> = {
 				id: "hook-1",
 				componentName: "client",
 				phase: "test",
-				messageType: "Order",
+				isMatch: (msg: Message) => msg.type === "Order",
 				handlers: [
 					{
 						type: "proxy",
@@ -156,12 +153,12 @@ describe("BaseComponent Hook Functionality", () => {
 
 	describe("clearTestCaseHooks", () => {
 		it("should remove non-persistent hooks", () => {
-			const hooks: Hook[] = [
+			const hooks: Hook<Message>[] = [
 				{
 					id: "hook-1",
 					componentName: "client",
 					phase: "init",
-					messageType: "Order",
+					isMatch: (msg: Message) => msg.type === "Order",
 					handlers: [],
 					persistent: true, // Init hook
 				},
@@ -169,7 +166,7 @@ describe("BaseComponent Hook Functionality", () => {
 					id: "hook-2",
 					componentName: "client",
 					phase: "test",
-					messageType: "Payment",
+					isMatch: (msg: Message) => msg.type === "Payment",
 					handlers: [],
 					persistent: false, // Test hook
 				},
@@ -190,11 +187,11 @@ describe("BaseComponent Hook Functionality", () => {
 
 	describe("clearHooks", () => {
 		it("should remove all hooks", () => {
-			const hook: Hook = {
+			const hook: Hook<Message> = {
 				id: "hook-1",
 				componentName: "client",
 				phase: "test",
-				messageType: "Order",
+				isMatch: (msg: Message) => msg.type === "Order",
 				handlers: [],
 				persistent: true,
 			};

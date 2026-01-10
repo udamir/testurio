@@ -15,7 +15,8 @@ import type {
 	ProtocolMessages,
 } from "../../protocols/base";
 import { generateId } from "../../utils";
-import type { Hook } from "../base/base.types";
+import type { Hook } from "../base";
+import { createMessageMatcher } from "../base";
 import type { AsyncClient } from "./async-client.component";
 import { AsyncClientHookBuilder } from "./async-client.hook-builder";
 
@@ -186,22 +187,22 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 		const payloadMatcher = this.buildPayloadMatcher(options?.matcher);
 
 		// Hook for user handlers (executed manually in step action)
-		const hook: Hook = {
+		const hook: Hook<Message<ExtractServerPayload<P, K>>> = {
 			id: generateId("hook_"),
 			componentName: this.client.name,
 			phase: "test",
-			messageType: messageTypes,
-			payloadMatcher,
+			isMatch: createMessageMatcher(messageTypes, payloadMatcher),
 			handlers: [],
 			persistent: false,
 			timeout,
 		};
 
 		// Create a promise that resolves when message is received
-		let resolveMessage: (msg: unknown) => void;
-		let capturedMessage: unknown = null;
-		const messagePromise = new Promise<unknown>((resolve) => {
-			resolveMessage = (msg: unknown) => {
+		type MessageType = Message<ExtractServerPayload<P, K>>;
+		let resolveMessage: (msg: MessageType) => void;
+		let capturedMessage: MessageType | null = null;
+		const messagePromise = new Promise<MessageType>((resolve) => {
+			resolveMessage = (msg: MessageType) => {
 				capturedMessage = msg;
 				resolve(msg);
 			};
@@ -209,16 +210,15 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 
 		// Create a capture hook that signals when message arrives
 		// This hook is registered immediately during BUILD phase to capture early messages
-		const captureHook: Hook = {
+		const captureHook: Hook<Message<ExtractServerPayload<P, K>>> = {
 			id: generateId("hook_"),
 			componentName: this.client.name,
 			phase: "test",
-			messageType: messageTypes,
-			payloadMatcher,
+			isMatch: createMessageMatcher(messageTypes, payloadMatcher),
 			handlers: [
 				{
 					type: "proxy",
-					execute: async (msg) => {
+					execute: async (msg: Message<ExtractServerPayload<P, K>>) => {
 						resolveMessage(msg);
 						return msg;
 					},
@@ -242,7 +242,7 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 				// If message already captured, execute user handlers immediately
 				if (capturedMessage) {
 					for (const handler of hook.handlers) {
-						await handler.execute(capturedMessage as Message);
+						await handler.execute(capturedMessage);
 					}
 					return;
 				}
@@ -255,7 +255,7 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 
 				// Execute user handlers with the received message
 				for (const handler of hook.handlers) {
-					await handler.execute(msg as Message);
+					await handler.execute(msg);
 				}
 			},
 		});
@@ -286,12 +286,11 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 		// Build payload matcher if provided
 		const payloadMatcher = this.buildPayloadMatcher(matcher);
 
-		const hook: Hook = {
+		const hook: Hook<Message<ExtractServerPayload<P, K>>> = {
 			id: generateId("hook_"),
 			componentName: this.client.name,
 			phase: "test",
-			messageType: messageType as string,
-			payloadMatcher,
+			isMatch: createMessageMatcher(messageType as string, payloadMatcher),
 			handlers: [],
 			persistent: false,
 			timeout,
@@ -306,7 +305,9 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 	/**
 	 * Build payload matcher from string (traceId) or function
 	 */
-	private buildPayloadMatcher<T>(matcher?: string | ((payload: T) => boolean)): Hook["payloadMatcher"] {
+	private buildPayloadMatcher<T>(
+		matcher?: string | ((payload: T) => boolean)
+	): { type: "traceId"; value: string } | { type: "function"; fn: (payload: unknown) => boolean } | undefined {
 		if (!matcher) return undefined;
 
 		if (typeof matcher === "string") {

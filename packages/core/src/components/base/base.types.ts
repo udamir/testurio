@@ -2,56 +2,60 @@
  * Base Component Types
  *
  * Types for hook system, handlers, and builders.
+ *
+ * The hook system is message-agnostic - it works with any message type
+ * (Message<T> for protocols, QueueMessage for MQ, etc.)
  */
 
 import type { TestPhase } from "../../execution";
-import type { Message, MessageMatcher } from "../../protocols/base";
 
 // =============================================================================
-// Payload Matchers
-// =============================================================================
-
-/**
- * Match by trace ID (for correlating request/response)
- */
-export interface TraceIdPayloadMatcher {
-	type: "traceId";
-	value: string;
-}
-
-/**
- * Match by custom function
- */
-export interface FunctionPayloadMatcher {
-	type: "function";
-	fn: (payload: unknown) => boolean;
-}
-
-/**
- * Payload matcher - matches by traceId or custom function
- */
-export type PayloadMatcher = TraceIdPayloadMatcher | FunctionPayloadMatcher;
-
-// =============================================================================
-// Hook Types
+// Hook Types (Message-Agnostic)
 // =============================================================================
 
 /**
  * Hook - represents a registered message interceptor
  *
- * Matching is two-level:
- * 1. messageTypes - string for exact match, function for custom matching
- * 2. payloadMatcher - filters by traceId or custom function
+ * The hook is generic over TMessage (the full message type, not just payload).
+ * Matching is done via the `isMatch` function, which is defined at hook creation time.
+ * This allows each component to define its own matching logic.
+ *
+ * @template TMessage - The message type this hook handles (e.g., Message<T>, QueueMessage)
+ *
+ * @example Protocol hook (Message<T>)
+ * ```typescript
+ * const hook: Hook<Message> = {
+ *   id: "hook-1",
+ *   isMatch: (msg) => msg.type === "orderRequest" && msg.traceId === "123",
+ *   handlers: [...],
+ * };
+ * ```
+ *
+ * @example MQ hook (QueueMessage)
+ * ```typescript
+ * const hook: Hook<QueueMessage> = {
+ *   id: "hook-2",
+ *   isMatch: (msg) => msg.topic === "orders",
+ *   handlers: [...],
+ * };
+ * ```
  */
-export interface Hook<T = unknown> {
+export interface Hook<TMessage = unknown> {
 	id: string;
 	componentName: string;
 	phase: TestPhase;
-	/** Message type matching - string for exact match, function for custom */
-	messageType: string | MessageMatcher<T>;
-	/** Payload-level matcher (traceId or custom function) */
-	payloadMatcher?: PayloadMatcher;
-	handlers: HookHandler<T>[];
+
+	/**
+	 * Matching function defined at hook creation time.
+	 * Returns true if this hook should handle the given message.
+	 */
+	isMatch: (message: TMessage) => boolean;
+
+	/**
+	 * Handlers that process the message. Each handler receives TMessage
+	 * and can return any message type (for transforms like mockResponse).
+	 */
+	handlers: HookHandler<TMessage, unknown>[];
 	persistent: boolean;
 	timeout?: number;
 	metadata?: Record<string, unknown>;
@@ -59,10 +63,13 @@ export interface Hook<T = unknown> {
 
 /**
  * Hook handler - single handler in the chain
+ *
+ * @template TMessage - Input message type
+ * @template TResult - Output message type (defaults to same as input)
  */
-export interface HookHandler<T, R = T> {
+export interface HookHandler<TMessage, TResult = TMessage> {
 	type: HookHandlerType;
-	execute: (message: Message<T>) => Promise<Message<R>>;
+	execute: (message: TMessage) => Promise<TResult>;
 	metadata?: Record<string, unknown>;
 }
 
@@ -71,19 +78,27 @@ export interface HookHandler<T, R = T> {
  */
 export type HookHandlerType = "assert" | "proxy" | "mock" | "delay" | "drop" | "custom";
 
-// =============================================================================
-// Hook Errors
-// =============================================================================
+/**
+ * Match by trace ID (for correlating request/response)
+ */
+export interface TraceIdMatcher {
+	type: "traceId";
+	value: string;
+}
 
 /**
- * Special error to signal message should be dropped
+ * Match by custom function
  */
-export class DropMessageError extends Error {
-	constructor() {
-		super("Message dropped by hook");
-		this.name = "DropMessageError";
-	}
+export interface FunctionMatcher<T = unknown> {
+	type: "function";
+	fn: (payload: T) => boolean;
 }
+
+/**
+ * Payload matcher - matches by traceId or custom function
+ */
+export type PayloadMatcher<T = unknown> = TraceIdMatcher | FunctionMatcher<T>;
+
 
 // =============================================================================
 // Hook Builder Interfaces

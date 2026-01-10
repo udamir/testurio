@@ -4,12 +4,12 @@
  * Tests for the HTTP protocol path parameter matching functionality.
  */
 
-import type { Hook, HttpRequest, IBaseProtocol, ITestCaseBuilder, Message, MessageMatcher } from "testurio";
+import type { Hook, HttpRequest, ITestCaseBuilder, Message, MessageMatcher } from "testurio";
 import { BaseComponent, HttpProtocol } from "testurio";
 import { describe, expect, it } from "vitest";
 
 // Minimal test component for hook matching
-class TestComponent extends BaseComponent<IBaseProtocol> {
+class TestComponent extends BaseComponent {
 	protected async doStart(): Promise<void> {}
 	protected async doStop(): Promise<void> {}
 	createStepBuilder(_builder: ITestCaseBuilder): unknown {
@@ -149,13 +149,13 @@ describe("HTTP Path Matching", () => {
 			expect(typeof matcher).toBe("function");
 			const matcherFn = matcher as MessageMatcher<HttpRequest>;
 
-			const component = new TestComponent("test", {} as IBaseProtocol);
+			const component = new TestComponent("test");
 
-			const hook: Hook<HttpRequest> = {
+			const hook: Hook<Message<HttpRequest>> = {
 				id: "test-hook",
 				componentName: "test",
 				phase: "test",
-				messageType: matcherFn,
+				isMatch: (msg: Message<HttpRequest>) => matcherFn(msg.type, msg.payload),
 				handlers: [],
 				persistent: false,
 			};
