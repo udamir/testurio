@@ -40,6 +40,7 @@
  * ```
  */
 
+export * from "./codecs";
 // Components (Client, Server, AsyncClient, AsyncServer)
 export * from "./components";
 // Base component (Hook, HookHandler, errors, etc.)
@@ -52,7 +53,4 @@ export * from "./protocols/base";
 export * from "./protocols/http";
 // Recording (Interaction, InteractionRecorder, etc.)
 export * from "./recording";
-
 export * from "./utils";
-
-export * from "./codecs";

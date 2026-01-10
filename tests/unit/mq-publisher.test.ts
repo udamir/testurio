@@ -6,9 +6,9 @@
  */
 
 import { TestCaseBuilder } from "testurio";
-import { Publisher } from "../../packages/core/src/components/publisher";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { DefaultTopics } from "../../packages/core/src/components/mq.base";
-import { beforeEach, afterEach, describe, expect, it } from "vitest";
+import { Publisher } from "../../packages/core/src/components/publisher";
 import { createFakeMQAdapter, createInMemoryBroker, type InMemoryBroker } from "../mocks/fakeMQAdapter";
 
 describe("Publisher", () => {

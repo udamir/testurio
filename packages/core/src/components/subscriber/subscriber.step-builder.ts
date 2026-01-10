@@ -7,8 +7,8 @@
 
 import type { ITestCaseBuilder } from "../../execution";
 import type { DefaultTopics, Payload, QueueMessage, Topic, Topics } from "../mq.base";
-import type { SubscriberHookBuilder } from "./subscriber.hook-builder";
 import type { Subscriber } from "./subscriber.component";
+import type { SubscriberHookBuilder } from "./subscriber.hook-builder";
 
 /**
  * Step builder for Subscriber component.
@@ -60,9 +60,7 @@ export class SubscriberStepBuilder<T extends Topics = DefaultTopics> {
 			description: `Wait for message on "${topics.join(", ")}"`,
 			timeout: options?.timeout,
 			action: async () => {
-				const message = await this.subscriber.waitForMessage(topic, options?.matcher, options?.timeout);
-				// Store in step metadata for test context access
-				return message as unknown as void;
+				await this.subscriber.waitForMessage(topic, options?.matcher, options?.timeout);
 			},
 			metadata: {
 				operation: "waitForMessage",

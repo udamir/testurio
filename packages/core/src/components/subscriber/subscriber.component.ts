@@ -31,7 +31,7 @@ import type { Codec } from "../../codecs";
 import { defaultJsonCodec } from "../../codecs";
 import type { ITestCaseBuilder } from "../../execution";
 import { BaseMQComponent } from "../mq.base/mq.base.component";
-import type { IMQAdapter, IMQSubscriberAdapter, DefaultTopics, Payload, QueueMessage, Topic, Topics } from "../mq.base";
+import type { DefaultTopics, IMQAdapter, IMQSubscriberAdapter, Payload, QueueMessage, Topic, Topics } from "../mq.base";
 import { SubscriberHookBuilder } from "./subscriber.hook-builder";
 import type { SubscriberHook } from "./subscriber.hook-types";
 import { DropMQMessageError } from "./subscriber.hook-types";

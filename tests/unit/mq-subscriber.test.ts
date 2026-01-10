@@ -6,14 +6,10 @@
  */
 
 import { TestCaseBuilder } from "testurio";
-import { Subscriber } from "../../packages/core/src/components/subscriber";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { DefaultTopics } from "../../packages/core/src/components/mq.base";
-import { beforeEach, afterEach, describe, expect, it } from "vitest";
-import {
-	createFakeMQAdapter,
-	createInMemoryBroker,
-	type InMemoryBroker,
-} from "../mocks/fakeMQAdapter";
+import { Subscriber } from "../../packages/core/src/components/subscriber";
+import { createFakeMQAdapter, createInMemoryBroker, type InMemoryBroker } from "../mocks/fakeMQAdapter";
 
 describe("Subscriber", () => {
 	let broker: InMemoryBroker;
@@ -412,9 +408,7 @@ describe("Subscriber", () => {
 			await subscriber.start();
 
 			// Only drop cancelled orders
-			subscriber
-				.onMessage("orders", (payload) => (payload as { status: string }).status === "cancelled")
-				.drop();
+			subscriber.onMessage("orders", (payload) => (payload as { status: string }).status === "cancelled").drop();
 
 			broker.publish("orders", {
 				topic: "orders",
@@ -601,7 +595,7 @@ describe("Subscriber Type Safety", () => {
 		await subscriber.start();
 
 		// Register hooks on any topic
-		subscriber.onMessage("any-topic").assert((msg) => true);
+		subscriber.onMessage("any-topic").assert(() => true);
 		subscriber.onMessage("another-topic").transform((msg) => msg);
 
 		await subscriber.stop();

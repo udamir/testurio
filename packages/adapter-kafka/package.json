@@ -1,0 +1,57 @@
+{
+  "name": "@testurio/adapter-kafka",
+  "version": "0.1.0",
+  "description": "Kafka MQ adapter for testurio Publisher/Subscriber",
+  "keywords": [
+    "testurio",
+    "kafka",
+    "adapter",
+    "mq",
+    "message-queue",
+    "testing"
+  ],
+  "author": "Damir Yusipov",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/udamir/testurio.git",
+    "directory": "packages/adapter-kafka"
+  },
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --sourcemap --clean",
+    "test": "vitest run",
+    "lint": "biome check src",
+    "prepublish": "pnpm run lint && pnpm run test && pnpm run build"
+  },
+  "dependencies": {
+    "kafkajs": "^2.2.4"
+  },
+  "peerDependencies": {
+    "testurio": "^0.1.0"
+  },
+  "devDependencies": {
+    "testurio": "workspace:*",
+    "@biomejs/biome": "^2.3.11",
+    "@types/node": "^24.10.0",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^1.6.0"
+  }
+}

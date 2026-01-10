@@ -5,6 +5,9 @@ A declarative E2E/integration testing framework for distributed systems with mul
 [![npm version](https://badge.fury.io/js/testurio.svg)](https://www.npmjs.com/package/testurio)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+> **Warning**
+> This project is currently a work in progress. The API is not stable and may change without notice. Use at your own risk in production environments.
+
 ## Features
 
 - **Multi-Protocol Support** - HTTP, gRPC (Unary & Streaming), WebSocket, TCP

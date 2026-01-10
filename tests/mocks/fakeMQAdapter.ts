@@ -5,7 +5,6 @@
  * Publisher and Subscriber components.
  */
 
-import type { Codec } from "testurio";
 import type {
 	IMQAdapter,
 	IMQPublisherAdapter,
@@ -38,7 +37,7 @@ export class InMemoryBroker {
 		if (!this.topics.has(topic)) {
 			this.topics.set(topic, []);
 		}
-		this.topics.get(topic)!.push(message);
+		this.topics.get(topic)?.push(message);
 
 		// Notify subscribers
 		const handlers = this.subscribers.get(topic);
@@ -53,7 +52,7 @@ export class InMemoryBroker {
 		if (!this.subscribers.has(topic)) {
 			this.subscribers.set(topic, new Set());
 		}
-		this.subscribers.get(topic)!.add(handler);
+		this.subscribers.get(topic)?.add(handler);
 
 		return () => {
 			this.subscribers.get(topic)?.delete(handler);
@@ -136,8 +135,7 @@ class FakeMQSubscriberAdapter implements IMQSubscriberAdapter {
 
 	constructor(
 		private readonly broker: InMemoryBroker,
-		private readonly topics: string[],
-		private readonly options: FakeMQAdapterOptions = {}
+		private readonly topics: string[]
 	) {
 		this.id = `fake-sub-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 	}
@@ -225,7 +223,7 @@ export class FakeMQAdapter implements IMQAdapter {
 			await new Promise((resolve) => setTimeout(resolve, this.options.operationDelay));
 		}
 
-		const adapter = new FakeMQSubscriberAdapter(this.broker, topics, this.options);
+		const adapter = new FakeMQSubscriberAdapter(this.broker, topics);
 		this.subscriberAdapters.push(adapter);
 		return adapter;
 	}
@@ -246,10 +244,7 @@ export class FakeMQAdapter implements IMQAdapter {
 /**
  * Create a fake MQ adapter for testing
  */
-export function createFakeMQAdapter(
-	broker?: InMemoryBroker,
-	options?: FakeMQAdapterOptions
-): FakeMQAdapter {
+export function createFakeMQAdapter(broker?: InMemoryBroker, options?: FakeMQAdapterOptions): FakeMQAdapter {
 	return new FakeMQAdapter(broker, options);
 }
 
