@@ -76,7 +76,7 @@ export interface HookHandler<TMessage, TResult = TMessage> {
 /**
  * Hook handler types
  */
-export type HookHandlerType = "assert" | "proxy" | "mock" | "delay" | "drop" | "custom";
+export type HookHandlerType = "assert" | "transform" | "proxy" | "mock" | "delay" | "drop" | "custom";
 
 /**
  * Match by trace ID (for correlating request/response)

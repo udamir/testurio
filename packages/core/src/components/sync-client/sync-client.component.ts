@@ -39,7 +39,6 @@ export interface ClientOptions<A extends ISyncProtocol = ISyncProtocol> {
  * ```
  */
 export class Client<P extends ISyncProtocol = ISyncProtocol> extends ServiceComponent<P, SyncClientStepBuilder<P>> {
-	private _requestTracker?: unknown;
 	private readonly _targetAddress: Address;
 	private readonly _tls?: TlsConfig;
 
@@ -50,24 +49,6 @@ export class Client<P extends ISyncProtocol = ISyncProtocol> extends ServiceComp
 		super(name, options.protocol);
 		this._targetAddress = options.targetAddress;
 		this._tls = options.tls;
-	}
-
-	/**
-	 * Get or create request tracker for this client
-	 * Used internally by SyncClientStepBuilder to track request/response correlation
-	 */
-	getRequestTracker<T>(factory: () => T): T {
-		if (!this._requestTracker) {
-			this._requestTracker = factory();
-		}
-		return this._requestTracker as T;
-	}
-
-	/**
-	 * Clear request tracker (called on component stop)
-	 */
-	clearRequestTracker(): void {
-		this._requestTracker = undefined;
 	}
 
 	/**
