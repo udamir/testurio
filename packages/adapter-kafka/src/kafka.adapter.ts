@@ -25,7 +25,8 @@ import type { KafkaAdapterConfig } from "./kafka.types";
  * });
  *
  * const publisher = new Publisher("pub", { adapter });
- * const subscriber = new Subscriber("sub", { adapter, topics: ["events"] });
+ * const subscriber = new Subscriber("sub", { adapter });
+ * // Topics are subscribed dynamically via subscriber.onMessage("topic")
  * ```
  */
 export class KafkaAdapter implements IMQAdapter {
@@ -58,7 +59,7 @@ export class KafkaAdapter implements IMQAdapter {
 		return adapter;
 	}
 
-	async createSubscriber(topics: string[], codec: Codec): Promise<IMQSubscriberAdapter> {
+	async createSubscriber(codec: Codec): Promise<IMQSubscriberAdapter> {
 		if (!this.config.groupId) {
 			throw new Error("groupId is required for creating subscribers");
 		}
@@ -68,7 +69,7 @@ export class KafkaAdapter implements IMQAdapter {
 			...this.config.consumerOptions,
 		});
 
-		const adapter = new KafkaSubscriberAdapter(consumer, topics, codec, this.config.fromBeginning ?? false);
+		const adapter = new KafkaSubscriberAdapter(consumer, codec, this.config.fromBeginning ?? false);
 		await adapter.connect();
 		this.subscribers.push(adapter);
 		return adapter;

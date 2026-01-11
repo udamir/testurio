@@ -123,40 +123,6 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 	}
 
 	/**
-	 * Wait for a message and execute handler when received
-	 *
-	 * @param type - Message type to wait for
-	 * @param handler - Handler to execute when message is received
-	 * @param options - Optional timeout and filter
-	 */
-	waitFor(
-		type: string,
-		handler: (response: Message) => void | Promise<void>,
-		options?: { timeout?: number; filter?: (msg: Message) => boolean }
-	): void {
-		this.testBuilder.registerStep({
-			type: "waitForMessage",
-			componentName: this.client.name,
-			messageType: type,
-			timeout: options?.timeout,
-			description: `Wait for ${type} message`,
-			action: async () => {
-				// Create matcher function if filter provided
-				const filterFn = options?.filter;
-				const matcher = filterFn
-					? (payload: unknown) => {
-							const msg: Message = { type, payload };
-							return filterFn(msg);
-						}
-					: undefined;
-
-				const response = await this.client.waitForMessage(type, matcher, options?.timeout);
-				await Promise.resolve(handler(response));
-			},
-		});
-	}
-
-	/**
 	 * Wait for an event with timeout (blocking step)
 	 *
 	 * Unlike onEvent which just registers a hook, waitEvent creates a step

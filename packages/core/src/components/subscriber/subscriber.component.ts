@@ -1,16 +1,15 @@
 /**
  * Subscriber Component
  *
- * Subscribes to message queues/topics.
- * Supports hooks for assertions, transformations, and message dropping.
+ * Subscribes to message queues/topics dynamically via hooks.
+ * Extends BaseComponent for hook management.
+ * Topics are subscribed dynamically via onMessage()/waitForMessage(), not constructor.
  *
  * @example Loose mode
  * ```typescript
- * const subscriber = new Subscriber("sub", {
- *   adapter,
- *   topics: ["orders"],
- * });
- * const msg = await subscriber.waitForMessage("orders");
+ * const subscriber = new Subscriber("sub", { adapter });
+ * subscriber.onMessage("orders")
+ *   .assert((msg) => msg.payload.orderId !== undefined);
  * ```
  *
  * @example Strict mode with hooks
@@ -18,10 +17,7 @@
  * interface MyTopics {
  *   orders: { orderId: string; status: string };
  * }
- * const subscriber = new Subscriber<MyTopics>("sub", {
- *   adapter,
- *   topics: ["orders"],
- * });
+ * const subscriber = new Subscriber<MyTopics>("sub", { adapter });
  * subscriber.onMessage("orders")
  *   .assert((msg) => msg.payload.status !== "invalid");
  * ```
@@ -30,11 +26,10 @@
 import type { Codec } from "../../codecs";
 import { defaultJsonCodec } from "../../codecs";
 import type { ITestCaseBuilder } from "../../execution";
-import { BaseMQComponent } from "../mq.base/mq.base.component";
+import { BaseComponent, type Hook } from "../base";
 import type { DefaultTopics, IMQAdapter, IMQSubscriberAdapter, Payload, QueueMessage, Topic, Topics } from "../mq.base";
+import { DropMessageError } from "../base";
 import { SubscriberHookBuilder } from "./subscriber.hook-builder";
-import type { SubscriberHook } from "./subscriber.hook-types";
-import { DropMQMessageError } from "./subscriber.hook-types";
 import { SubscriberStepBuilder } from "./subscriber.step-builder";
 
 /**
@@ -45,11 +40,6 @@ export interface SubscriberOptions {
 	 * Message queue adapter
 	 */
 	adapter: IMQAdapter;
-
-	/**
-	 * Topics to subscribe to
-	 */
-	topics: string[];
 
 	/**
 	 * Codec for payload deserialization (defaults to JSON)
@@ -70,22 +60,21 @@ interface MessageWaiter<T = unknown> {
 
 /**
  * Subscriber component for receiving messages from message queues.
+ * Extends BaseComponent for unified hook management.
  *
  * @template T - Topic definitions for type-safe message handling (defaults to loose mode)
  */
-export class Subscriber<T extends Topics = DefaultTopics> extends BaseMQComponent<SubscriberStepBuilder<T>> {
+export class Subscriber<T extends Topics = DefaultTopics> extends BaseComponent<SubscriberStepBuilder<T>> {
 	private readonly adapter: IMQAdapter;
-	private readonly topics: string[];
 	private readonly codec: Codec;
 	private subscriberAdapter: IMQSubscriberAdapter | null = null;
-	private hooks: SubscriberHook[] = [];
+	private subscribedTopics: Set<string> = new Set();
 	private waiters: MessageWaiter[] = [];
 	private receivedMessages: QueueMessage[] = [];
 
 	constructor(name: string, options: SubscriberOptions) {
 		super(name);
 		this.adapter = options.adapter;
-		this.topics = options.topics;
 		this.codec = options.codec ?? defaultJsonCodec;
 	}
 
@@ -94,7 +83,7 @@ export class Subscriber<T extends Topics = DefaultTopics> extends BaseMQComponen
 	// =========================================================================
 
 	protected async doStart(): Promise<void> {
-		this.subscriberAdapter = await this.adapter.createSubscriber(this.topics, this.codec);
+		this.subscriberAdapter = await this.adapter.createSubscriber(this.codec);
 
 		this.subscriberAdapter.onMessage((message) => {
 			this.handleMessage(message);
@@ -119,6 +108,32 @@ export class Subscriber<T extends Topics = DefaultTopics> extends BaseMQComponen
 			await this.subscriberAdapter.close();
 			this.subscriberAdapter = null;
 		}
+
+		this.subscribedTopics.clear();
+	}
+
+	// =========================================================================
+	// Dynamic Topic Subscription
+	// =========================================================================
+
+	/**
+	 * Ensure a topic is subscribed.
+	 * Called automatically when hooks are registered.
+	 *
+	 * @param topic - Topic to subscribe to
+	 */
+	async ensureSubscribed(topic: string): Promise<void> {
+		if (this.subscribedTopics.has(topic)) {
+			return;
+		}
+
+		if (!this.subscriberAdapter) {
+			// Not started yet, topic will be subscribed when first hook triggers
+			return;
+		}
+
+		await this.subscriberAdapter.subscribe(topic);
+		this.subscribedTopics.add(topic);
 	}
 
 	// =========================================================================
@@ -127,7 +142,7 @@ export class Subscriber<T extends Topics = DefaultTopics> extends BaseMQComponen
 
 	private async handleMessage(message: QueueMessage): Promise<void> {
 		try {
-			// Execute matching hooks
+			// Execute matching hooks using BaseComponent's method
 			const processedMessage = await this.executeMatchingHook(message);
 			if (!processedMessage) {
 				// Message was dropped
@@ -135,50 +150,18 @@ export class Subscriber<T extends Topics = DefaultTopics> extends BaseMQComponen
 			}
 
 			// Store received message
-			this.receivedMessages.push(processedMessage);
+			this.receivedMessages.push(processedMessage as QueueMessage);
 
 			// Resolve matching waiters
-			this.resolveWaiters(processedMessage);
+			this.resolveWaiters(processedMessage as QueueMessage);
 		} catch (error) {
-			if (error instanceof DropMQMessageError) {
+			if (error instanceof DropMessageError) {
 				// Message was dropped - this is expected
 				return;
 			}
-			// Track unexpected errors
-			if (error instanceof Error) {
-				this.trackUnhandledError(error);
-			}
+			// Hook execution errors are already tracked in executeHook()
+			// Don't re-track here to avoid duplicates
 		}
-	}
-
-	private async executeMatchingHook(message: QueueMessage): Promise<QueueMessage | null> {
-		const hook = this.findMatchingHook(message);
-		if (!hook) {
-			return message;
-		}
-
-		let current = message;
-		for (const handler of hook.handlers) {
-			const result = await handler.execute(current);
-			if (result === null) {
-				return null;
-			}
-			current = result;
-		}
-		return current;
-	}
-
-	private findMatchingHook(message: QueueMessage): SubscriberHook | null {
-		for (const hook of this.hooks) {
-			if (hook.topic !== message.topic) {
-				continue;
-			}
-			if (hook.payloadMatcher && !hook.payloadMatcher(message.payload)) {
-				continue;
-			}
-			return hook;
-		}
-		return null;
 	}
 
 	private resolveWaiters(message: QueueMessage): void {
@@ -230,16 +213,27 @@ export class Subscriber<T extends Topics = DefaultTopics> extends BaseMQComponen
 	 * const msg = await subscriber.waitForMessage(["orders", "events"], undefined, 10000);
 	 * ```
 	 */
-	waitForMessage<K extends Topic<T>>(
+	async waitForMessage<K extends Topic<T>>(
 		topic: K | K[],
 		matcher?: (message: QueueMessage<Payload<T, K>>) => boolean,
 		timeout = 5000
 	): Promise<QueueMessage<Payload<T, K>>> {
-		if (!this.subscriberAdapter) {
-			return Promise.reject(new Error(`Subscriber ${this.name} is not started`));
+		// Check state before starting
+		if (this.state !== "started") {
+			throw new Error(`Subscriber ${this.name} is not started`);
 		}
 
 		const topics = Array.isArray(topic) ? topic.map(String) : [String(topic)];
+
+		// Ensure topics are subscribed
+		for (const t of topics) {
+			await this.ensureSubscribed(t);
+		}
+
+		// Check state again after async operation (stop() may have been called)
+		if (this.state !== "started" || !this.subscriberAdapter) {
+			throw new Error(`Subscriber ${this.name} was stopped during subscription`);
+		}
 
 		// Check already received messages first
 		for (let i = 0; i < this.receivedMessages.length; i++) {
@@ -252,7 +246,7 @@ export class Subscriber<T extends Topics = DefaultTopics> extends BaseMQComponen
 			}
 			// Found a matching message, remove it and return
 			this.receivedMessages.splice(i, 1);
-			return Promise.resolve(msg as QueueMessage<Payload<T, K>>);
+			return msg as QueueMessage<Payload<T, K>>;
 		}
 
 		// No matching message found, create a waiter
@@ -280,6 +274,7 @@ export class Subscriber<T extends Topics = DefaultTopics> extends BaseMQComponen
 	/**
 	 * Register a hook for messages on the specified topic.
 	 * Returns a hook builder for adding assert, transform, and drop handlers.
+	 * Topic is subscribed automatically when registered.
 	 *
 	 * @param topic - Topic name
 	 * @param payloadMatcher - Optional function to match specific messages by payload
@@ -299,15 +294,32 @@ export class Subscriber<T extends Topics = DefaultTopics> extends BaseMQComponen
 		topic: K,
 		payloadMatcher?: (payload: Payload<T, K>) => boolean
 	): SubscriberHookBuilder<Payload<T, K>> {
-		const hook: SubscriberHook<Payload<T, K>> = {
-			id: `${this.name}-${String(topic)}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-			topic: String(topic),
-			payloadMatcher: payloadMatcher as ((payload: unknown) => boolean) | undefined,
+		const topicStr = String(topic);
+
+		// Create hook with isMatch function
+		const hook: Hook<QueueMessage<Payload<T, K>>> = {
+			id: `${this.name}-${topicStr}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+			componentName: this.name,
+			phase: "test",
+			isMatch: (msg: QueueMessage<Payload<T, K>>) => {
+				if (msg.topic !== topicStr) {
+					return false;
+				}
+				if (payloadMatcher && !payloadMatcher(msg.payload)) {
+					return false;
+				}
+				return true;
+			},
 			handlers: [],
 			persistent: false,
 		};
 
-		this.hooks.push(hook as SubscriberHook);
+		// Register hook using BaseComponent method
+		this.registerHook(hook);
+
+		// Subscribe to topic (fire and forget - will be awaited on start or when needed)
+		void this.ensureSubscribed(topicStr);
+
 		return new SubscriberHookBuilder<Payload<T, K>>(hook);
 	}
 
@@ -323,24 +335,6 @@ export class Subscriber<T extends Topics = DefaultTopics> extends BaseMQComponen
 	 */
 	clearReceivedMessages(): void {
 		this.receivedMessages = [];
-	}
-
-	// =========================================================================
-	// Hook Management
-	// =========================================================================
-
-	/**
-	 * Clear non-persistent hooks (called between test cases)
-	 */
-	clearTestCaseHooks(): void {
-		this.hooks = this.hooks.filter((hook) => hook.persistent);
-	}
-
-	/**
-	 * Clear all hooks
-	 */
-	clearHooks(): void {
-		this.hooks = [];
 	}
 
 	// =========================================================================

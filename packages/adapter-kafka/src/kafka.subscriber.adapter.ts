@@ -2,6 +2,7 @@
  * Kafka Subscriber Adapter
  *
  * Implements IMQSubscriberAdapter for Kafka using KafkaJS.
+ * Supports dynamic topic subscription via subscribe()/unsubscribe().
  */
 
 import type { Consumer, ConsumerCrashEvent, EachMessagePayload } from "kafkajs";
@@ -12,17 +13,21 @@ import type { KafkaMessageMetadata } from "./kafka.types";
  * Kafka subscriber adapter implementation.
  *
  * Wraps KafkaJS Consumer to implement the IMQSubscriberAdapter interface.
+ * Note: Kafka has limitations on dynamic subscription - topics must be subscribed
+ * before consumer.run() is called. For testing purposes, we restart the consumer
+ * when new topics are added.
  */
 export class KafkaSubscriberAdapter implements IMQSubscriberAdapter {
 	readonly id: string;
 	private _isConnected = false;
+	private _isRunning = false;
 	private messageHandler?: (message: QueueMessage) => void;
 	private errorHandler?: (error: Error) => void;
 	private disconnectHandler?: () => void;
+	private subscribedTopics: Set<string> = new Set();
 
 	constructor(
 		private readonly consumer: Consumer,
-		private readonly topics: string[],
 		private readonly codec: Codec,
 		private readonly fromBeginning: boolean = false
 	) {
@@ -34,31 +39,82 @@ export class KafkaSubscriberAdapter implements IMQSubscriberAdapter {
 	}
 
 	/**
-	 * Connect and start consuming messages.
+	 * Connect to Kafka.
 	 */
 	async connect(): Promise<void> {
 		await this.consumer.connect();
+		this._isConnected = true;
+	}
 
-		// Subscribe to all topics
-		for (const topic of this.topics) {
-			await this.consumer.subscribe({
-				topic,
-				fromBeginning: this.fromBeginning,
-			});
+	/**
+	 * Subscribe to a topic dynamically.
+	 * Note: Kafka requires restarting the consumer to add new subscriptions.
+	 */
+	async subscribe(topic: string): Promise<void> {
+		if (this.subscribedTopics.has(topic)) {
+			return; // Already subscribed
 		}
 
-		// Start consuming
+		// Stop consumer if running
+		const wasRunning = this._isRunning;
+		if (wasRunning) {
+			await this.consumer.stop();
+			this._isRunning = false;
+		}
+
+		// Subscribe to new topic
+		await this.consumer.subscribe({
+			topic,
+			fromBeginning: this.fromBeginning,
+		});
+		this.subscribedTopics.add(topic);
+
+		// Restart consumer if it was running
+		if (wasRunning || this.subscribedTopics.size === 1) {
+			await this.startConsuming();
+		}
+	}
+
+	/**
+	 * Unsubscribe from a topic.
+	 * Note: Kafka doesn't support unsubscribing from individual topics easily.
+	 * We remove from our set and ignore messages from that topic.
+	 */
+	async unsubscribe(topic: string): Promise<void> {
+		this.subscribedTopics.delete(topic);
+	}
+
+	/**
+	 * Get currently subscribed topics.
+	 */
+	getSubscribedTopics(): string[] {
+		return Array.from(this.subscribedTopics);
+	}
+
+	/**
+	 * Start consuming messages.
+	 */
+	private async startConsuming(): Promise<void> {
+		if (this._isRunning) {
+			return;
+		}
+
 		await this.consumer.run({
 			eachMessage: async (payload: EachMessagePayload) => {
 				await this.handleMessage(payload);
 			},
 		});
 
-		this._isConnected = true;
+		this._isRunning = true;
 	}
 
 	private async handleMessage(payload: EachMessagePayload): Promise<void> {
 		if (!this.messageHandler) {
+			return;
+		}
+
+		// Skip if topic was unsubscribed
+		if (!this.subscribedTopics.has(payload.topic)) {
 			return;
 		}
 
@@ -124,10 +180,15 @@ export class KafkaSubscriberAdapter implements IMQSubscriberAdapter {
 	}
 
 	async close(): Promise<void> {
+		if (this._isRunning) {
+			await this.consumer.stop();
+			this._isRunning = false;
+		}
 		if (this._isConnected) {
 			await this.consumer.disconnect();
 			this._isConnected = false;
 			this.disconnectHandler?.();
 		}
+		this.subscribedTopics.clear();
 	}
 }

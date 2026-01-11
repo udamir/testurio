@@ -2,11 +2,12 @@
  * Subscriber Hook Builder
  *
  * Fluent builder for subscriber hooks (assert, transform, drop).
+ * Uses base Hook type from BaseComponent.
  */
 
+import type { Hook, HookHandler } from "../base";
+import { DropMessageError } from "../base";
 import type { QueueMessage } from "../mq.base";
-import type { SubscriberHook, SubscriberHookHandler } from "./subscriber.hook-types";
-import { DropMQMessageError } from "./subscriber.hook-types";
 
 /**
  * Hook builder interface for subscriber.
@@ -27,11 +28,12 @@ export interface ISubscriberHookBuilder<TPayload> {
 
 /**
  * Subscriber hook builder implementation.
+ * Works with base Hook<QueueMessage> type.
  *
  * @template TPayload - Message payload type
  */
 export class SubscriberHookBuilder<TPayload> implements ISubscriberHookBuilder<TPayload> {
-	constructor(private readonly hook: SubscriberHook<TPayload>) {}
+	constructor(private readonly hook: Hook<QueueMessage<TPayload>>) {}
 
 	get hookId(): string {
 		return this.hook.id;
@@ -59,7 +61,7 @@ export class SubscriberHookBuilder<TPayload> implements ISubscriberHookBuilder<T
 			throw new Error("assert() requires a handler function");
 		}
 
-		const handler: SubscriberHookHandler<TPayload> = {
+		const handler: HookHandler<QueueMessage<TPayload>> = {
 			type: "assert",
 			metadata: description ? { description } : undefined,
 			execute: async (msg) => {
@@ -74,8 +76,7 @@ export class SubscriberHookBuilder<TPayload> implements ISubscriberHookBuilder<T
 			},
 		};
 
-		// biome-ignore lint/suspicious/noExplicitAny: Type assertion needed for generic handler storage
-		this.hook.handlers.push(handler as any);
+		this.hook.handlers.push(handler);
 		return this;
 	}
 
@@ -105,7 +106,7 @@ export class SubscriberHookBuilder<TPayload> implements ISubscriberHookBuilder<T
 			throw new Error("transform() requires a handler function");
 		}
 
-		const handler: SubscriberHookHandler<TPayload> = {
+		const handler: HookHandler<QueueMessage<TPayload>> = {
 			type: "transform",
 			metadata: description ? { description } : undefined,
 			execute: async (msg) => {
@@ -113,8 +114,7 @@ export class SubscriberHookBuilder<TPayload> implements ISubscriberHookBuilder<T
 			},
 		};
 
-		// biome-ignore lint/suspicious/noExplicitAny: Type assertion needed for generic handler storage
-		this.hook.handlers.push(handler as any);
+		this.hook.handlers.push(handler);
 		return this;
 	}
 
@@ -129,15 +129,14 @@ export class SubscriberHookBuilder<TPayload> implements ISubscriberHookBuilder<T
 	 * ```
 	 */
 	drop(): this {
-		const handler: SubscriberHookHandler<TPayload> = {
+		const handler: HookHandler<QueueMessage<TPayload>> = {
 			type: "drop",
 			execute: async () => {
-				throw new DropMQMessageError();
+				throw new DropMessageError();
 			},
 		};
 
-		// biome-ignore lint/suspicious/noExplicitAny: Type assertion needed for generic handler storage
-		this.hook.handlers.push(handler as any);
+		this.hook.handlers.push(handler);
 		return this;
 	}
 }

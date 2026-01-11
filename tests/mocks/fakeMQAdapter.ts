@@ -3,6 +3,7 @@
  *
  * Provides in-memory message queue adapter for unit testing
  * Publisher and Subscriber components.
+ * Supports dynamic topic subscription via subscribe()/unsubscribe().
  */
 
 import type {
@@ -123,7 +124,7 @@ class FakeMQPublisherAdapter implements IMQPublisherAdapter {
 }
 
 /**
- * Mock subscriber adapter
+ * Mock subscriber adapter with dynamic topic subscription
  */
 class FakeMQSubscriberAdapter implements IMQSubscriberAdapter {
 	readonly id: string;
@@ -131,12 +132,10 @@ class FakeMQSubscriberAdapter implements IMQSubscriberAdapter {
 	private messageHandler?: (message: QueueMessage) => void;
 	private errorHandler?: (error: Error) => void;
 	private disconnectHandler?: () => void;
-	private unsubscribes: Array<() => void> = [];
+	private unsubscribes: Map<string, () => void> = new Map();
+	private subscribedTopics: Set<string> = new Set();
 
-	constructor(
-		private readonly broker: InMemoryBroker,
-		private readonly topics: string[]
-	) {
+	constructor(private readonly broker: InMemoryBroker) {
 		this.id = `fake-sub-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 	}
 
@@ -144,18 +143,36 @@ class FakeMQSubscriberAdapter implements IMQSubscriberAdapter {
 		return this._isConnected;
 	}
 
+	async subscribe(topic: string): Promise<void> {
+		if (this.subscribedTopics.has(topic)) {
+			return; // Already subscribed
+		}
+
+		const unsubscribe = this.broker.subscribe(topic, (message) => {
+			if (this.messageHandler && this._isConnected) {
+				this.messageHandler(message);
+			}
+		});
+
+		this.unsubscribes.set(topic, unsubscribe);
+		this.subscribedTopics.add(topic);
+	}
+
+	async unsubscribe(topic: string): Promise<void> {
+		const unsubscribe = this.unsubscribes.get(topic);
+		if (unsubscribe) {
+			unsubscribe();
+			this.unsubscribes.delete(topic);
+			this.subscribedTopics.delete(topic);
+		}
+	}
+
+	getSubscribedTopics(): string[] {
+		return Array.from(this.subscribedTopics);
+	}
+
 	onMessage(handler: (message: QueueMessage) => void): void {
 		this.messageHandler = handler;
-
-		// Subscribe to all topics
-		for (const topic of this.topics) {
-			const unsubscribe = this.broker.subscribe(topic, (message) => {
-				if (this.messageHandler && this._isConnected) {
-					this.messageHandler(message);
-				}
-			});
-			this.unsubscribes.push(unsubscribe);
-		}
 	}
 
 	onError(handler: (error: Error) => void): void {
@@ -167,10 +184,11 @@ class FakeMQSubscriberAdapter implements IMQSubscriberAdapter {
 	}
 
 	async close(): Promise<void> {
-		for (const unsub of this.unsubscribes) {
+		for (const unsub of this.unsubscribes.values()) {
 			unsub();
 		}
-		this.unsubscribes = [];
+		this.unsubscribes.clear();
+		this.subscribedTopics.clear();
 		this._isConnected = false;
 		this.disconnectHandler?.();
 	}
@@ -214,7 +232,7 @@ export class FakeMQAdapter implements IMQAdapter {
 		return new FakeMQPublisherAdapter(this.broker, this.options);
 	}
 
-	async createSubscriber(topics: string[]): Promise<IMQSubscriberAdapter> {
+	async createSubscriber(): Promise<IMQSubscriberAdapter> {
 		if (this.options.failOnConnect) {
 			throw new Error("Connection failed");
 		}
@@ -223,7 +241,7 @@ export class FakeMQAdapter implements IMQAdapter {
 			await new Promise((resolve) => setTimeout(resolve, this.options.operationDelay));
 		}
 
-		const adapter = new FakeMQSubscriberAdapter(this.broker, topics);
+		const adapter = new FakeMQSubscriberAdapter(this.broker);
 		this.subscriberAdapters.push(adapter);
 		return adapter;
 	}

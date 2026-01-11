@@ -24,14 +24,16 @@ import type { RedisPubSubAdapterConfig } from "./pubsub.types";
  * });
  *
  * const publisher = new Publisher("pub", { adapter });
- * const subscriber = new Subscriber("sub", { adapter, topics: ["notifications"] });
+ * const subscriber = new Subscriber("sub", { adapter });
+ * // Topics are subscribed dynamically via subscriber.onMessage("notifications")
  *
  * // For pattern subscriptions
  * const patternAdapter = new RedisPubSubAdapter({
  *   host: "localhost",
  *   usePatterns: true,
  * });
- * const patternSub = new Subscriber("sub", { adapter: patternAdapter, topics: ["events:*"] });
+ * const patternSub = new Subscriber("sub", { adapter: patternAdapter });
+ * // Subscribe to patterns via patternSub.onMessage("events:*")
  * ```
  */
 export class RedisPubSubAdapter implements IMQAdapter {
@@ -89,11 +91,11 @@ export class RedisPubSubAdapter implements IMQAdapter {
 		return adapter;
 	}
 
-	async createSubscriber(topics: string[], codec: Codec): Promise<IMQSubscriberAdapter> {
+	async createSubscriber(codec: Codec): Promise<IMQSubscriberAdapter> {
 		// Create dedicated Redis connection for subscriber
 		const redis = this.createSubscriberRedis();
 
-		const adapter = new RedisPubSubSubscriberAdapter(redis, topics, codec, this.config.usePatterns ?? false);
+		const adapter = new RedisPubSubSubscriberAdapter(redis, codec, this.config.usePatterns ?? false);
 
 		await adapter.connect();
 		this.subscribers.push(adapter);

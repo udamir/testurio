@@ -40,12 +40,12 @@ export interface IMQAdapter {
 
 	/**
 	 * Create a subscriber adapter for receiving messages.
+	 * Topics are subscribed dynamically via subscribe() method.
 	 *
-	 * @param topics - Topics/queues to subscribe to
 	 * @param codec - Codec for payload deserialization
 	 * @returns Subscriber adapter instance
 	 */
-	createSubscriber(topics: string[], codec: Codec): Promise<IMQSubscriberAdapter>;
+	createSubscriber(codec: Codec): Promise<IMQSubscriberAdapter>;
 
 	/**
 	 * Dispose of adapter resources (connections, etc.)
@@ -97,16 +97,16 @@ export interface IMQPublisherAdapter {
 
 /**
  * Subscriber adapter interface for receiving messages from brokers.
+ * Supports dynamic topic subscription via subscribe()/unsubscribe().
  *
  * @example
  * ```typescript
- * const subscriberAdapter = await adapter.createSubscriber(["orders"]);
+ * const subscriberAdapter = await adapter.createSubscriber(codec);
  * subscriberAdapter.onMessage((message) => {
  *   console.log("Received:", message.payload);
  * });
- * subscriberAdapter.onError((error) => {
- *   console.error("Error:", error);
- * });
+ * await subscriberAdapter.subscribe("orders");
+ * await subscriberAdapter.subscribe("events");
  * ```
  */
 export interface IMQSubscriberAdapter {
@@ -121,7 +121,28 @@ export interface IMQSubscriberAdapter {
 	readonly isConnected: boolean;
 
 	/**
+	 * Subscribe to a topic dynamically.
+	 * Can be called multiple times for different topics.
+	 *
+	 * @param topic - Topic name or pattern (broker-specific)
+	 */
+	subscribe(topic: string): Promise<void>;
+
+	/**
+	 * Unsubscribe from a topic.
+	 *
+	 * @param topic - Topic name or pattern
+	 */
+	unsubscribe(topic: string): Promise<void>;
+
+	/**
+	 * Get currently subscribed topics.
+	 */
+	getSubscribedTopics(): string[];
+
+	/**
 	 * Register a handler for incoming messages.
+	 * Messages from ALL subscribed topics are routed through this handler.
 	 *
 	 * @param handler - Function called for each received message
 	 */

@@ -2,6 +2,7 @@
  * RabbitMQ Subscriber Adapter
  *
  * Implements IMQSubscriberAdapter for RabbitMQ using amqplib.
+ * Supports dynamic topic subscription via subscribe()/unsubscribe().
  */
 
 import type { Channel, ChannelModel, ConsumeMessage, Options } from "amqplib";
@@ -12,6 +13,7 @@ import type { RabbitMQMessageMetadata } from "./rabbitmq.types";
  * RabbitMQ subscriber adapter implementation.
  *
  * Wraps amqplib Channel to implement the IMQSubscriberAdapter interface.
+ * Topics are bound dynamically via subscribe()/unsubscribe().
  */
 export class RabbitMQSubscriberAdapter implements IMQSubscriberAdapter {
 	readonly id: string;
@@ -20,11 +22,12 @@ export class RabbitMQSubscriberAdapter implements IMQSubscriberAdapter {
 	private messageHandler?: (message: QueueMessage) => void;
 	private errorHandler?: (error: Error) => void;
 	private disconnectHandler?: () => void;
-	private consumerTags: string[] = [];
+	private consumerTag?: string;
+	private queueName: string;
+	private subscribedTopics: Set<string> = new Set();
 
 	constructor(
 		private readonly connection: ChannelModel,
-		private readonly topics: string[],
 		private readonly codec: Codec,
 		private readonly exchange: string = "",
 		private readonly exchangeType: "direct" | "fanout" | "topic" | "headers" = "topic",
@@ -34,6 +37,7 @@ export class RabbitMQSubscriberAdapter implements IMQSubscriberAdapter {
 		private readonly queueOptions?: Options.AssertQueue
 	) {
 		this.id = `rabbitmq-sub-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+		this.queueName = `testurio-${this.id}`;
 	}
 
 	get isConnected(): boolean {
@@ -41,7 +45,7 @@ export class RabbitMQSubscriberAdapter implements IMQSubscriberAdapter {
 	}
 
 	/**
-	 * Create channel, declare exchange/queues, and start consuming.
+	 * Create channel, declare exchange/queue, and start consuming.
 	 */
 	async connect(): Promise<void> {
 		this.channel = await this.connection.createChannel();
@@ -54,22 +58,16 @@ export class RabbitMQSubscriberAdapter implements IMQSubscriberAdapter {
 			});
 		}
 
-		// Create a queue for this subscriber and bind to topics
-		const queueName = `testurio-${this.id}`;
-		await this.channel.assertQueue(queueName, {
+		// Create a queue for this subscriber
+		await this.channel.assertQueue(this.queueName, {
 			exclusive: true,
 			autoDelete: true,
 			...this.queueOptions,
 		});
 
-		// Bind queue to each topic as routing key
-		for (const topic of this.topics) {
-			await this.channel.bindQueue(queueName, this.exchange, topic);
-		}
-
 		// Start consuming
 		const { consumerTag } = await this.channel.consume(
-			queueName,
+			this.queueName,
 			(msg) => {
 				if (msg) {
 					this.handleMessage(msg);
@@ -78,7 +76,7 @@ export class RabbitMQSubscriberAdapter implements IMQSubscriberAdapter {
 			{ noAck: this.autoAck }
 		);
 
-		this.consumerTags.push(consumerTag);
+		this.consumerTag = consumerTag;
 		this._isConnected = true;
 
 		// Handle channel errors
@@ -90,6 +88,44 @@ export class RabbitMQSubscriberAdapter implements IMQSubscriberAdapter {
 			this._isConnected = false;
 			this.disconnectHandler?.();
 		});
+	}
+
+	/**
+	 * Subscribe to a topic (routing key) dynamically.
+	 */
+	async subscribe(topic: string): Promise<void> {
+		if (this.subscribedTopics.has(topic)) {
+			return; // Already subscribed
+		}
+
+		if (!this.channel) {
+			throw new Error("Channel not connected");
+		}
+
+		// Bind queue to the topic as routing key
+		await this.channel.bindQueue(this.queueName, this.exchange, topic);
+		this.subscribedTopics.add(topic);
+	}
+
+	/**
+	 * Unsubscribe from a topic (routing key).
+	 */
+	async unsubscribe(topic: string): Promise<void> {
+		if (!this.subscribedTopics.has(topic)) {
+			return; // Not subscribed
+		}
+
+		if (this.channel) {
+			await this.channel.unbindQueue(this.queueName, this.exchange, topic);
+		}
+		this.subscribedTopics.delete(topic);
+	}
+
+	/**
+	 * Get currently subscribed topics.
+	 */
+	getSubscribedTopics(): string[] {
+		return Array.from(this.subscribedTopics);
 	}
 
 	private handleMessage(msg: ConsumeMessage): void {
@@ -162,20 +198,21 @@ export class RabbitMQSubscriberAdapter implements IMQSubscriberAdapter {
 
 	async close(): Promise<void> {
 		if (this.channel) {
-			// Cancel all consumers
-			for (const tag of this.consumerTags) {
+			// Cancel consumer
+			if (this.consumerTag) {
 				try {
-					await this.channel.cancel(tag);
+					await this.channel.cancel(this.consumerTag);
 				} catch {
 					// Ignore errors during cleanup
 				}
+				this.consumerTag = undefined;
 			}
-			this.consumerTags = [];
 
 			await this.channel.close();
 			this.channel = null;
 		}
 		this._isConnected = false;
+		this.subscribedTopics.clear();
 		this.disconnectHandler?.();
 	}
 }

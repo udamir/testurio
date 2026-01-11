@@ -25,7 +25,8 @@ import type { RabbitMQAdapterConfig } from "./rabbitmq.types";
  * });
  *
  * const publisher = new Publisher("pub", { adapter });
- * const subscriber = new Subscriber("sub", { adapter, topics: ["orders.#"] });
+ * const subscriber = new Subscriber("sub", { adapter });
+ * // Topics are subscribed dynamically via subscriber.onMessage("orders.#")
  * ```
  */
 export class RabbitMQAdapter implements IMQAdapter {
@@ -77,12 +78,11 @@ export class RabbitMQAdapter implements IMQAdapter {
 		return adapter;
 	}
 
-	async createSubscriber(topics: string[], codec: Codec): Promise<IMQSubscriberAdapter> {
+	async createSubscriber(codec: Codec): Promise<IMQSubscriberAdapter> {
 		const connection = await this.ensureConnection();
 
 		const adapter = new RabbitMQSubscriberAdapter(
 			connection,
-			topics,
 			codec,
 			this.config.exchange ?? "",
 			this.config.exchangeType ?? "topic",

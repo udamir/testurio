@@ -27,7 +27,6 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber("test-sub", {
 				adapter,
-				topics: ["orders"],
 			});
 
 			expect(subscriber.getState()).toBe("created");
@@ -43,7 +42,6 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber("test-sub", {
 				adapter,
-				topics: ["orders"],
 			});
 			await subscriber.start();
 
@@ -57,7 +55,6 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber("test-sub", {
 				adapter,
-				topics: ["orders"],
 			});
 			await subscriber.start();
 
@@ -68,7 +65,6 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber("test-sub", {
 				adapter,
-				topics: ["orders"],
 			});
 
 			await subscriber.start();
@@ -82,7 +78,6 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker, { failOnConnect: true });
 			const subscriber = new Subscriber("test-sub", {
 				adapter,
-				topics: ["orders"],
 			});
 
 			await expect(subscriber.start()).rejects.toThrow(/Connection failed/);
@@ -93,11 +88,13 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber("test-sub", {
 				adapter,
-				topics: ["orders"],
 			});
 			await subscriber.start();
 
 			const waitPromise = subscriber.waitForMessage("orders", undefined, 10000);
+
+			// Give time for subscription and waiter registration to complete
+			await new Promise((resolve) => setTimeout(resolve, 10));
 
 			// Stop should reject the waiter
 			await subscriber.stop();
@@ -111,7 +108,6 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber("test-sub", {
 				adapter,
-				topics: ["orders"],
 			});
 			await subscriber.start();
 
@@ -136,7 +132,6 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber("test-sub", {
 				adapter,
-				topics: ["orders"],
 			});
 			await subscriber.start();
 
@@ -168,7 +163,6 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber("test-sub", {
 				adapter,
-				topics: ["orders", "events"],
 			});
 			await subscriber.start();
 
@@ -192,7 +186,6 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber("test-sub", {
 				adapter,
-				topics: ["orders"],
 			});
 			await subscriber.start();
 
@@ -205,7 +198,6 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber("test-sub", {
 				adapter,
-				topics: ["orders"],
 			});
 
 			await expect(subscriber.waitForMessage("orders")).rejects.toThrow(/not started/);
@@ -215,11 +207,15 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber("test-sub", {
 				adapter,
-				topics: ["orders"],
 			});
 			await subscriber.start();
 
-			// Publish before waiting
+			// Subscribe to topic first (topics are now subscribed dynamically)
+			subscriber.onMessage("orders").assert(() => true);
+			// Small delay to ensure subscription is registered
+			await new Promise((resolve) => setTimeout(resolve, 10));
+
+			// Publish after subscription
 			broker.publish("orders", {
 				topic: "orders",
 				payload: { orderId: "pre-existing" },
@@ -243,9 +239,12 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber("test-sub", {
 				adapter,
-				topics: ["orders"],
 			});
 			await subscriber.start();
+
+			// Subscribe to topic first (topics are now subscribed dynamically)
+			subscriber.onMessage("orders").assert(() => true);
+			await new Promise((resolve) => setTimeout(resolve, 10));
 
 			broker.publish("orders", {
 				topic: "orders",
@@ -271,7 +270,6 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber("test-sub", {
 				adapter,
-				topics: ["orders"],
 			});
 			await subscriber.start();
 
@@ -296,7 +294,6 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber("test-sub", {
 				adapter,
-				topics: ["orders"],
 			});
 			await subscriber.start();
 
@@ -323,13 +320,15 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber("test-sub", {
 				adapter,
-				topics: ["orders"],
 			});
 			await subscriber.start();
 
 			subscriber.onMessage("orders").assert("orderId must be present", (msg) => {
 				return (msg.payload as { orderId?: string }).orderId !== undefined;
 			});
+
+			// Wait for subscription to complete
+			await new Promise((resolve) => setTimeout(resolve, 10));
 
 			// Publish message without orderId
 			broker.publish("orders", {
@@ -351,7 +350,6 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber("test-sub", {
 				adapter,
-				topics: ["orders"],
 			});
 			await subscriber.start();
 
@@ -379,7 +377,6 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber("test-sub", {
 				adapter,
-				topics: ["orders"],
 			});
 			await subscriber.start();
 
@@ -403,7 +400,6 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber("test-sub", {
 				adapter,
-				topics: ["orders"],
 			});
 			await subscriber.start();
 
@@ -435,7 +431,6 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber("test-sub", {
 				adapter,
-				topics: ["orders"],
 			});
 			await subscriber.start();
 
@@ -472,7 +467,6 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber("test-sub", {
 				adapter,
-				topics: ["orders"],
 			});
 			await subscriber.start();
 
@@ -498,7 +492,6 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber("test-sub", {
 				adapter,
-				topics: ["orders"],
 			});
 			await subscriber.start();
 
@@ -525,7 +518,6 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber("test-sub", {
 				adapter,
-				topics: ["orders"],
 			});
 
 			expect(subscriber.name).toBe("test-sub");
@@ -551,7 +543,6 @@ describe("SubscriberStepBuilder", () => {
 		const adapter = createFakeMQAdapter(broker);
 		subscriber = new Subscriber("test-sub", {
 			adapter,
-			topics: ["orders"],
 		});
 		await subscriber.start();
 		builder = new TestCaseBuilder(new Map());
@@ -590,11 +581,10 @@ describe("Subscriber Type Safety", () => {
 		const adapter = createFakeMQAdapter(broker);
 		const subscriber = new Subscriber("test-sub", {
 			adapter,
-			topics: ["any-topic", "another-topic"],
 		});
 		await subscriber.start();
 
-		// Register hooks on any topic
+		// Register hooks on any topic (topics are subscribed dynamically)
 		subscriber.onMessage("any-topic").assert(() => true);
 		subscriber.onMessage("another-topic").transform((msg) => msg);
 
@@ -611,7 +601,6 @@ describe("Subscriber Type Safety", () => {
 		const adapter = createFakeMQAdapter(broker);
 		const subscriber = new Subscriber<OrderTopics>("test-sub", {
 			adapter,
-			topics: ["order-created", "order-updated"],
 		});
 		await subscriber.start();
 

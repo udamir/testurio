@@ -2,6 +2,7 @@
  * Redis Pub/Sub Subscriber Adapter
  *
  * Implements IMQSubscriberAdapter for Redis using ioredis.
+ * Supports dynamic topic subscription via subscribe()/unsubscribe().
  */
 
 import type { Redis } from "ioredis";
@@ -22,6 +23,7 @@ interface MessageEnvelope {
  * Redis Pub/Sub subscriber adapter implementation.
  *
  * Wraps ioredis SUBSCRIBE/PSUBSCRIBE to implement the IMQSubscriberAdapter interface.
+ * Topics are subscribed dynamically via subscribe()/unsubscribe().
  */
 export class RedisPubSubSubscriberAdapter implements IMQSubscriberAdapter {
 	readonly id: string;
@@ -29,10 +31,11 @@ export class RedisPubSubSubscriberAdapter implements IMQSubscriberAdapter {
 	private messageHandler?: (message: QueueMessage) => void;
 	private errorHandler?: (error: Error) => void;
 	private disconnectHandler?: () => void;
+	private subscribedTopics: Set<string> = new Set();
+	private handlersSet = false;
 
 	constructor(
 		private readonly redis: Redis,
-		private readonly topics: string[],
 		private readonly codec: Codec,
 		private readonly usePatterns: boolean = false
 	) {
@@ -44,9 +47,21 @@ export class RedisPubSubSubscriberAdapter implements IMQSubscriberAdapter {
 	}
 
 	/**
-	 * Subscribe to topics and start receiving messages.
+	 * Connect to Redis and set up message handlers.
 	 */
 	async connect(): Promise<void> {
+		this.setupHandlers();
+		this._isConnected = true;
+	}
+
+	/**
+	 * Set up message and error handlers (only once).
+	 */
+	private setupHandlers(): void {
+		if (this.handlersSet) {
+			return;
+		}
+
 		// Set up message handler
 		if (this.usePatterns) {
 			this.redis.on("pmessage", (pattern: string, channel: string, message: string) => {
@@ -69,14 +84,48 @@ export class RedisPubSubSubscriberAdapter implements IMQSubscriberAdapter {
 			this.disconnectHandler?.();
 		});
 
-		// Subscribe to topics
-		if (this.usePatterns) {
-			await this.redis.psubscribe(...this.topics);
-		} else {
-			await this.redis.subscribe(...this.topics);
+		this.handlersSet = true;
+	}
+
+	/**
+	 * Subscribe to a topic dynamically.
+	 */
+	async subscribe(topic: string): Promise<void> {
+		if (this.subscribedTopics.has(topic)) {
+			return; // Already subscribed
 		}
 
-		this._isConnected = true;
+		if (this.usePatterns) {
+			await this.redis.psubscribe(topic);
+		} else {
+			await this.redis.subscribe(topic);
+		}
+
+		this.subscribedTopics.add(topic);
+	}
+
+	/**
+	 * Unsubscribe from a topic.
+	 */
+	async unsubscribe(topic: string): Promise<void> {
+		if (!this.subscribedTopics.has(topic)) {
+			return; // Not subscribed
+		}
+
+		if (this.usePatterns) {
+			await this.redis.punsubscribe(topic);
+		} else {
+			await this.redis.unsubscribe(topic);
+		}
+
+		this.subscribedTopics.delete(topic);
+	}
+
+	/**
+	 * Get currently subscribed topics.
+	 */
+	getSubscribedTopics(): string[] {
+		return Array.from(this.subscribedTopics);
 	}
 
 	private handleMessage(channel: string, rawMessage: string, pattern?: string): void {
@@ -123,15 +172,17 @@ export class RedisPubSubSubscriberAdapter implements IMQSubscriberAdapter {
 	}
 
 	async close(): Promise<void> {
-		if (this._isConnected) {
-			// Unsubscribe from topics
+		if (this._isConnected && this.subscribedTopics.size > 0) {
+			// Unsubscribe from all topics
+			const topics = Array.from(this.subscribedTopics);
 			if (this.usePatterns) {
-				await this.redis.punsubscribe(...this.topics);
+				await this.redis.punsubscribe(...topics);
 			} else {
-				await this.redis.unsubscribe(...this.topics);
+				await this.redis.unsubscribe(...topics);
 			}
-			this._isConnected = false;
 		}
+		this._isConnected = false;
+		this.subscribedTopics.clear();
 		// Don't close Redis connection as it's managed separately
 	}
 }
