@@ -1,34 +1,45 @@
 /**
  * Sync Client Hook Builder
  *
- * Builder for handling sync client responses via hooks.
- * Assertions are added as handlers to the hook, triggered when request() receives a response.
+ * Builder for handling sync client responses in a declarative way.
  */
 
-import type { Message } from "../../protocols/base";
-import type { Hook, HookHandler } from "../base";
-
-type Predicate<T> = (res: T) => boolean;
+import type { ITestCaseBuilder } from "../../execution/execution.types";
+import type { RequestTracker } from "./sync-client.step-builder";
 
 /**
  * Sync Client Hook Builder
  *
- * Builder for handling responses via hooks.
- * Assertions are added as handlers that run when the hook is triggered.
+ * Builder for handling responses in a declarative way.
  */
-export class SyncClientHookBuilder<TResponse = unknown> {
-	constructor(private hook: Hook<Message<TResponse>>) {}
+/**
+ * Assertion with optional description
+ */
 
-	/**
-	 * Get the hook ID for debugging/testing
-	 */
-	get hookId(): string {
-		return this.hook.id;
+type Predicate<T> = (res: T) => boolean;
+
+interface Assertion<T> {
+	fn: Predicate<T>;
+	description?: string;
+}
+
+export class SyncClientHookBuilder<TResponse = unknown> {
+	private assertions: Array<Assertion<TResponse>> = [];
+
+	constructor(
+		private componentName: string,
+		private testBuilder: ITestCaseBuilder,
+		private requestTracker: RequestTracker,
+		private messageType: string,
+		private traceId?: string
+	) {
+		// Register the response handling step immediately
+		this.registerResponseStep();
 	}
 
 	/**
-	 * Assert on response
-	 * Return true/false for assertion result.
+	 * Assert on response - can also capture data in callback
+	 * Return true/false for assertion, or undefined to just capture data
 	 *
 	 * @param descriptionOrPredicate - Description string or predicate function
 	 * @param predicate - Predicate function (if first param is description)
@@ -42,23 +53,33 @@ export class SyncClientHookBuilder<TResponse = unknown> {
 				? [descriptionOrPredicate, predicate as Predicate<TResponse>]
 				: ["", descriptionOrPredicate];
 
-		// Create assert handler
-		const handler: HookHandler<Message<TResponse>, Message<TResponse>> = {
-			type: "assert",
-			execute: async (message: Message<TResponse>) => {
-				const result = fn(message.payload);
-				if (result === false) {
-					const errorMsg = description
-						? `Assertion failed: ${description}`
-						: `Response assertion failed for ${message.type}`;
-					throw new Error(errorMsg);
-				}
-				return message;
-			},
-			metadata: description ? { description } : undefined,
-		};
-
-		this.hook.handlers.push(handler);
+		this.assertions.push({ fn, description });
 		return this;
+	}
+
+	/**
+	 * Register the response handling step
+	 */
+	private registerResponseStep(): void {
+		this.testBuilder.registerStep({
+			type: "onResponse",
+			componentName: this.componentName,
+			messageType: this.messageType,
+			description: `Handle response for ${this.messageType}${this.traceId ? ` (${this.traceId})` : ""}`,
+			action: async () => {
+				const response = this.requestTracker.findResponse(this.messageType, this.traceId) as TResponse;
+
+				// Run all assertions
+				for (const assertion of this.assertions) {
+					const result = assertion.fn(response);
+					if (result === false) {
+						const errorMsg = assertion.description
+							? `Assertion failed: ${assertion.description}`
+							: `Response assertion failed for ${this.messageType}`;
+						throw new Error(errorMsg);
+					}
+				}
+			},
+		});
 	}
 }

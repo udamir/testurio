@@ -38,6 +38,12 @@ export abstract class BaseComponent<TStepBuilder = unknown> {
 	protected hooks: Hook[] = [];
 	protected unhandledErrors: Error[] = [];
 
+	/**
+	 * Current test case context for hook isolation.
+	 * Set by TestCaseBuilder.use() before hooks are registered.
+	 */
+	protected currentTestCaseId?: string;
+
 	/** Component name */
 	readonly name: string;
 
@@ -87,11 +93,24 @@ export abstract class BaseComponent<TStepBuilder = unknown> {
 	// =========================================================================
 
 	/**
+	 * Set current test case context for hook isolation.
+	 * Called by TestCaseBuilder.use() to tag subsequent hooks with testCaseId.
+	 */
+	setTestCaseContext(testCaseId?: string): void {
+		this.currentTestCaseId = testCaseId;
+	}
+
+	/**
 	 * Register a hook for message interception.
 	 * The hook's `isMatch` function determines which messages it handles.
+	 * Automatically injects testCaseId from current context if not already set.
 	 */
 	registerHook<TMessage>(hook: Hook<TMessage>): void {
-		this.hooks.push(hook as Hook);
+		const hookWithContext = {
+			...hook,
+			testCaseId: hook.testCaseId ?? this.currentTestCaseId,
+		};
+		this.hooks.push(hookWithContext as Hook);
 	}
 
 	/**
@@ -145,8 +164,19 @@ export abstract class BaseComponent<TStepBuilder = unknown> {
 		return hook ? this.executeHook(hook, message) : message;
 	}
 
-	clearTestCaseHooks(): void {
-		this.hooks = this.hooks.filter((hook) => hook.persistent);
+	/**
+	 * Clear test case hooks.
+	 * If testCaseId provided, only clears hooks for that test case.
+	 * Otherwise clears all non-persistent hooks (backwards compatible).
+	 */
+	clearTestCaseHooks(testCaseId?: string): void {
+		if (testCaseId) {
+			// Only clear hooks belonging to this specific test case
+			this.hooks = this.hooks.filter((hook) => hook.persistent || hook.testCaseId !== testCaseId);
+		} else {
+			// Backwards compatible - clear all non-persistent hooks
+			this.hooks = this.hooks.filter((hook) => hook.persistent);
+		}
 	}
 
 	clearHooks(): void {

@@ -143,23 +143,28 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 			timeout,
 			description: `Wait for ${String(messageType)} message`,
 			action: async () => {
-				// If message already captured, execute user handlers immediately
+				let msg: Message<ExtractClientPayload<P, K>>;
+
+				// If message already captured, use it
 				if (capturedMessage) {
-					for (const handler of hook.handlers) {
-						await handler.execute(capturedMessage);
-					}
-					return;
+					msg = capturedMessage;
+				} else {
+					// Wait for message with timeout
+					const timeoutPromise = new Promise<never>((_, reject) => {
+						setTimeout(() => reject(new Error(`Timeout waiting for message: ${messageType}`)), timeout);
+					});
+					msg = await Promise.race([messagePromise, timeoutPromise]);
 				}
 
-				// Wait for message with timeout
-				const timeoutPromise = new Promise<never>((_, reject) => {
-					setTimeout(() => reject(new Error(`Timeout waiting for message: ${messageType}`)), timeout);
-				});
-				const msg = await Promise.race([messagePromise, timeoutPromise]);
-
 				// Execute user handlers with the received message
+				let result: Message = msg;
 				for (const handler of hook.handlers) {
-					await handler.execute(msg);
+					result = (await handler.execute(result)) as Message;
+				}
+
+				// If handler produced a response with different type (e.g., mockEvent), send it
+				if (result && result.type !== msg.type) {
+					await this.server.send(result);
 				}
 			},
 		});

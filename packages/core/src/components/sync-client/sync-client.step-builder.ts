@@ -2,32 +2,107 @@
  * Sync Client Step Builder
  *
  * Builder for sync client operations (HTTP/gRPC unary requests).
- * Uses hook-based pattern: request() triggers hooks, onResponse() registers hooks.
+ * Implements the declarative sequential pattern:
+ *   request() -> mock handles -> onResponse()
  */
 
 import type { ITestCaseBuilder } from "../../execution/execution.types";
-import type { ISyncProtocol, Message, SyncOperationId } from "../../protocols/base";
+import type { ISyncProtocol, SyncOperationId } from "../../protocols/base";
 import { generateId } from "../../utils";
-import type { Hook } from "../base";
 import type { Client } from "./sync-client.component";
 import { SyncClientHookBuilder } from "./sync-client.hook-builder";
 import type { ExtractClientResponse, ExtractRequestData } from "./sync-client.types";
 
 /**
+ * Request entry for tracking correlation
+ */
+interface RequestEntry {
+	traceId: string;
+	messageType: string;
+	response?: unknown;
+	matched: boolean;
+}
+
+/**
+ * Request tracker for correlating requests with responses
+ */
+export class RequestTracker {
+	private requests: Map<string, RequestEntry[]> = new Map();
+	private responsesByTraceId: Map<string, unknown> = new Map();
+
+	/**
+	 * Track a request
+	 */
+	trackRequest(messageType: string, traceId?: string): string {
+		const id = traceId ?? generateId("req_");
+		const entries = this.requests.get(messageType) ?? [];
+		entries.push({ traceId: id, messageType, matched: false });
+		this.requests.set(messageType, entries);
+		return id;
+	}
+
+	/**
+	 * Store response for a traceId
+	 */
+	storeResponse(traceId: string, response: unknown): void {
+		this.responsesByTraceId.set(traceId, response);
+	}
+
+	/**
+	 * Find request and get its response
+	 */
+	findResponse(messageType: string, traceId?: string): unknown {
+		const entries = this.requests.get(messageType);
+		if (!entries?.length) {
+			throw new Error(`No request found for messageType: ${messageType}`);
+		}
+
+		if (traceId) {
+			// Explicit match by traceId
+			const entry = entries.find((e) => e.traceId === traceId);
+			if (!entry) {
+				throw new Error(`No request found with traceId: ${traceId}`);
+			}
+			return this.responsesByTraceId.get(entry.traceId);
+		}
+
+		// Implicit match - return last unmatched request's response
+		const unmatchedEntries = entries.filter((e) => !e.matched);
+		if (!unmatchedEntries.length) {
+			throw new Error(`All ${messageType} requests already matched`);
+		}
+		const lastEntry = unmatchedEntries[unmatchedEntries.length - 1];
+		lastEntry.matched = true;
+		return this.responsesByTraceId.get(lastEntry.traceId);
+	}
+
+	/**
+	 * Clear all tracked requests
+	 */
+	clear(): void {
+		this.requests.clear();
+		this.responsesByTraceId.clear();
+	}
+}
+
+/**
  * Sync Client Step Builder
  *
  * Provides declarative API for sync request/response flows.
- * Uses hook-based pattern where:
- * - request() makes the request and triggers matching hooks
- * - onResponse() registers hooks that handle responses
  *
  * @template A - Protocol type (ISyncProtocol) - contains service definition via __types.service
  */
 export class SyncClientStepBuilder<A extends ISyncProtocol = ISyncProtocol> {
+	private requestTracker: RequestTracker;
+
 	constructor(
 		private client: Client<A>,
 		private testBuilder: ITestCaseBuilder
-	) {}
+	) {
+		// Get or create request tracker from the client component
+		// This keeps internal state out of the user-facing test context
+		this.requestTracker = this.client.getRequestTracker(() => new RequestTracker());
+	}
 
 	/**
 	 * Send a request (generic API for all sync protocols)
@@ -45,7 +120,7 @@ export class SyncClientStepBuilder<A extends ISyncProtocol = ISyncProtocol> {
 	 * @param timeout - Optional request timeout in milliseconds
 	 */
 	request<K extends SyncOperationId<A>>(messageType: K, data: ExtractRequestData<A, K>, timeout?: number): void {
-		const traceId = generateId("req_");
+		const traceId = this.requestTracker.trackRequest(messageType);
 
 		this.testBuilder.registerStep({
 			type: "request",
@@ -54,26 +129,13 @@ export class SyncClientStepBuilder<A extends ISyncProtocol = ISyncProtocol> {
 			description: `Request ${messageType}`,
 			action: async () => {
 				const response = await this.client.request(messageType, data, timeout);
-
-				// Create message and trigger matching hooks
-				const message: Message = {
-					type: messageType,
-					payload: response,
-					traceId,
-				};
-				await this.client.executeMatchingHook(message);
-			},
-			metadata: {
-				traceId,
+				this.requestTracker.storeResponse(traceId, response);
 			},
 		});
 	}
 
 	/**
-	 * Handle a response (declarative, hook-based)
-	 *
-	 * Registers a hook that will be triggered when request() receives a response.
-	 * The hook matches by messageType and optional traceId.
+	 * Handle a response (declarative, sequential)
 	 *
 	 * In loose mode (no type parameter on protocol):
 	 * - Returns hook builder with protocol's raw response type (e.g., HttpResponse)
@@ -83,33 +145,18 @@ export class SyncClientStepBuilder<A extends ISyncProtocol = ISyncProtocol> {
 	 *
 	 * @param messageType - Message type to match
 	 * @param traceId - Optional traceId for explicit correlation
-	 *                  If omitted, matches any request of this messageType
+	 *                  If omitted, matches last request of this messageType
 	 */
 	onResponse<K extends SyncOperationId<A>, TResponse = ExtractClientResponse<A, K>>(
 		messageType: K,
 		traceId?: string
 	): SyncClientHookBuilder<TResponse> {
-		// Create hook with isMatch function
-		const hook: Hook<Message<TResponse>> = {
-			id: `${this.client.name}-response-${messageType}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-			componentName: this.client.name,
-			phase: "test",
-			isMatch: (msg: Message<TResponse>) => {
-				if (msg.type !== messageType) {
-					return false;
-				}
-				if (traceId && msg.traceId !== traceId) {
-					return false;
-				}
-				return true;
-			},
-			handlers: [],
-			persistent: false,
-		};
-
-		// Register hook on client component
-		this.client.registerHook(hook);
-
-		return new SyncClientHookBuilder<TResponse>(hook);
+		return new SyncClientHookBuilder<TResponse>(
+			this.client.name,
+			this.testBuilder,
+			this.requestTracker,
+			messageType,
+			traceId
+		);
 	}
 }

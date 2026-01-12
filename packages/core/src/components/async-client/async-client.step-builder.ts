@@ -34,20 +34,6 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
 	) {}
 
 	/**
-	 * Component name
-	 */
-	get name(): string {
-		return this.client.name;
-	}
-
-	/**
-	 * Target address
-	 */
-	get targetAddress() {
-		return this.client.targetAddress;
-	}
-
-	/**
 	 * Check if client is connected
 	 */
 	isConnected(): boolean {

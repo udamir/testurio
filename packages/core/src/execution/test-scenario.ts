@@ -421,9 +421,9 @@ export class TestScenario {
 			await this.cleanupTestCaseComponents(testCaseComponents);
 		}
 
-		// Clear test case hooks from all components
+		// Clear test case hooks from all components (only for this test case)
 		for (const component of this.components.values()) {
-			component.clearTestCaseHooks();
+			component.clearTestCaseHooks(testCase.testCaseId);
 		}
 
 		// Record interactions if enabled

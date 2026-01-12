@@ -87,13 +87,6 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 	}
 
 	/**
-	 * Get target address
-	 */
-	get targetAddress(): Address {
-		return this._targetAddress;
-	}
-
-	/**
 	 * Get the client connection
 	 */
 	get connection(): IAsyncClientAdapter | undefined {

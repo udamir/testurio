@@ -28,7 +28,28 @@ export class TestCaseBuilder {
 	private pendingComponents: PendingComponent[] = [];
 	private componentRegistry?: Map<string, Component>;
 
+	/**
+	 * Test case ID for hook isolation.
+	 * Set by TestCase.execute() before building steps.
+	 */
+	private _testCaseId?: string;
+
 	constructor(private components: Map<string, Component>) {}
+
+	/**
+	 * Set the test case ID for hook isolation.
+	 * Called by TestCase.execute() before building steps.
+	 */
+	setTestCaseId(testCaseId: string): void {
+		this._testCaseId = testCaseId;
+	}
+
+	/**
+	 * Get the current test case ID.
+	 */
+	get testCaseId(): string | undefined {
+		return this._testCaseId;
+	}
 
 	/**
 	 * Set component registry for dynamic component registration
@@ -124,6 +145,11 @@ export class TestCaseBuilder {
 				component,
 				options: { scope: "testCase" },
 			});
+		}
+
+		// Set test case context for hook isolation
+		if (this._testCaseId) {
+			component.setTestCaseContext(this._testCaseId);
 		}
 
 		// Return the step builder from the component

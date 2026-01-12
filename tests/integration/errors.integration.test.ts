@@ -359,4 +359,71 @@ describe("Error Scenarios Integration Tests", () => {
 			expect(result.testCases[0].error).toContain("timeout");
 		});
 	});
+
+	// ============================================================
+	// 6.9 Multiple Async Test Case Failures
+	// ============================================================
+	describe("6.9 Multiple Async Test Case Failures", () => {
+		it("should continue running async test cases after failure", async () => {
+			const backendServer = createWsMock("backend", 6370);
+			const apiClient = createWsClient("api", 6370);
+
+			const scenario = new TestScenario({
+				name: "Multiple Async Failure Test",
+				components: [backendServer, apiClient],
+			});
+
+			const tc1 = testCase("First async test - will pass", (test) => {
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
+
+				api.sendMessage("TestRequest", { value: 1 });
+				backend
+					.waitMessage("TestRequest", { timeout: 1000 })
+					.assert((payload) => payload.value === 1)
+					.mockEvent("TestResponse", () => ({ result: "ok" }));
+				// waitEvent creates a blocking step (unlike onEvent which only registers a hook)
+			api.waitEvent("TestResponse", { timeout: 1000 }).assert((payload) => payload.result === "ok");
+			});
+
+			const tc2 = testCase("Second async test - will fail", (test) => {
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
+
+				api.sendMessage("TestRequest", { value: 2 });
+				backend
+					.waitMessage("TestRequest", { timeout: 1000 })
+					.assert((payload) => payload.value === 2)
+					.mockEvent("TestResponse", () => ({ result: "fail" }));
+				// waitEvent creates a blocking step - assertion will fail because result is "fail" not "impossible"
+				api.waitEvent("TestResponse", { timeout: 1000 }).assert((payload) => {
+					return payload.result === "impossible"; // Will fail - result is "fail"
+				});
+			});
+
+			const tc3 = testCase("Third async test - will pass", (test) => {
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
+
+				api.sendMessage("TestRequest", { value: 3 });
+				backend
+					.waitMessage("TestRequest", { timeout: 1000 })
+					.assert((payload) => payload.value === 3)
+					.mockEvent("TestResponse", () => ({ result: "success" }));
+				// waitEvent creates a blocking step (unlike onEvent which only registers a hook)
+				api.waitEvent("TestResponse", { timeout: 1000 }).assert((payload) => payload.result === "success");
+			});
+
+			// Run sequentially using array syntax to test hook isolation
+			// (parallel execution with same message types causes cross-capture)
+			const result = await scenario.run([tc1, tc2, tc3]);
+
+			expect(result.passed).toBe(false);
+			expect(result.testCases).toHaveLength(3);
+			expect(result.testCases[0].passed).toBe(true);
+			// tc2 should fail due to assertion (result === "impossible")
+			expect(result.testCases[1].passed).toBe(false);
+			expect(result.testCases[2].passed).toBe(true);
+		});
+	});
 });

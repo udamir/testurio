@@ -46,6 +46,13 @@ export interface Hook<TMessage = unknown> {
 	phase: TestPhase;
 
 	/**
+	 * Test case ID that owns this hook.
+	 * Used to isolate hooks between parallel test cases.
+	 * Hooks without testCaseId (e.g., init phase) are preserved across all test cases.
+	 */
+	testCaseId?: string;
+
+	/**
 	 * Matching function defined at hook creation time.
 	 * Returns true if this hook should handle the given message.
 	 */
@@ -169,8 +176,18 @@ export interface Component<TStepBuilder = unknown> {
 	/** Create a step builder for use in testCase */
 	createStepBuilder(builder: unknown): TStepBuilder;
 
-	/** Clear test case hooks (for components with hooks) */
-	clearTestCaseHooks(): void;
+	/**
+	 * Set test case context for hook isolation.
+	 * Called by TestCaseBuilder.use() to tag subsequent hooks with testCaseId.
+	 */
+	setTestCaseContext(testCaseId?: string): void;
+
+	/**
+	 * Clear test case hooks.
+	 * If testCaseId provided, only clears hooks for that test case.
+	 * Otherwise clears all non-persistent hooks.
+	 */
+	clearTestCaseHooks(testCaseId?: string): void;
 
 	/** Clear all hooks (for components with hooks) */
 	clearHooks(): void;

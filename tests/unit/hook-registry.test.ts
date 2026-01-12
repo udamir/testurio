@@ -40,7 +40,12 @@ describe("BaseComponent Hook Functionality", () => {
 			component.registerHook(hook);
 
 			expect(component.getAllHooks()).toHaveLength(1);
-			expect(component.getHookById("hook-1")).toBe(hook);
+			// registerHook creates a new object with testCaseId, so check by id and properties
+			const registered = component.getHookById("hook-1");
+			expect(registered?.id).toBe(hook.id);
+			expect(registered?.componentName).toBe(hook.componentName);
+			expect(registered?.phase).toBe(hook.phase);
+			expect(registered?.persistent).toBe(hook.persistent);
 		});
 
 		it("should register multiple hooks", () => {

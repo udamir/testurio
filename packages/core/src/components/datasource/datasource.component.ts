@@ -179,9 +179,16 @@ export class DataSource<TClient, A extends DataSourceAdapter<TClient, unknown>> 
 	// =========================================================================
 
 	/**
+	 * Set test case context for hook isolation (no-op for DataSource, no hooks)
+	 */
+	setTestCaseContext(_testCaseId?: string): void {
+		// DataSource doesn't have hooks - no-op
+	}
+
+	/**
 	 * Clear test case hooks (no-op for DataSource, no hooks)
 	 */
-	clearTestCaseHooks(): void {
+	clearTestCaseHooks(_testCaseId?: string): void {
 		// DataSource doesn't have hooks - no-op
 	}
 

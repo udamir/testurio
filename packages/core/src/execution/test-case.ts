@@ -8,12 +8,20 @@
 import type { Severity, TestCaseMetadata, TestCaseResult, TestStep, TestStepResult } from "./execution.types";
 import { executeSteps, filterStepsByPhase, summarizeStepResults } from "./step-executor";
 import type { TestCaseBuilder } from "./test-case-builder";
+import { generateId } from "../utils";
 
 /**
  * TestCase - represents a single test case
  */
 export class TestCase {
 	readonly name: string;
+
+	/**
+	 * Unique identifier for this test case instance.
+	 * Used for hook isolation when test cases run in parallel.
+	 */
+	readonly testCaseId: string;
+
 	private testBuilder?: (test: TestCaseBuilder) => void;
 	private beforeBuilder?: (test: TestCaseBuilder) => void;
 	private afterBuilder?: (test: TestCaseBuilder) => void;
@@ -21,6 +29,7 @@ export class TestCase {
 
 	constructor(name: string, builder: (test: TestCaseBuilder) => void, metadata?: TestCaseMetadata) {
 		this.name = name;
+		this.testCaseId = generateId("tc_");
 		this.testBuilder = builder;
 		if (metadata) {
 			this._metadata = { ...metadata };
@@ -179,6 +188,9 @@ export class TestCase {
 		const startTime = Date.now();
 
 		try {
+			// Set test case context for hook isolation
+			builder.setTestCaseId(this.testCaseId);
+
 			// Build all steps
 			const allSteps = this.buildSteps(builder);
 
