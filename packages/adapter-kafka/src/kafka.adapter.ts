@@ -5,7 +5,7 @@
  */
 
 import { Kafka, logLevel as KafkaLogLevel } from "kafkajs";
-import type { Codec, IMQAdapter, IMQPublisherAdapter, IMQSubscriberAdapter } from "testurio";
+import { defaultJsonCodec, type Codec, type IMQAdapter, type IMQPublisherAdapter, type IMQSubscriberAdapter } from "testurio";
 import { KafkaPublisherAdapter } from "./kafka.publisher.adapter";
 import { KafkaSubscriberAdapter } from "./kafka.subscriber.adapter";
 import type { KafkaAdapterConfig } from "./kafka.types";
@@ -51,7 +51,7 @@ export class KafkaAdapter implements IMQAdapter {
 		});
 	}
 
-	async createPublisher(codec: Codec): Promise<IMQPublisherAdapter> {
+	async createPublisher(codec: Codec = defaultJsonCodec): Promise<IMQPublisherAdapter> {
 		const producer = this.kafka.producer(this.config.producerOptions);
 		const adapter = new KafkaPublisherAdapter(producer, codec);
 		await adapter.connect();
@@ -59,7 +59,7 @@ export class KafkaAdapter implements IMQAdapter {
 		return adapter;
 	}
 
-	async createSubscriber(codec: Codec): Promise<IMQSubscriberAdapter> {
+	async createSubscriber(codec: Codec = defaultJsonCodec): Promise<IMQSubscriberAdapter> {
 		if (!this.config.groupId) {
 			throw new Error("groupId is required for creating subscribers");
 		}

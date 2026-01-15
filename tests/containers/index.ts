@@ -11,4 +11,11 @@ export {
 	type RedisContainerOptions,
 } from "./redis.container";
 
+export {
+	startKafkaContainer,
+	stopKafkaContainer,
+	type KafkaTestContext,
+	type KafkaContainerOptions,
+} from "./kafka.container";
+
 export { isDockerAvailable } from "./docker-check";

@@ -18,6 +18,7 @@ export default defineConfig({
       '@testurio/protocol-tcp': resolve(__dirname, './packages/protocol-tcp/src'),
       '@testurio/reporter-allure': resolve(__dirname, './packages/reporter-allure/src'),
       '@testurio/adapter-redis': resolve(__dirname, './packages/adapter-redis/src'),
+      '@testurio/adapter-kafka': resolve(__dirname, './packages/adapter-kafka/src'),
     },
   },
 });
