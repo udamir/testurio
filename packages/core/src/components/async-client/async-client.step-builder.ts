@@ -1,271 +1,143 @@
 /**
  * Async Client Step Builder
  *
- * Builder for async client operations (send, wait for messages).
+ * Builder for async client operations (WebSocket, TCP, gRPC streams).
+ * Implements the declarative sequential pattern:
+ *   send() -> onEvent()/waitEvent()
+ *
+ * Event handling methods:
+ * - onEvent(): Non-strict - works regardless of timing (event can arrive before step starts)
+ * - waitEvent(): Strict - must be waiting when event arrives (error if event arrives early)
+ *
+ * Per design:
+ * - Contains NO logic, only step registration
+ * - All execution logic is in the Component
  */
 
-import type { ITestCaseBuilder } from "../../execution/execution.types";
-import type {
-	AsyncClientMessageType,
-	AsyncServerMessageType,
-	ExtractClientPayload,
-	ExtractServerPayload,
-	IAsyncProtocol,
-	Message,
-	ProtocolMessages,
-} from "../../protocols/base";
-import { generateId } from "../../utils";
-import type { Hook } from "../base";
-import { createMessageMatcher } from "../base";
-import type { AsyncClient } from "./async-client.component";
+import type { IAsyncProtocol, AsyncClientMessageType, AsyncServerMessageType } from "../../protocols/base";
+import { BaseStepBuilder } from "../base/step-builder";
 import { AsyncClientHookBuilder } from "./async-client.hook-builder";
+import type { ExtractMessagePayload, ExtractEventPayload } from "./async-client.types";
 
 /**
  * Async Client Step Builder
  *
- * For async protocols: TCP, WebSocket, gRPC streaming
+ * Provides declarative API for async message/event flows.
+ * All methods register steps - no execution logic here.
  *
- * @template P - Protocol type (messages are extracted via ProtocolMessages<P>)
+ * @template P - Protocol type (IAsyncProtocol) - contains message definitions
  */
-export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
-	constructor(
-		private client: AsyncClient<P>,
-		private testBuilder: ITestCaseBuilder
-	) {}
-
+export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> extends BaseStepBuilder {
 	/**
-	 * Check if client is connected
+	 * Send a message to server (action step)
+	 *
+	 * @param messageType - Message type identifier
+	 * @param payload - Message payload
 	 */
-	isConnected(): boolean {
-		return this.client.isStarted();
-	}
-
-	/**
-	 * Connect to server (registers a connect step)
-	 */
-	connect(): void {
-		this.testBuilder.registerStep({
-			type: "connect",
-			componentName: this.client.name,
-			description: `Connect ${this.client.name}`,
-			action: async () => {
-				if (!this.client.isStarted()) {
-					await this.client.start();
-				}
+	sendMessage<K extends AsyncClientMessageType<P>>(messageType: K, payload: ExtractMessagePayload<P, K>): void {
+		this.registerStep({
+			type: "sendMessage",
+			description: `Send ${messageType}`,
+			params: {
+				messageType,
+				payload,
 			},
+			handlers: [],
+			mode: "action",
 		});
 	}
 
 	/**
-	 * Disconnect from server (registers a disconnect step)
+	 * Disconnect from server (action step)
 	 */
 	disconnect(): void {
-		this.testBuilder.registerStep({
+		this.registerStep({
 			type: "disconnect",
-			componentName: this.client.name,
-			description: `Disconnect ${this.client.name}`,
-			action: async () => {
-				if (this.client.isStarted()) {
-					await this.client.stop();
-				}
-			},
-		});
-	}
-
-	/**
-	 * Send a message to server (from clientMessages)
-	 *
-	 * In loose mode (no type parameter on protocol):
-	 * - messageType accepts any string
-	 * - payload typed as `unknown`
-	 *
-	 * In strict mode (with type parameter):
-	 * - messageType constrained to defined client message types
-	 * - payload typed according to message definition
-	 */
-	sendMessage<K extends AsyncClientMessageType<P>>(
-		messageType: K,
-		payload: ExtractClientPayload<P, K> | (() => ExtractClientPayload<P, K> | Promise<ExtractClientPayload<P, K>>),
-		traceId?: string
-	): void {
-		this.testBuilder.registerStep({
-			type: "sendMessage",
-			componentName: this.client.name,
-			messageType: messageType as string,
-			description: `Send ${String(messageType)} message`,
-			action: async () => {
-				const payloadValue =
-					typeof payload === "function"
-						? await Promise.resolve((payload as () => ExtractClientPayload<P, K>)())
-						: payload;
-				const message: Message = {
-					type: messageType as string,
-					payload: payloadValue,
-					traceId,
-				};
-				await this.client.send(message);
-			},
-		});
-	}
-
-	/**
-	 * Wait for an event with timeout (blocking step)
-	 *
-	 * Unlike onEvent which just registers a hook, waitEvent creates a step
-	 * that blocks until the event is received or timeout expires.
-	 *
-	 * In loose mode (no type parameter on protocol):
-	 * - messageType accepts any string
-	 * - payload typed as `unknown`
-	 *
-	 * In strict mode (with type parameter):
-	 * - messageType constrained to defined server message types
-	 * - payload typed according to message definition
-	 *
-	 * @param messageType - Message type to wait for (from serverMessages)
-	 * @param options - Optional timeout and matcher
-	 */
-	waitEvent<K extends AsyncServerMessageType<P>>(
-		messageType: K,
-		options?: {
-			timeout?: number;
-			matcher?: string | ((payload: ExtractServerPayload<P, K>) => boolean);
-		}
-	): AsyncClientHookBuilder<ExtractServerPayload<P, K>, ProtocolMessages<P>> {
-		const timeout = options?.timeout ?? 5000;
-		const messageTypes = messageType as string;
-
-		// Build payload matcher if provided
-		const payloadMatcher = this.buildPayloadMatcher(options?.matcher);
-
-		// Hook for user handlers (executed manually in step action)
-		const hook: Hook<Message<ExtractServerPayload<P, K>>> = {
-			id: generateId("hook_"),
-			componentName: this.client.name,
-			phase: "test",
-			isMatch: createMessageMatcher(messageTypes, payloadMatcher),
+			description: `Disconnect`,
+			params: {},
 			handlers: [],
-			persistent: false,
-			timeout,
-		};
-
-		// Create a promise that resolves when message is received
-		type MessageType = Message<ExtractServerPayload<P, K>>;
-		let resolveMessage: (msg: MessageType) => void;
-		let capturedMessage: MessageType | null = null;
-		const messagePromise = new Promise<MessageType>((resolve) => {
-			resolveMessage = (msg: MessageType) => {
-				capturedMessage = msg;
-				resolve(msg);
-			};
+			mode: "action",
 		});
+	}
 
-		// Create a capture hook that signals when message arrives
-		// This hook is registered immediately during BUILD phase to capture early messages
-		const captureHook: Hook<Message<ExtractServerPayload<P, K>>> = {
-			id: generateId("hook_"),
-			componentName: this.client.name,
-			phase: "test",
-			isMatch: createMessageMatcher(messageTypes, payloadMatcher),
-			handlers: [
-				{
-					type: "proxy",
-					execute: async (msg: Message<ExtractServerPayload<P, K>>) => {
-						resolveMessage(msg);
-						return msg;
-					},
+	/**
+	 * Wait for disconnection from server (STRICT).
+	 *
+	 * Must be waiting when disconnect happens - error if disconnect happens before step starts.
+	 * Use this when you expect the server to close the connection.
+	 *
+	 * @example
+	 * ```typescript
+	 * client.sendMessage("Logout", {});
+	 * client.waitDisconnect().timeout(1000);
+	 * ```
+	 */
+	waitDisconnect(): AsyncClientHookBuilder<void> {
+		return this.registerStep(
+			{
+				type: "waitDisconnect",
+				description: `Wait for disconnection`,
+				params: {},
+				handlers: [],
+				mode: "wait",
+			},
+			AsyncClientHookBuilder<void>
+		);
+	}
+
+	/**
+	 * Handle event from server (NON-STRICT)
+	 *
+	 * Flexible timing - works regardless of whether event arrives before or after step starts.
+	 * Use this when step order might vary, or testing scenarios where timing is unpredictable.
+	 *
+	 * @param eventType - Event type to match
+	 * @param options - Optional settings: matcher to filter by payload
+	 */
+	onEvent<K extends AsyncServerMessageType<P>, TPayload = ExtractEventPayload<P, K>>(
+		eventType: K,
+		options?: { matcher?: (payload: TPayload) => boolean }
+	): AsyncClientHookBuilder<TPayload> {
+		return this.registerStep(
+			{
+				type: "onEvent",
+				description: `Handle event ${eventType}`,
+				params: {
+					eventType,
+					matcher: options?.matcher,
 				},
-			],
-			persistent: false,
-			timeout,
-		};
-
-		// Register capture hook immediately to catch messages before step executes
-		this.client.registerHook(captureHook);
-
-		// Create a step that waits for the event
-		this.testBuilder.registerStep({
-			type: "waitForMessage",
-			componentName: this.client.name,
-			messageType: messageTypes,
-			timeout,
-			description: `Wait for ${String(messageType)} event`,
-			action: async () => {
-				// If message already captured, execute user handlers immediately
-				if (capturedMessage) {
-					for (const handler of hook.handlers) {
-						await handler.execute(capturedMessage);
-					}
-					return;
-				}
-
-				// Wait for message with timeout
-				const timeoutPromise = new Promise<never>((_, reject) => {
-					setTimeout(() => reject(new Error(`Timeout waiting for event: ${messageTypes}`)), timeout);
-				});
-				const msg = await Promise.race([messagePromise, timeoutPromise]);
-
-				// Execute user handlers with the received message
-				for (const handler of hook.handlers) {
-					await handler.execute(msg);
-				}
+				handlers: [],
+				mode: "hook",
 			},
-		});
-
-		return new AsyncClientHookBuilder<ExtractServerPayload<P, K>, ProtocolMessages<P>>(hook);
+			AsyncClientHookBuilder<TPayload>
+		);
 	}
 
 	/**
-	 * Register event handler (hook) for server messages
+	 * Wait for event from server (STRICT)
 	 *
-	 * In loose mode (no type parameter on protocol):
-	 * - messageType accepts any string
-	 * - payload typed as `unknown`
+	 * Must be waiting when event arrives - error if event arrives before step starts.
+	 * Use this when you want strict ordering enforced, fail-fast if test logic is wrong.
 	 *
-	 * In strict mode (with type parameter):
-	 * - messageType constrained to defined server message types
-	 * - payload typed according to message definition
-	 *
-	 * @param messageType - Message type to match (from serverMessages)
-	 * @param matcher - Optional payload matcher (traceId string or filter function)
-	 * @param timeout - Optional timeout in milliseconds
+	 * @param eventType - Event type to match
+	 * @param options - Optional settings: matcher to filter by payload
 	 */
-	onEvent<K extends AsyncServerMessageType<P>>(
-		messageType: K,
-		matcher?: string | ((payload: ExtractServerPayload<P, K>) => boolean),
-		timeout?: number
-	): AsyncClientHookBuilder<ExtractServerPayload<P, K>, ProtocolMessages<P>> {
-		// Build payload matcher if provided
-		const payloadMatcher = this.buildPayloadMatcher(matcher);
-
-		const hook: Hook<Message<ExtractServerPayload<P, K>>> = {
-			id: generateId("hook_"),
-			componentName: this.client.name,
-			phase: "test",
-			isMatch: createMessageMatcher(messageType as string, payloadMatcher),
-			handlers: [],
-			persistent: false,
-			timeout,
-		};
-
-		// Register hook first, then pass to builder
-		this.client.registerHook(hook);
-
-		return new AsyncClientHookBuilder<ExtractServerPayload<P, K>, ProtocolMessages<P>>(hook);
-	}
-
-	/**
-	 * Build payload matcher from string (traceId) or function
-	 */
-	private buildPayloadMatcher<T>(
-		matcher?: string | ((payload: T) => boolean)
-	): { type: "traceId"; value: string } | { type: "function"; fn: (payload: unknown) => boolean } | undefined {
-		if (!matcher) return undefined;
-
-		if (typeof matcher === "string") {
-			return { type: "traceId", value: matcher };
-		}
-
-		return { type: "function", fn: matcher as (payload: unknown) => boolean };
+	waitEvent<K extends AsyncServerMessageType<P>, TPayload = ExtractEventPayload<P, K>>(
+		eventType: K,
+		options?: { matcher?: (payload: TPayload) => boolean }
+	): AsyncClientHookBuilder<TPayload> {
+		return this.registerStep(
+			{
+				type: "waitEvent",
+				description: `Wait for event ${eventType}`,
+				params: {
+					eventType,
+					matcher: options?.matcher,
+				},
+				handlers: [],
+				mode: "wait",
+			},
+			AsyncClientHookBuilder<TPayload>
+		);
 	}
 }

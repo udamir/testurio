@@ -1,6 +1,6 @@
 {
   "name": "testurio",
-  "version": "0.1.0",
+  "version": "0.4.0",
   "description": "Declarative E2E/integration testing framework for distributed systems with multi-protocol support (HTTP, gRPC, WebSocket, TCP)",
   "keywords": [
     "testing",

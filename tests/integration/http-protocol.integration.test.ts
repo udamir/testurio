@@ -455,15 +455,11 @@ describe("HTTP Protocol Integration Tests", () => {
 			const tc = testCase("Request times out", (test) => {
 				const api = test.use(client);
 
-				api.request(
-					"getResource",
-					{
-						method: "GET",
-						path: "/resource/slow",
-					},
-					500
-				);
-				api.onResponse("getResource").assert((res) => res.code === 200);
+				api.request("getResource", {
+					method: "GET",
+					path: "/resource/slow",
+				});
+				api.onResponse("getResource").timeout(500).assert((res) => res.code === 200);
 			});
 
 			const result = await scenario.run(tc);

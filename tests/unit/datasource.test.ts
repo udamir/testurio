@@ -43,7 +43,7 @@ describe("DataSource", () => {
 			const ds = new DataSource("test", { adapter });
 			await ds.start();
 
-			await expect(ds.start()).rejects.toThrow(/Cannot start DataSource/);
+			await expect(ds.start()).rejects.toThrow(/Cannot start component/);
 		});
 
 		it("should allow restart after stop", async () => {
@@ -155,8 +155,9 @@ describe("DataSource", () => {
 			expect(typeof component.isStarted).toBe("function");
 			expect(typeof component.isStopped).toBe("function");
 			expect(typeof component.createStepBuilder).toBe("function");
-			expect(typeof component.clearTestCaseHooks).toBe("function");
+			expect(typeof component.registerHook).toBe("function");
 			expect(typeof component.clearHooks).toBe("function");
+			expect(typeof component.executeStep).toBe("function");
 			expect(typeof component.getUnhandledErrors).toBe("function");
 			expect(typeof component.clearUnhandledErrors).toBe("function");
 		});
@@ -166,8 +167,8 @@ describe("DataSource", () => {
 			const ds = new DataSource("test", { adapter });
 
 			// These should not throw
-			ds.clearTestCaseHooks();
 			ds.clearHooks();
+			ds.clearHooks("test-case-id");
 			expect(ds.getUnhandledErrors()).toEqual([]);
 		});
 	});
@@ -193,7 +194,8 @@ describe("DataSourceStepBuilder", () => {
 
 		const steps = builder.getSteps();
 		expect(steps).toHaveLength(1);
-		expect(steps[0].type).toBe("datasource");
+		expect(steps[0].type).toBe("exec");
+		expect(steps[0].mode).toBe("action");
 	});
 
 	it("should accept description as first argument to exec", () => {
@@ -220,7 +222,9 @@ describe("DataSourceStepBuilder", () => {
 		stepBuilder.exec(async (c) => c.get("key")).assert("key should have value", (result) => result === "value");
 
 		const steps = builder.getSteps();
-		expect(steps[0].metadata?.assertDescription).toBe("key should have value");
+		expect(steps[0].handlers).toHaveLength(1);
+		expect(steps[0].handlers[0].type).toBe("assert");
+		expect(steps[0].handlers[0].description).toBe("key should have value");
 	});
 
 	it("should execute step and return result", async () => {
@@ -230,7 +234,8 @@ describe("DataSourceStepBuilder", () => {
 		stepBuilder.exec(async (c) => c.get("user:1"));
 
 		const steps = builder.getSteps();
-		await steps[0].action();
+		// New model: Component executes step via executeStep()
+		await ds.executeStep(steps[0]);
 		// Step executes without error
 	});
 
@@ -241,7 +246,8 @@ describe("DataSourceStepBuilder", () => {
 		stepBuilder.exec(async (c) => c.get("user:1")).assert((result) => result !== null);
 
 		const steps = builder.getSteps();
-		await steps[0].action();
+		// New model: Component executes step via executeStep()
+		await ds.executeStep(steps[0]);
 		// Step executes without error
 	});
 
@@ -251,7 +257,8 @@ describe("DataSourceStepBuilder", () => {
 		stepBuilder.exec(async (c) => c.get("nonexistent")).assert("value should exist", (result) => result !== null);
 
 		const steps = builder.getSteps();
-		await expect(steps[0].action()).rejects.toThrow("Assertion failed: value should exist");
+		// New model: Component executes step via executeStep()
+		await expect(ds.executeStep(steps[0])).rejects.toThrow("Assertion failed: value should exist");
 	});
 
 	it("should support timeout option", async () => {
@@ -266,7 +273,8 @@ describe("DataSourceStepBuilder", () => {
 		);
 
 		const steps = builder.getSteps();
-		await expect(steps[0].action()).rejects.toThrow(/timeout/i);
+		// New model: Component executes step via executeStep()
+		await expect(ds.executeStep(steps[0])).rejects.toThrow(/timeout/i);
 	});
 });
 

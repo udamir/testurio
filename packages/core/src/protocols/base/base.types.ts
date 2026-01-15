@@ -126,6 +126,7 @@ export type ClientProtocolConfig = {
 	targetAddress: Address; // Target address to connect to
 	tls?: TlsConfig; // TLS configuration
 	timeouts?: TimeoutConfig; // Timeout configuration
+	connectionId?: string; // Pre-assigned connection ID (for async protocols)
 };
 
 /**
@@ -302,9 +303,18 @@ export interface IAsyncServerAdapter {
  * - Client connections (AsyncClient -> server)
  * - Server-side connections (AsyncServer <- client)
  */
-export interface IAsyncClientAdapter {
+export interface IAsyncClientAdapter<TContext = unknown> {
 	/** Unique connection identifier */
 	readonly id: string;
+
+	/**
+	 * Protocol-specific connection context.
+	 * Each protocol defines its own context type:
+	 * - GrpcProtocol: { metadata: Record<string, string | string[]> }
+	 * - WsProtocol: { path: string, query: Record<string, string>, headers: Record<string, string> }
+	 * - TcpProtocol: { remoteAddress: string, remotePort: number }
+	 */
+	readonly context?: TContext;
 
 	/** Send message to the other end */
 	send(message: Message): Promise<void>;

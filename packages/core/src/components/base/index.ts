@@ -1,19 +1,32 @@
 /**
- * Component System
+ * Base Component System
  *
- * Exports core component functionality.
+ * Exports core component functionality for the three-phase execution model:
+ * - Phase 1: Hook Registration
+ * - Phase 2: Step Execution
+ * - Phase 3: Cleanup
  *
  * Component hierarchy:
- * - BaseComponent: Pure hooks + lifecycle (no protocol, no adapter)
- * - ServiceComponent<P>: Extends BaseComponent with protocol (for HTTP, gRPC, WS, TCP)
- * - MQComponent: Extends BaseComponent with adapter (for Kafka, RabbitMQ, Redis) - in mq/
+ * - BaseComponent: Pure hooks + lifecycle (no protocol)
+ * - ServiceComponent<P>: Extends BaseComponent with protocol
  *
- * Note: Component builders are in their respective component folders:
- * - SyncHookBuilderImpl: components/sync-server/sync-hook-builder.ts
- * - AsyncHookBuilderImpl: components/async-server/async-hook-builder.ts
+ * Builder hierarchy:
+ * - BaseStepBuilder: Step registration, no execution logic
+ * - BaseHookBuilder: Handler registration, no execution logic
  */
 
+// Core types
+export * from "./step.types";
+export * from "./hook.types";
+
+// Base types
+export *from "./base.types";
+
+// Base classes
 export * from "./base.component";
-export * from "./base.types";
-export * from "./base.utils";
 export * from "./service.component";
+export * from "./step-builder";
+export * from "./hook-builder";
+
+// Utilities
+export * from "./base.utils";

@@ -6,13 +6,15 @@
  *
  * These tests verify compile-time type behavior for MQ components.
  * They don't run at runtime - they just need to compile without errors.
+ *
+ * NOTE: Message types are now fully adapter-specific.
+ * This file only tests Topic/Payload type helpers.
  */
 
 import type {
 	DefaultTopics,
 	IsLooseMode,
 	Payload,
-	QueueMessage,
 	Topic,
 	Topics,
 } from "../../packages/core/src/components/mq.base";
@@ -87,48 +89,7 @@ const _invalidUserPayload: UserEventPayload = { userId: "123" };
 const _wrongTypePayload: UserEventPayload = { userId: 123, action: "created" };
 
 // =============================================================================
-// Test 6: QueueMessage with typed payload
-// =============================================================================
-
-// Loose mode message
-const _looseMessage: QueueMessage = {
-	topic: "any-topic",
-	payload: { anything: "works" },
-};
-
-// Strict mode message with typed payload
-const _strictUserMessage: QueueMessage<{ userId: string; action: string }> = {
-	topic: "user-events",
-	payload: { userId: "123", action: "created" },
-};
-
-// Payload type mismatch - this would be caught at assignment
-// The following demonstrates type safety:
-type MessagePayloadCheck = QueueMessage<{ userId: string; action: string }>["payload"];
-// MessagePayloadCheck is { userId: string; action: string }
-
-// =============================================================================
-// Test 7: QueueMessage optional fields
-// =============================================================================
-
-// Minimal message
-const _minimalMessage: QueueMessage = {
-	topic: "test",
-	payload: {},
-};
-
-// Full message with all optional fields
-const _fullMessage: QueueMessage<{ data: string }> = {
-	topic: "test",
-	payload: { data: "value" },
-	key: "partition-key",
-	headers: { "correlation-id": "abc-123", "content-type": "application/json" },
-	timestamp: Date.now(),
-	metadata: { partition: 0, offset: 100 },
-};
-
-// =============================================================================
-// Test 8: Topics type constraint
+// Test 6: Topics type constraint
 // =============================================================================
 
 // Valid Topics type (Record<string, unknown>)
@@ -141,7 +102,7 @@ interface ValidTopics extends Topics {
 const _topicsCheck: Topics = {} as ValidTopics;
 
 // =============================================================================
-// Test 9: Complex nested payload types
+// Test 7: Complex nested payload types
 // =============================================================================
 
 interface ComplexTopics {
@@ -186,7 +147,7 @@ const _complexPayload: ComplexPayload = {
 };
 
 // =============================================================================
-// Test 10: Union topic types
+// Test 8: Union topic types
 // =============================================================================
 
 interface UnionTopics {

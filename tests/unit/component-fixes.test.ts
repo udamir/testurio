@@ -2,27 +2,96 @@
  * Tests for component fixes from implementation-analysis-v3.md
  *
  * Covers:
- * - 4.1: Promise-based proxy connection setup
- * - 4.2: Message queue removal from AsyncClient
  * - 4.4: Unhandled error tracking
- * - 5.2: Connection timeout configuration
- * - 5.3: Hook execution order (deterministic)
- * - 8.3: Parallel broadcast sends
+ * - 5.3: Hook execution order (deterministic - first match)
  */
 
-import type { Hook, ITestCaseBuilder, Message } from "testurio";
+import type { Step, Handler } from "testurio";
 import { BaseComponent } from "testurio";
+import type { ITestCaseContext } from "testurio";
 import { beforeEach, describe, expect, it } from "vitest";
 
 /**
  * Minimal test component that extends BaseComponent for testing hooks
  */
 class TestComponent extends BaseComponent {
+	public executionOrder: string[] = [];
+
 	protected async doStart(): Promise<void> {}
 	protected async doStop(): Promise<void> {}
-	createStepBuilder(_builder: ITestCaseBuilder): unknown {
+
+	createStepBuilder(_context: ITestCaseContext): unknown {
 		return {};
 	}
+
+	async executeStep(_step: Step): Promise<void> {
+		// No-op for testing
+	}
+
+	protected createHookMatcher(step: Step): (message: unknown) => boolean {
+		const params = step.params as { messageType?: string };
+		return (message: unknown) => {
+			const msg = message as { type: string };
+			return msg.type === params.messageType;
+		};
+	}
+
+	protected async executeHandler<TContext = unknown>(
+		handler: Handler,
+		payload: unknown,
+		_context?: TContext
+	): Promise<unknown> {
+		const params = handler.params as Record<string, unknown>;
+
+		switch (handler.type) {
+			case "track": {
+				const name = params.name as string;
+				this.executionOrder.push(name);
+				return payload;
+			}
+			case "error": {
+				const errorMessage = params.message as string;
+				throw new Error(errorMessage);
+			}
+			case "drop":
+				return null;
+			default:
+				return payload;
+		}
+	}
+
+	// Expose protected method for testing
+	public testFindMatchingHook<T>(message: T) {
+		return this.findMatchingHook(message);
+	}
+
+	// Execute handlers for a hook's step
+	public async testExecuteHookHandlers<T>(message: T) {
+		const hook = this.findMatchingHook(message);
+		if (!hook || !hook.step) {
+			return message;
+		}
+		try {
+			return await this.executeHandlers(hook.step, message);
+		} catch (error) {
+			this.trackUnhandledError(error instanceof Error ? error : new Error(String(error)));
+			throw error;
+		}
+	}
+}
+
+function createStep(component: TestComponent, overrides: Partial<Step> = {}): Step {
+	return {
+		id: `step_${Math.random().toString(36).substring(7)}`,
+		type: "onResponse",
+		component,
+		description: "Test step",
+		params: { messageType: "TestMessage" },
+		handlers: [],
+		mode: "hook",
+		testCaseId: "tc_1",
+		...overrides,
+	};
 }
 
 describe("Component Fixes", () => {
@@ -34,104 +103,43 @@ describe("Component Fixes", () => {
 		});
 
 		it("should execute only the first matching hook", async () => {
-			const executionOrder: string[] = [];
-
-			const hooks: Hook<Message>[] = [
-				{
-					id: "hook-first",
-					componentName: "test",
-					phase: "test",
-					isMatch: (msg: Message) => msg.type === "TestMessage",
-					handlers: [
-						{
-							type: "proxy",
-							execute: async (msg) => {
-								executionOrder.push("first");
-								return msg;
-							},
-						},
-					],
-					persistent: false,
-				},
-				{
-					id: "hook-second",
-					componentName: "test",
-					phase: "test",
-					isMatch: (msg: Message) => msg.type === "TestMessage",
-					handlers: [
-						{
-							type: "proxy",
-							execute: async (msg) => {
-								executionOrder.push("second");
-								return msg;
-							},
-						},
-					],
-					persistent: false,
-				},
-			];
-
-			hooks.forEach((hook) => {
-				component.registerHook(hook);
+			const step1 = createStep(component, {
+				params: { messageType: "TestMessage" },
+				handlers: [{ type: "track", params: { name: "first" } }],
+			});
+			const step2 = createStep(component, {
+				params: { messageType: "TestMessage" },
+				handlers: [{ type: "track", params: { name: "second" } }],
 			});
 
-			const message: Message = {
-				type: "TestMessage",
-				payload: {},
-			};
+			component.registerHook(step1);
+			component.registerHook(step2);
 
-			await component.executeMatchingHook(message);
+			const message = { type: "TestMessage", payload: {} };
+			await component.testExecuteHookHandlers(message);
 
 			// Only first matching hook should execute
-			expect(executionOrder).toEqual(["first"]);
+			expect(component.executionOrder).toEqual(["first"]);
 		});
 
 		it("should skip non-matching hooks and execute first match", async () => {
-			const executionOrder: string[] = [];
-
-			component.registerHook({
-				id: "hook-other",
-				componentName: "test",
-				phase: "test",
-				isMatch: (msg: Message) => msg.type === "OtherMessage",
-				handlers: [
-					{
-						type: "proxy",
-						execute: async (msg) => {
-							executionOrder.push("other");
-							return msg;
-						},
-					},
-				],
-				persistent: false,
+			const stepOther = createStep(component, {
+				params: { messageType: "OtherMessage" },
+				handlers: [{ type: "track", params: { name: "other" } }],
+			});
+			const stepTarget = createStep(component, {
+				params: { messageType: "TestMessage" },
+				handlers: [{ type: "track", params: { name: "target" } }],
 			});
 
-			component.registerHook({
-				id: "hook-target",
-				componentName: "test",
-				phase: "test",
-				isMatch: (msg: Message) => msg.type === "TestMessage",
-				handlers: [
-					{
-						type: "proxy",
-						execute: async (msg) => {
-							executionOrder.push("target");
-							return msg;
-						},
-					},
-				],
-				persistent: false,
-			});
+			component.registerHook(stepOther);
+			component.registerHook(stepTarget);
 
-			const message: Message = {
-				type: "TestMessage",
-				payload: {},
-			};
-
-			await component.executeMatchingHook(message);
+			const message = { type: "TestMessage", payload: {} };
+			await component.testExecuteHookHandlers(message);
 
 			// Should skip non-matching and execute first match
-			expect(executionOrder).toEqual(["target"]);
+			expect(component.executionOrder).toEqual(["target"]);
 		});
 	});
 
@@ -139,29 +147,18 @@ describe("Component Fixes", () => {
 		it("should throw and track error when hook handler fails", async () => {
 			const component = new TestComponent("test-error");
 
-			component.registerHook({
-				id: "hook-error",
-				componentName: "test",
-				phase: "test",
-				isMatch: (msg: Message) => msg.type === "TestMessage",
-				handlers: [
-					{
-						type: "proxy",
-						execute: async () => {
-							throw new Error("Hook execution failed");
-						},
-					},
-				],
-				persistent: false,
+			const step = createStep(component, {
+				params: { messageType: "TestMessage" },
+				handlers: [{ type: "error", params: { message: "Hook execution failed" } }],
 			});
 
-			const message: Message = {
-				type: "TestMessage",
-				payload: {},
-			};
+			component.registerHook(step);
 
-			// Hook handler errors are thrown and tracked (not silently dropped)
-			await expect(component.executeMatchingHook(message)).rejects.toThrow("Hook execution failed");
+			const message = { type: "TestMessage", payload: {} };
+
+			// Hook handler errors are thrown and tracked
+			await expect(component.testExecuteHookHandlers(message)).rejects.toThrow("Hook execution failed");
+
 			// Error should be tracked for detection by test scenario
 			expect(component.getUnhandledErrors()).toHaveLength(1);
 			expect(component.getUnhandledErrors()[0].message).toBe("Hook execution failed");
@@ -170,31 +167,17 @@ describe("Component Fixes", () => {
 		it("should return null when hook drops message", async () => {
 			const component = new TestComponent("test-drop");
 
-			component.registerHook({
-				id: "hook-drop",
-				componentName: "test",
-				phase: "test",
-				isMatch: (msg: Message) => msg.type === "TestMessage",
-				handlers: [
-					{
-						type: "drop",
-						execute: async () => {
-							// Simulate drop by throwing DropMessageError
-							const { DropMessageError } = await import("testurio");
-							throw new DropMessageError();
-						},
-					},
-				],
-				persistent: false,
+			const step = createStep(component, {
+				params: { messageType: "TestMessage" },
+				handlers: [{ type: "drop", params: {} }],
 			});
 
-			const message: Message = {
-				type: "TestMessage",
-				payload: {},
-			};
+			component.registerHook(step);
+
+			const message = { type: "TestMessage", payload: {} };
 
 			// Drop should return null
-			const result = await component.executeMatchingHook(message);
+			const result = await component.testExecuteHookHandlers(message);
 			expect(result).toBeNull();
 		});
 	});

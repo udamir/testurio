@@ -1,272 +1,299 @@
 /**
  * Async Server Step Builder
  *
- * Builder for async server operations (register message handlers).
- * Works for both mock mode and proxy mode.
- * For async protocols: TCP, WebSocket, gRPC streaming
+ * Builder for async server operations (WebSocket, TCP, gRPC streams).
+ * Implements the declarative sequential pattern for message/event handling.
+ *
+ * Message handling methods:
+ * - onMessage(): Non-strict - works regardless of timing
+ * - waitMessage(): Strict - must be waiting when message arrives
+ *
+ * Event sending methods:
+ * - sendEvent(): Send to specific connection
+ * - broadcast(): Send to all connections
+ *
+ * Proxy mode:
+ * - onEvent(): Handle events from backend before forwarding to client
+ *
+ * Per design:
+ * - Contains NO logic, only step registration
+ * - All execution logic is in the Component
  */
 
-import type { ITestCaseBuilder } from "../../execution/execution.types";
-import type {
-	AsyncClientMessageType,
-	AsyncServerMessageType,
-	ExtractClientPayload,
-	ExtractServerPayload,
-	IAsyncProtocol,
-	Message,
-	ProtocolMessages,
-} from "../../protocols/base";
-import { generateId } from "../../utils";
-import type { Hook } from "../base";
-import { createMessageMatcher } from "../base";
-import type { AsyncServer } from "./async-server.component";
+import type { IAsyncProtocol, AsyncClientMessageType, AsyncServerMessageType } from "../../protocols/base";
+import { BaseStepBuilder } from "../base/step-builder";
 import { AsyncServerHookBuilder } from "./async-server.hook-builder";
+import type { ExtractMessagePayload, ExtractEventPayload } from "./async-server.types";
+import type { AsyncServer } from "./async-server.component";
 
 /**
  * Async Server Step Builder
  *
- * Provides declarative API for async message handling.
- * Works for both mock mode and proxy mode.
+ * Provides declarative API for async message/event flows.
+ * All methods register steps - no execution logic here.
  *
- * @template P - Protocol type (messages are extracted via ProtocolMessages<P>)
+ * @template P - Protocol type (IAsyncProtocol) - contains message definitions
  */
-export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> {
-	constructor(
-		private server: AsyncServer<P>,
-		private testBuilder: ITestCaseBuilder
-	) {}
-
+export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> extends BaseStepBuilder {
 	/**
-	 * Component name
-	 */
-	get name(): string {
-		return this.server.name;
-	}
-
-	/**
-	 * Listen address
-	 */
-	get listenAddress() {
-		return this.server.listenAddress;
-	}
-
-	/**
-	 * Target address (proxy mode only)
-	 */
-	get targetAddress() {
-		return this.server.targetAddress;
-	}
-
-	/**
-	 * Whether server is in proxy mode
-	 */
-	get isProxy(): boolean {
-		return this.server.isProxy;
-	}
-
-	/**
-	 * Wait for a message with timeout (blocking step)
+	 * Link a connection when it connects.
 	 *
-	 * Unlike onMessage which just registers a hook, waitMessage creates a step
-	 * that blocks until the message is received or timeout expires.
+	 * @param linkId - The string identifier to link this connection to
+	 * @param options.matcher - Optional filter by protocol context (metadata, headers, etc.)
 	 *
-	 * In loose mode (no type parameter on protocol):
-	 * - messageType accepts any string
-	 * - payload typed as `unknown`
+	 * @example
+	 * ```typescript
+	 * // Link first connection (order-based)
+	 * srv.onConnection("client1");
 	 *
-	 * In strict mode (with type parameter):
-	 * - messageType constrained to defined client message types
-	 * - payload typed according to message definition
-	 *
-	 * @param messageType - Message type to wait for
-	 * @param options - Optional timeout and matcher
+	 * // Link with matcher (protocol-specific context)
+	 * srv.onConnection("local", { matcher: (ctx) => ctx.remoteAddress?.includes("127.0.0.1") });
+	 * ```
 	 */
-	waitMessage<K extends AsyncClientMessageType<P>>(
-		messageType: K,
-		options?: {
-			timeout?: number;
-			matcher?: string | ((payload: ExtractClientPayload<P, K>) => boolean);
-		}
-	): AsyncServerHookBuilder<ExtractClientPayload<P, K>, ProtocolMessages<P>> {
-		const timeout = options?.timeout ?? 5000;
-
-		// Build payload matcher if provided
-		const payloadMatcher = this.buildPayloadMatcher(options?.matcher);
-
-		const hook: Hook<Message<ExtractClientPayload<P, K>>> = {
-			id: generateId("hook_"),
-			componentName: this.server.name,
-			phase: "test",
-			isMatch: createMessageMatcher(messageType as string, payloadMatcher),
+	onConnection(linkId: string, options?: {
+		matcher?: (protocolContext: unknown) => boolean;
+	}): void {
+		this.registerStep({
+			type: "onConnection",
+			description: `Link connection to ${linkId}`,
+			params: {
+				linkId,
+				matcher: options?.matcher,
+			},
 			handlers: [],
-			persistent: false,
-			timeout,
-		};
-
-		// Create a promise that resolves when message is received
-		let resolveMessage: (msg: Message<ExtractClientPayload<P, K>>) => void;
-		let capturedMessage: Message<ExtractClientPayload<P, K>> | null = null;
-		const messagePromise = new Promise<Message<ExtractClientPayload<P, K>>>((resolve) => {
-			resolveMessage = (msg: Message<ExtractClientPayload<P, K>>) => {
-				capturedMessage = msg;
-				resolve(msg);
-			};
+			mode: "hook",
 		});
+	}
 
-		// Create a capture hook that signals when message arrives
-		const captureHook: Hook<Message<ExtractClientPayload<P, K>>> = {
-			id: generateId(),
-			componentName: this.server.name,
-			phase: "test",
-			isMatch: createMessageMatcher(messageType as string, payloadMatcher),
-			handlers: [
-				{
-					type: "proxy",
-					execute: async (msg: Message<ExtractClientPayload<P, K>>) => {
-						resolveMessage(msg);
-						return msg;
-					},
+	/**
+	 * Wait for a client to connect (STRICT).
+	 *
+	 * Must be waiting when connection arrives - error if connection arrives before step starts.
+	 * Links the connection to the specified linkId when it arrives.
+	 *
+	 * @param linkId - The string identifier to link this connection to
+	 * @param options.matcher - Optional filter by protocol context (metadata, headers, etc.)
+	 *
+	 * @example
+	 * ```typescript
+	 * // Wait for first connection (strict ordering)
+	 * srv.waitConnection("client1").timeout(2000);
+	 *
+	 * // Wait with matcher
+	 * srv.waitConnection("admin", { matcher: (ctx) => ctx.path === "/admin" }).timeout(2000);
+	 * ```
+	 */
+	waitConnection(linkId: string, options?: {
+		matcher?: (protocolContext: unknown) => boolean;
+	}): AsyncServerHookBuilder<unknown> {
+		return this.registerStep(
+			{
+				type: "waitConnection",
+				description: `Wait for connection ${linkId}`,
+				params: {
+					linkId,
+					matcher: options?.matcher,
 				},
-			],
-			persistent: false,
-			timeout,
-		};
-
-		// Register capture hook
-		this.server.registerHook(captureHook);
-
-		// Create a step that waits for the message
-		this.testBuilder.registerStep({
-			type: "waitForMessage",
-			componentName: this.server.name,
-			messageType,
-			timeout,
-			description: `Wait for ${String(messageType)} message`,
-			action: async () => {
-				let msg: Message<ExtractClientPayload<P, K>>;
-
-				// If message already captured, use it
-				if (capturedMessage) {
-					msg = capturedMessage;
-				} else {
-					// Wait for message with timeout
-					const timeoutPromise = new Promise<never>((_, reject) => {
-						setTimeout(() => reject(new Error(`Timeout waiting for message: ${messageType}`)), timeout);
-					});
-					msg = await Promise.race([messagePromise, timeoutPromise]);
-				}
-
-				// Execute user handlers with the received message
-				let result: Message = msg;
-				for (const handler of hook.handlers) {
-					result = (await handler.execute(result)) as Message;
-				}
-
-				// If handler produced a response with different type (e.g., mockEvent), send it
-				if (result && result.type !== msg.type) {
-					await this.server.send(result);
-				}
+				handlers: [],
+				mode: "wait",
 			},
+			AsyncServerHookBuilder<unknown>
+		);
+	}
+
+	/**
+	 * Register a handler that fires when a linked connection disconnects.
+	 *
+	 * @param linkId - The link ID to monitor for disconnect
+	 * @param handler - Callback when the linked connection closes
+	 *
+	 * @example
+	 * ```typescript
+	 * srv.onConnection().link("client1");
+	 * srv.onDisconnect("client1", () => {
+	 *   console.log("client1 disconnected");
+	 * });
+	 * ```
+	 */
+	onDisconnect(linkId: string, handler: () => void): void {
+		// Register the disconnect handler with the component
+		const component = this.component as AsyncServer<P>;
+		component.registerDisconnectHandler(linkId, handler);
+	}
+
+	/**
+	 * Wait for a linked connection to disconnect (STRICT).
+	 *
+	 * Must be waiting when disconnect happens - error if disconnect happens before step starts.
+	 *
+	 * @param linkId - The link ID to wait for disconnect
+	 *
+	 * @example
+	 * ```typescript
+	 * srv.onConnection("client");
+	 * // ... client connects and does work ...
+	 * srv.disconnect("client");
+	 * srv.waitDisconnect("client").timeout(1000);
+	 * ```
+	 */
+	waitDisconnect(linkId: string): AsyncServerHookBuilder<void> {
+		return this.registerStep(
+			{
+				type: "waitDisconnect",
+				description: `Wait for disconnect ${linkId}`,
+				params: {
+					linkId,
+				},
+				handlers: [],
+				mode: "wait",
+			},
+			AsyncServerHookBuilder<void>
+		);
+	}
+
+	/**
+	 * Handle incoming message from client (NON-STRICT).
+	 *
+	 * Flexible timing - works regardless of whether message arrives before or after step starts.
+	 * Use this when step order might vary, or testing scenarios where timing is unpredictable.
+	 *
+	 * @param messageType - Message type to match
+	 * @param options.linkId - Filter to only handle messages from this linked connection
+	 * @param options.matcher - Filter by payload content
+	 */
+	onMessage<K extends AsyncClientMessageType<P>, TPayload = ExtractMessagePayload<P, K>>(
+		messageType: K,
+		options?: { linkId?: string; matcher?: (payload: TPayload) => boolean }
+	): AsyncServerHookBuilder<TPayload> {
+		return this.registerStep(
+			{
+				type: "onMessage",
+				description: `Handle message ${messageType}`,
+				params: {
+					messageType,
+					linkId: options?.linkId,
+					matcher: options?.matcher,
+				},
+				handlers: [],
+				mode: "hook",
+			},
+			AsyncServerHookBuilder<TPayload>
+		);
+	}
+
+	/**
+	 * Wait for incoming message from client (STRICT).
+	 *
+	 * Must be waiting when message arrives - error if message arrives before step starts.
+	 * Use this when you want strict ordering enforced, fail-fast if test logic is wrong.
+	 *
+	 * @param messageType - Message type to match
+	 * @param options.linkId - Filter to only match messages from this linked connection
+	 * @param options.matcher - Filter by payload content
+	 */
+	waitMessage<K extends AsyncClientMessageType<P>, TPayload = ExtractMessagePayload<P, K>>(
+		messageType: K,
+		options?: { linkId?: string; matcher?: (payload: TPayload) => boolean }
+	): AsyncServerHookBuilder<TPayload> {
+		return this.registerStep(
+			{
+				type: "waitMessage",
+				description: `Wait for message ${messageType}`,
+				params: {
+					messageType,
+					linkId: options?.linkId,
+					matcher: options?.matcher,
+				},
+				handlers: [],
+				mode: "wait",
+			},
+			AsyncServerHookBuilder<TPayload>
+		);
+	}
+
+	/**
+	 * Send event to a specific linked connection.
+	 *
+	 * @param linkId - The link ID to send to (required)
+	 * @param eventType - Event type to send
+	 * @param payload - Event payload
+	 */
+	sendEvent<K extends AsyncServerMessageType<P>>(
+		linkId: string,
+		eventType: K,
+		payload: ExtractEventPayload<P, K>
+	): void {
+		this.registerStep({
+			type: "sendEvent",
+			description: `Send event ${eventType} to ${linkId}`,
+			params: {
+				linkId,
+				eventType,
+				payload,
+			},
+			handlers: [],
+			mode: "action",
 		});
-
-		return new AsyncServerHookBuilder<ExtractClientPayload<P, K>, ProtocolMessages<P>>(hook);
 	}
 
 	/**
-	 * Register message handler (hook) for client messages
+	 * Broadcast event to all client connections (action step).
 	 *
-	 * In mock mode: Handle incoming messages from clients
-	 * In proxy mode: Handle messages from client (downstream direction)
-	 *
-	 * In loose mode (no type parameter on protocol):
-	 * - messageType accepts any string
-	 * - payload typed as `unknown`
-	 *
-	 * In strict mode (with type parameter):
-	 * - messageType constrained to defined client message types
-	 * - payload typed according to message definition
-	 *
-	 * @param messageType - Message type to match (from clientMessages)
-	 * @param matcher - Optional payload matcher (traceId string or filter function)
+	 * @param eventType - Event type to send
+	 * @param payload - Event payload
 	 */
-	onMessage<K extends AsyncClientMessageType<P>>(
-		messageType: K,
-		matcher?: string | ((payload: ExtractClientPayload<P, K>) => boolean)
-	): AsyncServerHookBuilder<ExtractClientPayload<P, K>, ProtocolMessages<P>> {
-		// Build payload matcher if provided
-		const payloadMatcher = this.buildPayloadMatcher(matcher);
-
-		const hook: Hook<Message<ExtractClientPayload<P, K>>> = {
-			id: generateId(),
-			componentName: this.server.name,
-			phase: "test",
-			isMatch: createMessageMatcher(messageType as string, payloadMatcher),
-			handlers: [],
-			persistent: false,
-			metadata: this.server.isProxy ? { direction: "downstream" } : undefined,
-		};
-
-		// Register hook first, then pass to builder
-		this.server.registerHook(hook);
-
-		return new AsyncServerHookBuilder<ExtractClientPayload<P, K>, ProtocolMessages<P>>(hook);
-	}
-
-	/**
-	 * Register event handler for events from target server (proxy mode only)
-	 * Handles messages in upstream direction: target → proxy → client
-	 *
-	 * In loose mode (no type parameter on protocol):
-	 * - messageType accepts any string
-	 * - payload typed as `unknown`
-	 *
-	 * In strict mode (with type parameter):
-	 * - messageType constrained to defined server message types
-	 * - payload typed according to message definition
-	 *
-	 * @param messageType - Message type to match (from serverMessages)
-	 * @param matcher - Optional payload matcher (traceId string or filter function)
-	 */
-	onEvent<K extends AsyncServerMessageType<P>>(
-		messageType: K,
-		matcher?: string | ((payload: ExtractServerPayload<P, K>) => boolean)
-	): AsyncServerHookBuilder<ExtractServerPayload<P, K>, ProtocolMessages<P>> {
-		if (!this.server.isProxy) {
-			throw new Error(`onEvent() is only available in proxy mode. Server "${this.server.name}" is in mock mode.`);
-		}
-
-		const payloadMatcher = this.buildPayloadMatcher(matcher);
-
-		const hook: Hook<Message<ExtractServerPayload<P, K>>> = {
-			id: generateId(),
-			componentName: this.server.name,
-			phase: "test",
-			isMatch: createMessageMatcher(messageType as string, payloadMatcher),
-			handlers: [],
-			persistent: false,
-			metadata: {
-				direction: "upstream",
+	broadcast<K extends AsyncServerMessageType<P>>(eventType: K, payload: ExtractEventPayload<P, K>): void {
+		this.registerStep({
+			type: "broadcast",
+			description: `Broadcast event ${eventType}`,
+			params: {
+				eventType,
+				payload,
 			},
-		};
-
-		// Register hook first, then pass to builder
-		this.server.registerHook(hook);
-
-		return new AsyncServerHookBuilder<ExtractServerPayload<P, K>, ProtocolMessages<P>>(hook);
+			handlers: [],
+			mode: "action",
+		});
 	}
 
 	/**
-	 * Build payload matcher from string (traceId) or function
+	 * Disconnect a specific linked connection.
+	 *
+	 * @param linkId - The link ID to disconnect
 	 */
-	private buildPayloadMatcher<T>(
-		matcher?: string | ((payload: T) => boolean)
-	): { type: "traceId"; value: string } | { type: "function"; fn: (payload: unknown) => boolean } | undefined {
-		if (!matcher) return undefined;
+	disconnect(linkId: string): void {
+		this.registerStep({
+			type: "disconnect",
+			description: `Disconnect ${linkId}`,
+			params: {
+				linkId,
+			},
+			handlers: [],
+			mode: "action",
+		});
+	}
 
-		if (typeof matcher === "string") {
-			return { type: "traceId", value: matcher };
-		}
-
-		return { type: "function", fn: matcher as (payload: unknown) => boolean };
+	/**
+	 * Handle event from backend (PROXY MODE, non-strict).
+	 *
+	 * Used to intercept/transform events from backend before forwarding to client.
+	 * Only applicable when server is in proxy mode (has targetAddress).
+	 *
+	 * @param eventType - Event type to match
+	 */
+	onEvent<K extends AsyncServerMessageType<P>, TPayload = ExtractEventPayload<P, K>>(
+		eventType: K
+	): AsyncServerHookBuilder<TPayload> {
+		return this.registerStep(
+			{
+				type: "onEvent",
+				description: `Handle backend event ${eventType}`,
+				params: {
+					eventType,
+				},
+				handlers: [],
+				mode: "hook",
+			},
+			AsyncServerHookBuilder<TPayload>
+		);
 	}
 }

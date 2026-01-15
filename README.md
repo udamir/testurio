@@ -13,9 +13,10 @@ A declarative E2E/integration testing framework for distributed systems with mul
 ## Features
 
 - **Multi-Protocol Support** - HTTP, gRPC (Unary & Streaming), WebSocket, TCP
+- **Message Queue Support** - Publisher/Subscriber for Kafka, RabbitMQ, Redis Pub/Sub
 - **DataSource Integration** - Direct SDK access to Redis, PostgreSQL, MongoDB
 - **Declarative API** - Write tests in execution order with clear, readable syntax
-- **Component-Based** - Define clients, mocks, proxies, and data sources as reusable components
+- **Component-Based** - Define clients, mocks, proxies, publishers, subscribers, and data sources as reusable components
 - **Type-Safe** - Full TypeScript support with automatic type inference
 - **Flow Testing** - Test complete request flows through your distributed system
 - **Flexible Mocking** - Mock responses, add delays, drop messages, or proxy through
@@ -82,10 +83,10 @@ console.log(result.passed); // true
   - [ ] OpenAPI/Swagger → HTTP service definitions
   - [ ] AsyncAPI → WebSocket/async service definitions
   - [ ] Protobuf → gRPC service definitions
-- [ ] **Message Queue Support** - Integration with message brokers
-  - [ ] RabbitMQ (AMQP protocol)
-  - [ ] Kafka (producer/consumer testing)
-  - [ ] Redis (pub/sub)
+- [x] **Message Queue Support** - Integration with message brokers
+  - [x] RabbitMQ (`@testurio/adapter-rabbitmq`)
+  - [x] Kafka (`@testurio/adapter-kafka`)
+  - [x] Redis Pub/Sub (`@testurio/adapter-redis`)
 - [x] **DataSource Support** - Database/cache integrations
   - [x] Redis (`@testurio/adapter-redis`)
   - [x] PostgreSQL (`@testurio/adapter-pg`)
@@ -180,6 +181,61 @@ const tc = testCase('Ping-Pong', (test) => {
 
   // Step 3: Client receives pong
   client.onEvent('pong').assert((payload) => payload.seq === 1);
+});
+```
+
+### Message Queue Example
+
+```typescript
+import { TestScenario, testCase, Publisher, Subscriber } from 'testurio';
+import { KafkaAdapter } from '@testurio/adapter-kafka';
+
+// Define topic types for type-safe pub/sub
+interface OrderTopics {
+  'order-created': { orderId: string; customerId: string; total: number };
+  'order-shipped': { orderId: string; trackingNumber: string };
+}
+
+// Create Publisher
+const orderPublisher = new Publisher<OrderTopics>('order-pub', {
+  adapter: new KafkaAdapter({ brokers: ['localhost:9092'] }),
+});
+
+// Create Subscriber
+const orderSubscriber = new Subscriber<OrderTopics>('order-sub', {
+  adapter: new KafkaAdapter({ brokers: ['localhost:9092'], groupId: 'test-group' }),
+});
+
+const scenario = new TestScenario({
+  name: 'Order Event Flow Test',
+  components: [orderSubscriber, orderPublisher],  // Subscriber first to ensure subscription
+});
+
+const tc = testCase('should process order events', (test) => {
+  const pub = test.use(orderPublisher);
+  const sub = test.use(orderSubscriber);
+
+  // Step 1: Publish order created event
+  pub.publish('order-created', {
+    orderId: 'ORD-123',
+    customerId: 'CUST-456',
+    total: 99.99,
+  });
+
+  // Step 2: Wait for and validate the message
+  sub.waitMessage('order-created')
+    .assert('orderId should match', (msg) => msg.value.orderId === 'ORD-123')
+    .assert('total should be correct', (msg) => msg.value.total === 99.99);
+
+  // Step 3: Publish shipping event
+  pub.publish('order-shipped', {
+    orderId: 'ORD-123',
+    trackingNumber: 'TRACK-789',
+  });
+
+  // Step 4: Wait for shipping event
+  sub.waitMessage('order-shipped')
+    .assert('tracking number should be set', (msg) => msg.value.trackingNumber !== undefined);
 });
 ```
 
@@ -312,15 +368,17 @@ console.log(result.passed); // true
 
 Components are high-level abstractions that own protocol adapters and manage their lifecycle.
 
-| Component       | Protocol Type | Role   | Description                                                    |
-| --------------- | ------------- | ------ | -------------------------------------------------------------- |
-| `Client`        | Sync          | Client | Sends HTTP/gRPC unary requests to a target server              |
-| `Server`        | Sync          | Mock   | Listens for requests and returns configured responses          |
-| `Server`        | Sync          | Proxy  | Intercepts requests, can transform, mock, or forward to target |
-| `AsyncClient`   | Async         | Client | Sends messages over WebSocket/TCP/gRPC streaming connections   |
-| `AsyncServer`   | Async         | Mock   | Listens for messages and sends response events                 |
-| `AsyncServer`   | Async         | Proxy  | Intercepts messages, can transform or forward to target        |
-| `DataSource`    | None          | Data   | Direct SDK access to databases/caches (Redis, PostgreSQL, MongoDB) |
+| Component       | Protocol Type | Role      | Description                                                    |
+| --------------- | ------------- | --------- | -------------------------------------------------------------- |
+| `Client`        | Sync          | Client    | Sends HTTP/gRPC unary requests to a target server              |
+| `Server`        | Sync          | Mock      | Listens for requests and returns configured responses          |
+| `Server`        | Sync          | Proxy     | Intercepts requests, can transform, mock, or forward to target |
+| `AsyncClient`   | Async         | Client    | Sends messages over WebSocket/TCP/gRPC streaming connections   |
+| `AsyncServer`   | Async         | Mock      | Listens for messages and sends response events                 |
+| `AsyncServer`   | Async         | Proxy     | Intercepts messages, can transform or forward to target        |
+| `Publisher`     | MQ            | Producer  | Publishes messages to message queue topics                     |
+| `Subscriber`    | MQ            | Consumer  | Subscribes to message queue topics and receives messages       |
+| `DataSource`    | None          | Data      | Direct SDK access to databases/caches (Redis, PostgreSQL, MongoDB) |
 
 **Server as Proxy**: When a `Server` or `AsyncServer` has both `listenAddress` and `targetAddress`, it acts as a proxy:
 
@@ -350,6 +408,14 @@ Protocols are stateless adapter factories. Components own the adapters and manag
 | `GrpcStreamProtocol` | Async | `@testurio/protocol-grpc` | gRPC bidirectional streaming |
 | `WebSocketProtocol`  | Async | `@testurio/protocol-ws`   | WebSocket connections        |
 | `TcpProtocol`        | Async | `@testurio/protocol-tcp`  | Custom TCP protocols         |
+
+### Message Queue Adapters
+
+| Adapter              | Package                      | Use Case                        |
+| -------------------- | ---------------------------- | ------------------------------- |
+| `KafkaAdapter`       | `@testurio/adapter-kafka`    | Apache Kafka producer/consumer  |
+| `RabbitMQAdapter`    | `@testurio/adapter-rabbitmq` | RabbitMQ AMQP messaging         |
+| `RedisPubSubAdapter` | `@testurio/adapter-redis`    | Redis Pub/Sub channels          |
 
 ### DataSource Adapters
 
@@ -516,6 +582,45 @@ asyncMock.onMessage('MessageType', matcher?)
   .proxy((payload) => transformed)                                // Without description
   .proxy('description', (payload) => transformed)                 // With description
   .drop();
+```
+
+### Publisher API
+
+```typescript
+// Publish single message
+publisher.publish('topic-name', { key: 'value' });
+
+// Publish with adapter-specific options
+publisher.publish('orders', { orderId: '123' }, { key: 'customer-1' });
+
+// Batch publish
+publisher.publishBatch('events', [
+  { payload: { type: 'created' } },
+  { payload: { type: 'updated' }, key: 'item-1' },
+]);
+```
+
+### Subscriber API
+
+```typescript
+// Wait for specific message (strict - blocks until received)
+subscriber.waitMessage('topic-name')
+  .assert('payload should have id', (msg) => msg.value.id !== undefined)
+  .timeout(5000);  // Optional timeout
+
+// Wait for message from multiple topics
+subscriber.waitMessageFrom(['topic-a', 'topic-b'])
+  .assert((msg) => msg.topic === 'topic-a' || msg.topic === 'topic-b');
+
+// Non-blocking message handler (hook mode)
+subscriber.onMessage('events')
+  .assert((msg) => msg.value.type !== 'spam')
+  .transform((msg) => ({ ...msg, processed: true }))
+  .drop();  // Drop message (stop processing)
+
+// Custom matcher for filtering messages
+subscriber.waitMessage('orders', { matcher: (msg) => msg.value.status === 'shipped' })
+  .assert((msg) => msg.value.trackingNumber !== undefined);
 ```
 
 ### DataSource API

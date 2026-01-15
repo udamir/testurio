@@ -1,130 +1,104 @@
 /**
  * Message Queue Adapter Interfaces
  *
- * Defines interfaces for broker-specific adapters.
- * Adapters are implemented in separate packages (e.g., @testurio/adapter-kafka).
+ * Adapters implement these interfaces to provide broker-specific functionality.
+ * Topic is delivered separately from message to allow hook matching at component level.
  */
-
-import type { Codec } from "../../codecs";
-import type { PublishOptions, QueueMessage } from "./mq.types";
 
 /**
- * Main adapter interface for message queue brokers.
+ * Main MQ adapter factory.
+ * Creates publisher and subscriber adapters.
  *
- * Components use this interface to create publisher/subscriber adapters.
- * Broker-specific configuration (including serialization) belongs in adapter constructors.
- *
- * @example
- * ```typescript
- * // Kafka adapter (in @testurio/adapter-kafka)
- * class KafkaAdapter implements IMQAdapter {
- *   constructor(config: { brokers: string[]; groupId?: string }) { ... }
- *   readonly type = "kafka";
- *   // ...
- * }
- * ```
+ * @template TMessage - Adapter-specific message type (e.g., KafkaMessage, RabbitMessage)
+ * @template TOptions - Adapter-specific publish options
+ * @template TBatchMessage - Adapter-specific batch message type
  */
-export interface IMQAdapter {
+export interface IMQAdapter<
+	TMessage = unknown,
+	TOptions = unknown,
+	TBatchMessage = unknown,
+> {
 	/**
-	 * Adapter type identifier (e.g., "kafka", "rabbitmq", "redis")
+	 * Adapter type identifier (e.g., "kafka", "rabbitmq", "nats")
 	 */
 	readonly type: string;
 
 	/**
-	 * Create a publisher adapter for sending messages.
-	 *
-	 * @param codec - Codec for payload serialization
-	 * @returns Publisher adapter instance
+	 * Create a publisher adapter.
 	 */
-	createPublisher(codec: Codec): Promise<IMQPublisherAdapter>;
+	createPublisher(): Promise<IMQPublisherAdapter<TOptions, TBatchMessage>>;
 
 	/**
-	 * Create a subscriber adapter for receiving messages.
-	 * Topics are subscribed dynamically via subscribe() method.
-	 *
-	 * @param codec - Codec for payload deserialization
-	 * @returns Subscriber adapter instance
+	 * Create a subscriber adapter.
 	 */
-	createSubscriber(codec: Codec): Promise<IMQSubscriberAdapter>;
+	createSubscriber(): Promise<IMQSubscriberAdapter<TMessage>>;
 
 	/**
-	 * Dispose of adapter resources (connections, etc.)
+	 * Dispose of adapter resources.
 	 */
 	dispose(): Promise<void>;
 }
 
 /**
- * Publisher adapter interface for sending messages to brokers.
+ * Publisher adapter.
+ * Topic is always string, adapter translates to native field.
+ * Options and batch messages are adapter-specific.
  *
- * @example
- * ```typescript
- * const publisherAdapter = await adapter.createPublisher();
- * await publisherAdapter.publish("orders", { orderId: "123" });
- * await publisherAdapter.close();
- * ```
+ * @template TOptions - Adapter-specific publish options
+ * @template TBatchMessage - Adapter-specific batch message type
  */
-export interface IMQPublisherAdapter {
+export interface IMQPublisherAdapter<TOptions = unknown, TBatchMessage = unknown> {
 	/**
-	 * Whether the publisher is connected to the broker
+	 * Whether the publisher is connected to the broker.
 	 */
 	readonly isConnected: boolean;
 
 	/**
-	 * Publish a single message to a topic.
+	 * Publish a single message.
+	 * Adapter wraps payload in its native format.
 	 *
-	 * @param topic - Topic/queue name
-	 * @param payload - Message payload (will be serialized by adapter)
-	 * @param options - Optional publish options (key, headers)
+	 * @param topic - Topic name (adapter translates to native field)
+	 * @param payload - Message payload
+	 * @param options - Adapter-specific options (key, headers, etc.)
 	 */
-	publish<T = unknown>(topic: string, payload: T, options?: PublishOptions): Promise<void>;
+	publish(topic: string, payload: unknown, options?: TOptions): Promise<void>;
 
 	/**
-	 * Publish multiple messages to a topic in a batch.
+	 * Publish multiple messages in a batch.
+	 * Messages are fully adapter-specific.
 	 *
-	 * @param topic - Topic/queue name
-	 * @param messages - Array of messages to publish
+	 * @param topic - Topic name
+	 * @param messages - Adapter-specific batch messages
 	 */
-	publishBatch<T = unknown>(
-		topic: string,
-		messages: Array<{ payload: T; key?: string; headers?: Record<string, string> }>
-	): Promise<void>;
+	publishBatch(topic: string, messages: TBatchMessage[]): Promise<void>;
 
 	/**
-	 * Close the publisher and release resources
+	 * Close the publisher and release resources.
 	 */
 	close(): Promise<void>;
 }
 
 /**
- * Subscriber adapter interface for receiving messages from brokers.
- * Supports dynamic topic subscription via subscribe()/unsubscribe().
+ * Subscriber adapter.
+ * Topic delivered separately from adapter-specific message.
  *
- * @example
- * ```typescript
- * const subscriberAdapter = await adapter.createSubscriber(codec);
- * subscriberAdapter.onMessage((message) => {
- *   console.log("Received:", message.payload);
- * });
- * await subscriberAdapter.subscribe("orders");
- * await subscriberAdapter.subscribe("events");
- * ```
+ * @template TMessage - Adapter-specific message type
  */
-export interface IMQSubscriberAdapter {
+export interface IMQSubscriberAdapter<TMessage = unknown> {
 	/**
-	 * Unique identifier for this subscriber instance
+	 * Unique identifier for this subscriber instance.
 	 */
 	readonly id: string;
 
 	/**
-	 * Whether the subscriber is connected to the broker
+	 * Whether the subscriber is connected to the broker.
 	 */
 	readonly isConnected: boolean;
 
 	/**
-	 * Subscribe to a topic dynamically.
-	 * Can be called multiple times for different topics.
+	 * Subscribe to a topic.
 	 *
-	 * @param topic - Topic name or pattern (broker-specific)
+	 * @param topic - Topic name or pattern
 	 */
 	subscribe(topic: string): Promise<void>;
 
@@ -141,29 +115,26 @@ export interface IMQSubscriberAdapter {
 	getSubscribedTopics(): string[];
 
 	/**
-	 * Register a handler for incoming messages.
-	 * Messages from ALL subscribed topics are routed through this handler.
+	 * Register handler for incoming messages.
+	 * Topic is passed separately from message to allow hook matching.
+	 * Adapter extracts topic from its native format.
 	 *
-	 * @param handler - Function called for each received message
+	 * @param handler - Function receiving (topic, message)
 	 */
-	onMessage(handler: (message: QueueMessage) => void): void;
+	onMessage(handler: (topic: string, message: TMessage) => void): void;
 
 	/**
-	 * Register a handler for errors.
-	 *
-	 * @param handler - Function called when an error occurs
+	 * Register handler for errors.
 	 */
 	onError(handler: (error: Error) => void): void;
 
 	/**
-	 * Register a handler for disconnection events.
-	 *
-	 * @param handler - Function called when disconnected from broker
+	 * Register handler for disconnection.
 	 */
 	onDisconnect(handler: () => void): void;
 
 	/**
-	 * Close the subscriber and release resources
+	 * Close the subscriber and release resources.
 	 */
 	close(): Promise<void>;
 }

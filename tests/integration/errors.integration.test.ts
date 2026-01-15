@@ -167,7 +167,7 @@ describe("Error Scenarios Integration Tests", () => {
 
 				api.sendMessage("TestRequest", { value: 10 });
 
-				backend.waitMessage("TestRequest", { timeout: 1000 }).assert((payload) => {
+				backend.waitMessage("TestRequest").timeout(1000).assert((payload) => {
 					return payload.value === 999; // Will fail - value is 10
 				});
 			});
@@ -351,12 +351,12 @@ describe("Error Scenarios Integration Tests", () => {
 
 			const tc = testCase("Wait for message that never arrives", (test) => {
 				const backend = test.use(backendServer);
-				backend.waitMessage("NeverSent", { timeout: 100 }).assert(() => true);
+				backend.waitMessage("NeverSent").timeout(100).assert(() => true);
 			});
 
 			const result = await scenario.run(tc);
 			expect(result.passed).toBe(false);
-			expect(result.testCases[0].error).toContain("timeout");
+			expect(result.testCases[0].error?.toLowerCase()).toContain("timeout");
 		});
 	});
 
@@ -379,11 +379,12 @@ describe("Error Scenarios Integration Tests", () => {
 
 				api.sendMessage("TestRequest", { value: 1 });
 				backend
-					.waitMessage("TestRequest", { timeout: 1000 })
+					.waitMessage("TestRequest")
+					.timeout(1000)
 					.assert((payload) => payload.value === 1)
 					.mockEvent("TestResponse", () => ({ result: "ok" }));
 				// waitEvent creates a blocking step (unlike onEvent which only registers a hook)
-			api.waitEvent("TestResponse", { timeout: 1000 }).assert((payload) => payload.result === "ok");
+			api.waitEvent("TestResponse").timeout(1000).assert((payload) => payload.result === "ok");
 			});
 
 			const tc2 = testCase("Second async test - will fail", (test) => {
@@ -392,11 +393,12 @@ describe("Error Scenarios Integration Tests", () => {
 
 				api.sendMessage("TestRequest", { value: 2 });
 				backend
-					.waitMessage("TestRequest", { timeout: 1000 })
+					.waitMessage("TestRequest")
+					.timeout(1000)
 					.assert((payload) => payload.value === 2)
 					.mockEvent("TestResponse", () => ({ result: "fail" }));
 				// waitEvent creates a blocking step - assertion will fail because result is "fail" not "impossible"
-				api.waitEvent("TestResponse", { timeout: 1000 }).assert((payload) => {
+				api.waitEvent("TestResponse").timeout(1000).assert((payload) => {
 					return payload.result === "impossible"; // Will fail - result is "fail"
 				});
 			});
@@ -407,11 +409,12 @@ describe("Error Scenarios Integration Tests", () => {
 
 				api.sendMessage("TestRequest", { value: 3 });
 				backend
-					.waitMessage("TestRequest", { timeout: 1000 })
+					.waitMessage("TestRequest")
+					.timeout(1000)
 					.assert((payload) => payload.value === 3)
 					.mockEvent("TestResponse", () => ({ result: "success" }));
 				// waitEvent creates a blocking step (unlike onEvent which only registers a hook)
-				api.waitEvent("TestResponse", { timeout: 1000 }).assert((payload) => payload.result === "success");
+				api.waitEvent("TestResponse").timeout(1000).assert((payload) => payload.result === "success");
 			});
 
 			// Run sequentially using array syntax to test hook isolation

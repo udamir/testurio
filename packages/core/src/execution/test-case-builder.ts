@@ -6,8 +6,9 @@
  * and relies on the component's createStepBuilder method for type inference.
  */
 
-import type { Component, CreateComponentOptions } from "../components/base";
-import type { TestPhase, TestStep } from "./execution.types";
+import type { Component, CreateComponentOptions, ITestCaseContext } from "../components/base";
+import type { Step } from "../components/base/step.types";
+import type { TestPhase } from "./execution.types";
 
 /**
  * Pending component to be started
@@ -21,9 +22,10 @@ export interface PendingComponent {
  * Test Case Builder
  *
  * Provides fluent API for building test cases.
+ * Implements ITestCaseContext for step registration.
  */
-export class TestCaseBuilder {
-	private steps: TestStep[] = [];
+export class TestCaseBuilder implements ITestCaseContext {
+	private steps: Step[] = [];
 	private currentPhase: TestPhase = "test";
 	private pendingComponents: PendingComponent[] = [];
 	private componentRegistry?: Map<string, Component>;
@@ -49,6 +51,13 @@ export class TestCaseBuilder {
 	 */
 	get testCaseId(): string | undefined {
 		return this._testCaseId;
+	}
+
+	/**
+	 * Get current phase (ITestCaseContext implementation)
+	 */
+	get phase(): string {
+		return this.currentPhase;
 	}
 
 	/**
@@ -79,25 +88,19 @@ export class TestCaseBuilder {
 		this.currentPhase = phase;
 	}
 
-	get phase(): TestPhase {
-		return this.currentPhase;
-	}
-
 	/**
 	 * Get all registered steps
 	 */
-	getSteps(): TestStep[] {
+	getSteps(): Step[] {
 		return [...this.steps];
 	}
 
 	/**
-	 * Register a step
+	 * Register a step (ITestCaseContext implementation)
+	 * Accepts Step object (pure data, no action function)
 	 */
-	registerStep(step: Omit<TestStep, "phase">): void {
-		this.steps.push({
-			...step,
-			phase: this.currentPhase,
-		});
+	registerStep(step: Step): void {
+		this.steps.push(step);
 	}
 
 	/**
@@ -147,52 +150,7 @@ export class TestCaseBuilder {
 			});
 		}
 
-		// Set test case context for hook isolation
-		if (this._testCaseId) {
-			component.setTestCaseContext(this._testCaseId);
-		}
-
 		// Return the step builder from the component
-		return component.createStepBuilder(this) as TStepBuilder;
-	}
-
-	/**
-	 * Wait for a duration
-	 */
-	wait(ms: number): void {
-		this.registerStep({
-			type: "wait",
-			description: `Wait ${ms}ms`,
-			action: async () => {
-				await new Promise((resolve) => setTimeout(resolve, ms));
-			},
-		});
-	}
-
-	/**
-	 * Wait until a condition is met
-	 */
-	waitUntil(condition: () => boolean | Promise<boolean>, options?: { timeout?: number; interval?: number }): void {
-		const timeout = options?.timeout || 5000;
-		const interval = options?.interval || 100;
-
-		this.registerStep({
-			type: "waitUntil",
-			description: "Wait until condition is met",
-			timeout,
-			action: async () => {
-				const startTime = Date.now();
-
-				while (Date.now() - startTime < timeout) {
-					const result = await Promise.resolve(condition());
-					if (result) {
-						return;
-					}
-					await new Promise((resolve) => setTimeout(resolve, interval));
-				}
-
-				throw new Error(`Timeout waiting for condition after ${timeout}ms`);
-			},
-		});
+		return component.createStepBuilder(this);
 	}
 }

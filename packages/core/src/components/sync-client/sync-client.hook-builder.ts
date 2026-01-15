@@ -2,84 +2,80 @@
  * Sync Client Hook Builder
  *
  * Builder for handling sync client responses in a declarative way.
+ * Extends BaseHookBuilder with client-specific handler methods.
+ *
+ * Per design:
+ * - Contains NO logic, only handler registration
+ * - All execution logic is in the Component
  */
 
-import type { ITestCaseBuilder } from "../../execution/execution.types";
-import type { RequestTracker } from "./sync-client.step-builder";
+import { BaseHookBuilder } from "../base/hook-builder";
 
 /**
  * Sync Client Hook Builder
  *
  * Builder for handling responses in a declarative way.
+ * Adds handlers to the step that will be executed by the component.
+ *
+ * @template TResponse - Response type from the protocol
  */
-/**
- * Assertion with optional description
- */
-
-type Predicate<T> = (res: T) => boolean;
-
-interface Assertion<T> {
-	fn: Predicate<T>;
-	description?: string;
-}
-
-export class SyncClientHookBuilder<TResponse = unknown> {
-	private assertions: Array<Assertion<TResponse>> = [];
-
-	constructor(
-		private componentName: string,
-		private testBuilder: ITestCaseBuilder,
-		private requestTracker: RequestTracker,
-		private messageType: string,
-		private traceId?: string
-	) {
-		// Register the response handling step immediately
-		this.registerResponseStep();
-	}
-
+export class SyncClientHookBuilder<TResponse = unknown> extends BaseHookBuilder {
 	/**
-	 * Assert on response - can also capture data in callback
-	 * Return true/false for assertion, or undefined to just capture data
+	 * Add assertion handler to validate the response.
 	 *
 	 * @param descriptionOrPredicate - Description string or predicate function
 	 * @param predicate - Predicate function (if first param is description)
+	 * @returns this for chaining
 	 */
-	assert<T extends string | Predicate<TResponse>>(
-		descriptionOrPredicate: T,
-		predicate?: T extends string ? Predicate<TResponse> : never
+	assert(
+		descriptionOrPredicate: string | ((response: TResponse) => boolean | Promise<boolean>),
+		predicate?: (response: TResponse) => boolean | Promise<boolean>
 	): this {
 		const [description, fn] =
 			typeof descriptionOrPredicate === "string"
-				? [descriptionOrPredicate, predicate as Predicate<TResponse>]
-				: ["", descriptionOrPredicate];
+				? [descriptionOrPredicate, predicate]
+				: [undefined, descriptionOrPredicate];
 
-		this.assertions.push({ fn, description });
-		return this;
+		return this.addHandler({
+			type: "assert",
+			description,
+			params: { predicate: fn },
+		});
 	}
 
 	/**
-	 * Register the response handling step
+	 * Add transform handler to modify the response.
+	 *
+	 * @param descriptionOrHandler - Description string or transform function
+	 * @param handler - Transform function (if first param is description)
+	 * @returns this for chaining
 	 */
-	private registerResponseStep(): void {
-		this.testBuilder.registerStep({
-			type: "onResponse",
-			componentName: this.componentName,
-			messageType: this.messageType,
-			description: `Handle response for ${this.messageType}${this.traceId ? ` (${this.traceId})` : ""}`,
-			action: async () => {
-				const response = this.requestTracker.findResponse(this.messageType, this.traceId) as TResponse;
+	transform<TResult = TResponse>(
+		descriptionOrHandler: string | ((response: TResponse) => TResult | Promise<TResult>),
+		handler?: (response: TResponse) => TResult | Promise<TResult>
+	): SyncClientHookBuilder<TResult> {
+		const [description, fn] =
+			typeof descriptionOrHandler === "string"
+				? [descriptionOrHandler, handler]
+				: [undefined, descriptionOrHandler];
 
-				// Run all assertions
-				for (const assertion of this.assertions) {
-					const result = assertion.fn(response);
-					if (result === false) {
-						const errorMsg = assertion.description
-							? `Assertion failed: ${assertion.description}`
-							: `Response assertion failed for ${this.messageType}`;
-						throw new Error(errorMsg);
-					}
-				}
-			},
+		// Return with new type
+		return this.addHandler<SyncClientHookBuilder<TResult>>({
+			type: "transform",
+			description,
+			params: { handler: fn },
 		});
+	}
+
+	/**
+	 * Set timeout for waiting for the response.
+	 * If the response is not received within the timeout, the request fails.
+	 * Updates step.params.timeout (not a handler).
+	 *
+	 * @param ms - Timeout in milliseconds
+	 * @returns this for chaining
+	 */
+	timeout(ms: number): this {
+		return this.setParam("timeout", ms);
 	}
 }

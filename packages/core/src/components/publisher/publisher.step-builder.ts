@@ -1,97 +1,65 @@
 /**
  * Publisher Step Builder
  *
- * Provides test DSL integration for Publisher component.
- * Registers steps for publish operations.
+ * Builder for publisher operations.
+ * Pure data builder - contains NO execution logic.
  */
 
-import type { ITestCaseBuilder } from "../../execution";
-import type { BatchMessage, DefaultTopics, Payload, PublishOptions, Topic, Topics } from "../mq.base";
-import type { Publisher } from "./publisher.component";
+import { BaseStepBuilder } from "../base/step-builder";
+import type { Topics, Topic, Payload } from "../mq.base";
 
 /**
- * Step builder for Publisher component.
+ * Publisher Step Builder
  *
- * @template T - Topic definitions type
+ * Provides declarative API for publishing messages.
+ * All methods register steps - no execution logic here.
+ *
+ * @template T - Topics type for topic/payload validation
+ * @template TOptions - Adapter-specific publish options
+ * @template TBatchMessage - Adapter-specific batch message type
  */
-export class PublisherStepBuilder<T extends Topics = DefaultTopics> {
-	private readonly publisher: Publisher<T>;
-	private readonly builder: ITestCaseBuilder;
-
-	constructor(publisher: Publisher<T>, builder: ITestCaseBuilder) {
-		this.publisher = publisher;
-		this.builder = builder;
+export class PublisherStepBuilder<
+	T extends Topics = Topics,
+	TOptions = unknown,
+	TBatchMessage = unknown,
+> extends BaseStepBuilder {
+	/**
+	 * Publish a single message to a topic (action step).
+	 *
+	 * @param topic - Topic name (validated against Topics type)
+	 * @param payload - Message payload (typed per topic)
+	 * @param options - Adapter-specific publish options
+	 */
+	publish<K extends Topic<T>>(topic: K, payload: Payload<T, K>, options?: TOptions): void {
+		this.registerStep({
+			type: "publish",
+			description: `Publish to ${topic}`,
+			params: {
+				topic,
+				payload,
+				options,
+			},
+			handlers: [],
+			mode: "action",
+		});
 	}
 
 	/**
-	 * Register a step to publish a message.
+	 * Publish multiple messages in a batch (action step).
 	 *
 	 * @param topic - Topic name
-	 * @param payload - Message payload
-	 * @param options - Optional publish options
-	 * @returns this for chaining
-	 *
-	 * @example
-	 * ```typescript
-	 * pub.publish("orders", { orderId: "123" });
-	 * pub.publish("orders", { orderId: "123" }, { key: "customer-1" });
-	 * ```
+	 * @param messages - Adapter-specific batch messages
 	 */
-	publish<K extends Topic<T>>(topic: K, payload: Payload<T, K>, options?: PublishOptions): this {
-		const publisherName = this.publisher.name;
-
-		this.builder.registerStep({
-			type: "custom",
-			componentName: publisherName,
-			messageType: String(topic),
-			description: `Publish message to "${String(topic)}"`,
-			action: async () => {
-				await this.publisher.publish(topic, payload, options);
+	publishBatch<K extends Topic<T>>(topic: K, messages: TBatchMessage[]): void {
+		this.registerStep({
+			type: "publishBatch",
+			description: `Publish batch to ${topic}`,
+			params: {
+				topic,
+				messages,
 			},
-			metadata: {
-				operation: "publish",
-				topic: String(topic),
-				hasKey: !!options?.key,
-				hasHeaders: !!options?.headers,
-			},
+			handlers: [],
+			mode: "action",
 		});
-
-		return this;
-	}
-
-	/**
-	 * Register a step to publish multiple messages in a batch.
-	 *
-	 * @param topic - Topic name
-	 * @param messages - Array of messages to publish
-	 * @returns this for chaining
-	 *
-	 * @example
-	 * ```typescript
-	 * pub.publishBatch("orders", [
-	 *   { payload: { orderId: "1" } },
-	 *   { payload: { orderId: "2" } },
-	 * ]);
-	 * ```
-	 */
-	publishBatch<K extends Topic<T>>(topic: K, messages: BatchMessage<Payload<T, K>>[]): this {
-		const publisherName = this.publisher.name;
-
-		this.builder.registerStep({
-			type: "custom",
-			componentName: publisherName,
-			messageType: String(topic),
-			description: `Publish ${messages.length} messages to "${String(topic)}"`,
-			action: async () => {
-				await this.publisher.publishBatch(topic, messages);
-			},
-			metadata: {
-				operation: "publishBatch",
-				topic: String(topic),
-				messageCount: messages.length,
-			},
-		});
-
-		return this;
 	}
 }

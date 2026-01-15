@@ -177,7 +177,7 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 					timestamp: Date.now(),
 				});
 
-				backend.waitMessage("logEvent", { timeout: 1000 }).assert((payload) => {
+				backend.waitMessage("logEvent").timeout(1000).assert((payload) => {
 					receivedPayload = payload;
 					return (
 						payload.level === "info" && payload.message === "User logged in" && typeof payload.timestamp === "number"
@@ -290,7 +290,7 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 					},
 				});
 
-				backend.waitMessage("createOrder", { timeout: 1000 }).assert((payload) => {
+				backend.waitMessage("createOrder").timeout(1000).assert((payload) => {
 					receivedPayload = payload;
 					return payload.customerId === "CUST-001" && payload.items.length === 2;
 				});
@@ -394,7 +394,7 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 
 				api.sendMessage("validateRequest", { data: "test" });
 
-				backend.waitMessage("validateRequest", { timeout: 1000 }).assert((payload) => {
+				backend.waitMessage("validateRequest").timeout(1000).assert((payload) => {
 					handlerCalled = true;
 					receivedData = payload.data;
 					return payload.data === "test";

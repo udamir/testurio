@@ -160,7 +160,7 @@ describe("Timeout Integration Tests", () => {
 				const backend = test.use(server);
 
 				api.sendMessage("ping", { seq: 1 });
-				backend.waitMessage("ping", { timeout: 1000 }).assert((msg) => msg.seq === 1);
+				backend.waitMessage("ping").timeout(1000).assert((msg) => msg.seq === 1);
 			});
 
 			const result = await scenario.run(tc);
@@ -188,7 +188,7 @@ describe("Timeout Integration Tests", () => {
 			const tc = testCase("Message wait times out", (test) => {
 				const backend = test.use(server);
 				// Wait for a message that will never be sent
-				backend.waitMessage("ping", { timeout: 200 }).assert(() => true);
+				backend.waitMessage("ping").timeout(200).assert(() => true);
 			});
 
 			const result = await scenario.run(tc);
@@ -220,7 +220,7 @@ describe("Timeout Integration Tests", () => {
 				const backend = test.use(server);
 
 				api.sendMessage("ping", { seq: 42 });
-				backend.waitMessage("ping", { timeout: 1000 }).assert((msg) => msg.seq === 42);
+				backend.waitMessage("ping").timeout(1000).assert((msg) => msg.seq === 42);
 			});
 
 			const result = await scenario.run(tc);

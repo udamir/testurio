@@ -1,142 +1,77 @@
 /**
  * Subscriber Hook Builder
  *
- * Fluent builder for subscriber hooks (assert, transform, drop).
- * Uses base Hook type from BaseComponent.
+ * Builder for subscriber hook handlers.
+ * Pure data builder - contains NO execution logic.
  */
 
-import type { Hook, HookHandler } from "../base";
-import { DropMessageError } from "../base";
-import type { QueueMessage } from "../mq.base";
+import { BaseHookBuilder } from "../base/hook-builder";
 
 /**
- * Hook builder interface for subscriber.
+ * Subscriber Hook Builder
  *
- * @template TPayload - Message payload type
- */
-export interface ISubscriberHookBuilder<TPayload> {
-	readonly hookId: string;
-	assert(fn: (message: QueueMessage<TPayload>) => boolean | Promise<boolean>): this;
-	assert(description: string, fn: (message: QueueMessage<TPayload>) => boolean | Promise<boolean>): this;
-	transform(fn: (message: QueueMessage<TPayload>) => QueueMessage<TPayload> | Promise<QueueMessage<TPayload>>): this;
-	transform(
-		description: string,
-		fn: (message: QueueMessage<TPayload>) => QueueMessage<TPayload> | Promise<QueueMessage<TPayload>>
-	): this;
-	drop(): this;
-}
-
-/**
- * Subscriber hook builder implementation.
- * Works with base Hook<QueueMessage> type.
+ * Provides fluent API for adding handlers to subscriber hooks.
+ * All methods register handlers - no execution logic here.
  *
- * @template TPayload - Message payload type
+ * @template TMessage - Adapter-specific message type
  */
-export class SubscriberHookBuilder<TPayload> implements ISubscriberHookBuilder<TPayload> {
-	constructor(private readonly hook: Hook<QueueMessage<TPayload>>) {}
-
-	get hookId(): string {
-		return this.hook.id;
-	}
-
+export class SubscriberHookBuilder<TMessage> extends BaseHookBuilder {
 	/**
-	 * Add assertion handler.
-	 * If assertion fails, an error is thrown.
+	 * Add assertion handler to validate the message.
 	 *
-	 * @example
-	 * ```typescript
-	 * sub.onMessage("orders")
-	 *   .assert((msg) => msg.payload.orderId !== undefined)
-	 *   .assert("should have valid status", (msg) => ["pending", "shipped"].includes(msg.payload.status));
-	 * ```
+	 * @param descriptionOrPredicate - Description string or predicate function
+	 * @param predicate - Predicate function if description provided
 	 */
 	assert(
-		descriptionOrFn: string | ((message: QueueMessage<TPayload>) => boolean | Promise<boolean>),
-		fn?: (message: QueueMessage<TPayload>) => boolean | Promise<boolean>
+		descriptionOrPredicate: string | ((message: TMessage) => boolean | Promise<boolean>),
+		predicate?: (message: TMessage) => boolean | Promise<boolean>
 	): this {
-		const description = typeof descriptionOrFn === "string" ? descriptionOrFn : undefined;
-		const predicate = typeof descriptionOrFn === "function" ? descriptionOrFn : fn;
+		const description = typeof descriptionOrPredicate === "string" ? descriptionOrPredicate : undefined;
+		const fn = typeof descriptionOrPredicate === "function" ? descriptionOrPredicate : predicate;
 
-		if (!predicate) {
-			throw new Error("assert() requires a handler function");
-		}
-
-		const handler: HookHandler<QueueMessage<TPayload>> = {
+		return this.addHandler({
 			type: "assert",
-			metadata: description ? { description } : undefined,
-			execute: async (msg) => {
-				const result = await Promise.resolve(predicate(msg));
-				if (!result) {
-					const errorMsg = description
-						? `Assertion failed: ${description}`
-						: `Assertion failed for message on topic: ${msg.topic}`;
-					throw new Error(errorMsg);
-				}
-				return msg;
-			},
-		};
-
-		this.hook.handlers.push(handler);
-		return this;
+			description,
+			params: { predicate: fn },
+		});
 	}
 
 	/**
-	 * Add transform handler.
-	 * Transforms the message before further processing.
+	 * Add transform handler to modify the message.
 	 *
-	 * @example
-	 * ```typescript
-	 * sub.onMessage("orders")
-	 *   .transform((msg) => ({
-	 *     ...msg,
-	 *     payload: { ...msg.payload, processed: true },
-	 *   }));
-	 * ```
+	 * @param descriptionOrHandler - Description string or transform function
+	 * @param handler - Transform function if description provided
 	 */
-	transform(
-		descriptionOrFn:
-			| string
-			| ((message: QueueMessage<TPayload>) => QueueMessage<TPayload> | Promise<QueueMessage<TPayload>>),
-		fn?: (message: QueueMessage<TPayload>) => QueueMessage<TPayload> | Promise<QueueMessage<TPayload>>
-	): this {
-		const description = typeof descriptionOrFn === "string" ? descriptionOrFn : undefined;
-		const transformer = typeof descriptionOrFn === "function" ? descriptionOrFn : fn;
+	transform<TResult>(
+		descriptionOrHandler: string | ((message: TMessage) => TResult | Promise<TResult>),
+		handler?: (message: TMessage) => TResult | Promise<TResult>
+	): SubscriberHookBuilder<TResult> {
+		const description = typeof descriptionOrHandler === "string" ? descriptionOrHandler : undefined;
+		const fn = typeof descriptionOrHandler === "function" ? descriptionOrHandler : handler;
 
-		if (!transformer) {
-			throw new Error("transform() requires a handler function");
-		}
-
-		const handler: HookHandler<QueueMessage<TPayload>> = {
+		return this.addHandler<SubscriberHookBuilder<TResult>>({
 			type: "transform",
-			metadata: description ? { description } : undefined,
-			execute: async (msg) => {
-				return Promise.resolve(transformer(msg));
-			},
-		};
-
-		this.hook.handlers.push(handler);
-		return this;
+			description,
+			params: { handler: fn },
+		});
 	}
 
 	/**
 	 * Drop the message (stop processing).
-	 *
-	 * @example
-	 * ```typescript
-	 * sub.onMessage("orders")
-	 *   .assert((msg) => msg.payload.status === "cancelled")
-	 *   .drop(); // Don't process cancelled orders
-	 * ```
 	 */
 	drop(): this {
-		const handler: HookHandler<QueueMessage<TPayload>> = {
+		return this.addHandler({
 			type: "drop",
-			execute: async () => {
-				throw new DropMessageError();
-			},
-		};
+			params: {},
+		});
+	}
 
-		this.hook.handlers.push(handler);
-		return this;
+	/**
+	 * Set timeout for waiting for the message.
+	 *
+	 * @param ms - Timeout in milliseconds
+	 */
+	timeout(ms: number): this {
+		return this.setParam("timeout", ms);
 	}
 }

@@ -43,8 +43,6 @@
 export * from "./codecs";
 // Components (Client, Server, AsyncClient, AsyncServer)
 export * from "./components";
-// Base component (Hook, HookHandler, errors, etc.)
-export * from "./components/base";
 // Execution (TestStep, TestCaseResult, TestScenario, testCase, etc.)
 export * from "./execution";
 // Base protocol (Message, Address, ProtocolCharacteristics, etc.)

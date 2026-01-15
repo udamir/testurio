@@ -139,15 +139,18 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 				// All clients should receive their responses (use waitEvent for blocking)
 				test
 					.use(client1)
-					.waitEvent("LoginResponse", { timeout: 2000 })
+					.waitEvent("LoginResponse")
+					.timeout(2000)
 					.assert((p) => p.user === "alice");
 				test
 					.use(client2)
-					.waitEvent("LoginResponse", { timeout: 2000 })
+					.waitEvent("LoginResponse")
+					.timeout(2000)
 					.assert((p) => p.user === "bob");
 				test
 					.use(client3)
-					.waitEvent("LoginResponse", { timeout: 2000 })
+					.waitEvent("LoginResponse")
+					.timeout(2000)
 					.assert((p) => p.user === "charlie");
 			});
 
@@ -194,14 +197,16 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 				// Client2 sends a message
 				test.use(client2).sendMessage("Data", { clientId: "c2", data: "msg3" });
 
-				// Wait for specific messages using matcher (msg2 for client1, msg3 for client2)
+				// Wait for specific messages using matcher
 				test
 					.use(client1)
-					.waitEvent("DataResponse", { timeout: 2000, matcher: (p) => p.data === "msg2" })
+					.waitEvent("DataResponse", { matcher: (p) => p.data === "msg2" })
+					.timeout(2000)
 					.assert((p) => p.data === "msg2");
 				test
 					.use(client2)
-					.waitEvent("DataResponse", { timeout: 2000, matcher: (p) => p.data === "msg3" })
+					.waitEvent("DataResponse", { matcher: (p) => p.data === "msg3" })
+					.timeout(2000)
 					.assert((p) => p.data === "msg3");
 			});
 
@@ -246,7 +251,8 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 				// Each client should only receive their own response (use waitEvent for blocking)
 				test
 					.use(client1)
-					.waitEvent("Pong", { timeout: 2000 })
+					.waitEvent("Pong")
+					.timeout(2000)
 					.assert((p) => {
 						if (p.clientId !== "c1") client1ReceivedWrongMessage = true;
 						return p.clientId === "c1" && p.seq === 1;
@@ -254,7 +260,8 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 
 				test
 					.use(client2)
-					.waitEvent("Pong", { timeout: 2000 })
+					.waitEvent("Pong")
+					.timeout(2000)
 					.assert((p) => {
 						if (p.clientId !== "c2") client2ReceivedWrongMessage = true;
 						return p.clientId === "c2" && p.seq === 2;
@@ -293,7 +300,8 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 				// Backend should still receive it (proxy forwards automatically)
 				test
 					.use(backend)
-					.waitMessage("Data", { timeout: 2000 })
+					.waitMessage("Data")
+					.timeout(2000)
 					.assert((payload) => {
 						backendReceivedMessage = true;
 						return payload.data === "auto-forward";
@@ -336,7 +344,8 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 				// Client should receive response (proxy forwards automatically)
 				test
 					.use(client)
-					.waitEvent("LoginResponse", { timeout: 2000 })
+					.waitEvent("LoginResponse")
+					.timeout(2000)
 					.assert((payload) => {
 						clientReceivedEvent = true;
 						return payload.status === "ok";
@@ -369,7 +378,8 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 
 				test
 					.use(backend)
-					.waitMessage("Data", { timeout: 2000 })
+					.waitMessage("Data")
+					.timeout(2000)
 					.assert((payload) => {
 						receivedPayload = payload;
 						return payload.clientId === originalPayload.clientId && payload.data === originalPayload.data;
@@ -414,7 +424,8 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 
 				test
 					.use(client)
-					.waitEvent("Pong", { timeout: 2000 })
+					.waitEvent("Pong")
+					.timeout(2000)
 					.assert((p) => p.seq === 1);
 			});
 
@@ -454,7 +465,8 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 				// Wait for last response using matcher to filter for seq=5
 				test
 					.use(client)
-					.waitEvent("Pong", { timeout: 2000, matcher: (p) => p.seq === 5 })
+					.waitEvent("Pong", { matcher: (p) => p.seq === 5 })
+					.timeout(2000)
 					.assert((p) => p.seq === 5);
 			});
 
@@ -492,7 +504,8 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 
 				test
 					.use(client)
-					.waitEvent("Pong", { timeout: 2000 })
+					.waitEvent("Pong")
+					.timeout(2000)
 					.assert((p) => {
 						receivedResponses.push(p.seq);
 						return p.seq === 1;
@@ -547,7 +560,8 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 
 				test
 					.use(client)
-					.waitEvent("LoginResponse", { timeout: 2000 })
+					.waitEvent("LoginResponse")
+					.timeout(2000)
 					.assert((p) => p.status === "ok");
 			});
 
@@ -595,7 +609,8 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 				// Client should receive UPPERCASE status
 				test
 					.use(client)
-					.waitEvent("LoginResponse", { timeout: 2000 })
+					.waitEvent("LoginResponse")
+					.timeout(2000)
 					.assert((p) => {
 						clientReceivedStatus = p.status;
 						return p.status === "OK";
@@ -635,7 +650,8 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 
 				test
 					.use(backend)
-					.waitMessage("Data", { timeout: 2000 })
+					.waitMessage("Data")
+					.timeout(2000)
 					.assert((payload) => {
 						backendReceivedData = payload.data;
 						return payload.data === "TRANSFORMED";
@@ -650,9 +666,263 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 	});
 
 	// ============================================================================
-	// 0.5 Session Lifecycle
+	// 0.5 Payload-Based Message Filtering
 	// ============================================================================
-	describe("0.5 Session Lifecycle", () => {
+	// NOTE: connectionId filtering at the component level requires protocol-level
+	// ID propagation (client sends its connectionId to server). The TCP protocol
+	// currently generates independent IDs on each side. These tests use payload-
+	// based matcher filtering instead, which works correctly for all scenarios.
+	describe("0.5 Payload-Based Message Filtering", () => {
+		it("should only trigger onMessage for matching payload via matcher", async () => {
+			const serverPort = getNextPort();
+			const server = createMockServer("server", serverPort);
+			const client1 = createClient("client1", serverPort);
+			const client2 = createClient("client2", serverPort);
+
+			const scenario = new TestScenario({
+				name: "Matcher Filtering Test",
+				components: [server, client1, client2],
+			});
+
+			const messagesFromClient1: string[] = [];
+			const messagesFromClient2: string[] = [];
+
+			const tc = testCase("onMessage filters by payload matcher", (test) => {
+				// Register onMessage that ONLY matches client2's messages via payload
+				test
+					.use(server)
+					.onMessage("Data", { matcher: (p) => p.clientId === "c2" })
+					.assert((payload) => {
+						messagesFromClient2.push(payload.data);
+						return payload.data === "from-client2";
+					})
+					.mockEvent("DataResponse", (payload) => ({
+						clientId: payload.clientId,
+						data: payload.data,
+						processed: true,
+					}));
+
+				// Register another handler for client1 messages
+				test
+					.use(server)
+					.onMessage("Data", { matcher: (p) => p.clientId === "c1" })
+					.mockEvent("DataResponse", (payload) => {
+						messagesFromClient1.push(payload.data);
+						return { clientId: payload.clientId, data: payload.data, processed: true };
+					});
+
+				// Both clients send messages (BEFORE waitEvent so messages are in flight)
+				test.use(client1).sendMessage("Data", { clientId: "c1", data: "from-client1" });
+				test.use(client2).sendMessage("Data", { clientId: "c2", data: "from-client2" });
+
+				// Use waitEvent (blocking) to ensure test waits for responses
+				test
+					.use(client1)
+					.waitEvent("DataResponse", { matcher: (p) => p.data === "from-client1" })
+					.timeout(2000)
+					.assert((p) => p.data === "from-client1");
+				test
+					.use(client2)
+					.waitEvent("DataResponse", { matcher: (p) => p.data === "from-client2" })
+					.timeout(2000)
+					.assert((p) => p.data === "from-client2");
+			});
+
+			const result = await scenario.run(tc);
+			expect(result.passed).toBe(true);
+			// The matcher for c2 should only have captured client2's message
+			expect(messagesFromClient2).toEqual(["from-client2"]);
+			// The matcher for c1 should have captured client1's message
+			expect(messagesFromClient1).toEqual(["from-client1"]);
+		});
+
+		it("should not match messages from other clients when matcher is specified", async () => {
+			const serverPort = getNextPort();
+			const server = createMockServer("server", serverPort);
+			const client1 = createClient("client1", serverPort);
+			const client2 = createClient("client2", serverPort);
+
+			const scenario = new TestScenario({
+				name: "Matcher Exclusion Test",
+				components: [server, client1, client2],
+			});
+
+			let handlerTriggeredByClient1 = false;
+			let handlerTriggeredByClient2 = false;
+
+			const tc = testCase("onMessage ignores non-matching payloads", (test) => {
+				// Register onMessage that ONLY matches client2's payload
+				// Messages from client1 should NOT trigger this handler
+				test
+					.use(server)
+					.onMessage("Ping", { matcher: (p) => p.clientId === "c2" })
+					.assert((payload) => {
+						if (payload.clientId === "c1") {
+							handlerTriggeredByClient1 = true;
+						}
+						if (payload.clientId === "c2") {
+							handlerTriggeredByClient2 = true;
+						}
+						return true;
+					})
+					.mockEvent("Pong", (payload) => ({
+						seq: payload.seq,
+						clientId: payload.clientId,
+						pong: true,
+						source: "filtered-handler",
+					}));
+
+				// Catch-all handler for client1 messages
+				test
+					.use(server)
+					.onMessage("Ping", { matcher: (p) => p.clientId === "c1" })
+					.mockEvent("Pong", (payload) => ({
+						seq: payload.seq,
+						clientId: payload.clientId,
+						pong: true,
+						source: "catch-all",
+					}));
+
+				// Both clients send messages (BEFORE waitEvent so messages are in flight)
+				test.use(client1).sendMessage("Ping", { seq: 1, clientId: "c1" });
+				test.use(client2).sendMessage("Ping", { seq: 2, clientId: "c2" });
+
+				// Use waitEvent (blocking) to ensure test waits for responses
+				test
+					.use(client1)
+					.waitEvent("Pong", { matcher: (p) => p.clientId === "c1" })
+					.timeout(2000)
+					.assert((p) => p.clientId === "c1");
+				test
+					.use(client2)
+					.waitEvent("Pong", { matcher: (p) => p.clientId === "c2" })
+					.timeout(2000)
+					.assert((p) => p.clientId === "c2");
+			});
+
+			const result = await scenario.run(tc);
+			expect(result.passed).toBe(true);
+			// The filtered handler should NOT have been triggered by client1's message
+			expect(handlerTriggeredByClient1).toBe(false);
+			// The filtered handler SHOULD have been triggered by client2's message
+			expect(handlerTriggeredByClient2).toBe(true);
+		});
+
+		it("should work correctly with waitMessage and payload matcher filtering", async () => {
+			const serverPort = getNextPort();
+			const server = createMockServer("server", serverPort);
+			const client1 = createClient("client1", serverPort);
+			const client2 = createClient("client2", serverPort);
+
+			const scenario = new TestScenario({
+				name: "WaitMessage Matcher Test",
+				components: [server, client1, client2],
+			});
+
+			let waitMessagePayload: { clientId: string; data: string } | null = null;
+
+			const tc = testCase("waitMessage with matcher blocks until matching message", (test) => {
+				// Catch-all handler for client1 (so client1's message gets a response)
+				test
+					.use(server)
+					.onMessage("Data", { matcher: (p) => p.clientId === "c1" })
+					.mockEvent("DataResponse", (payload) => ({
+						clientId: payload.clientId,
+						data: payload.data,
+						processed: true,
+					}));
+
+				// Send messages FIRST (before waitMessage starts blocking)
+				test.use(client1).sendMessage("Data", { clientId: "c1", data: "from-client1" });
+				test.use(client2).sendMessage("Data", { clientId: "c2", data: "from-client2" });
+
+				// waitMessage (blocking) - ONLY matches client2's messages via matcher
+				// This comes AFTER sendMessage so the message is in flight
+				test
+					.use(server)
+					.waitMessage("Data", { matcher: (p) => p.clientId === "c2" })
+					.timeout(2000)
+					.assert((payload) => {
+						waitMessagePayload = payload as { clientId: string; data: string };
+						return payload.clientId === "c2";
+					})
+					.mockEvent("DataResponse", (payload) => ({
+						clientId: payload.clientId,
+						data: payload.data,
+						processed: true,
+					}));
+
+				// Use onEvent (non-strict) for client responses
+				test
+					.use(client1)
+					.onEvent("DataResponse")
+					.assert((p) => p.data === "from-client1");
+				test
+					.use(client2)
+					.onEvent("DataResponse")
+					.assert((p) => p.data === "from-client2");
+			});
+
+			const result = await scenario.run(tc);
+			expect(result.passed).toBe(true);
+			// waitMessage should have captured only client2's message
+			expect(waitMessagePayload).not.toBeNull();
+			expect(waitMessagePayload?.clientId).toBe("c2");
+			expect(waitMessagePayload?.data).toBe("from-client2");
+		});
+
+		it("should match any message when no matcher is specified", async () => {
+			const serverPort = getNextPort();
+			const server = createMockServer("server", serverPort);
+			const client1 = createClient("client1", serverPort);
+			const client2 = createClient("client2", serverPort);
+
+			const scenario = new TestScenario({
+				name: "No Matcher Filter Test",
+				components: [server, client1, client2],
+			});
+
+			const receivedClientIds: string[] = [];
+
+			const tc = testCase("onMessage without matcher matches all", (test) => {
+				// Register onMessage without matcher filter - should match ANY client
+				test
+					.use(server)
+					.onMessage("Login")
+					.mockEvent("LoginResponse", (payload) => {
+						receivedClientIds.push(payload.user);
+						return { user: payload.user, sessionId: payload.sessionId, status: "ok" };
+					});
+
+				// Both clients send messages (BEFORE waitEvent so messages are in flight)
+				test.use(client1).sendMessage("Login", { user: "user1", sessionId: "s1" });
+				test.use(client2).sendMessage("Login", { user: "user2", sessionId: "s2" });
+
+				// Use waitEvent (blocking) to ensure test waits for responses
+				test
+					.use(client1)
+					.waitEvent("LoginResponse", { matcher: (p) => p.user === "user1" })
+					.timeout(2000)
+					.assert((p) => p.user === "user1");
+				test
+					.use(client2)
+					.waitEvent("LoginResponse", { matcher: (p) => p.user === "user2" })
+					.timeout(2000)
+					.assert((p) => p.user === "user2");
+			});
+
+			const result = await scenario.run(tc);
+			expect(result.passed).toBe(true);
+			// Without matcher filter, both messages should have been received
+			expect(receivedClientIds).toContain("user1");
+			expect(receivedClientIds).toContain("user2");
+		});
+	});
+
+	// ============================================================================
+	// 0.6 Session Lifecycle
+	// ============================================================================
+	describe("0.6 Session Lifecycle", () => {
 		it("should close backend connection when client disconnects", async () => {
 			// This test verifies linked disconnect handling
 			// When client disconnects, the corresponding backend connection should close

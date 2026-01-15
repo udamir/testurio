@@ -1,196 +1,236 @@
 /**
  * Step Executor Tests
+ *
+ * Tests for the three-phase step execution model.
  */
 
-import type { StepExecutionContext, TestStep } from "testurio";
-import { executeStep, executeSteps, filterStepsByPhase, summarizeStepResults } from "testurio";
+import type { Step } from "testurio";
+import { executeSteps, summarizeStepResults } from "testurio";
 import { describe, expect, it, vi } from "vitest";
 
+/**
+ * Mock component for testing
+ */
+function createMockComponent(name: string, executeStepFn?: (step: Step) => Promise<void> | void) {
+	const hooks: Step[] = [];
+	return {
+		name,
+		hooks,
+		registerHook: vi.fn((step: Step) => {
+			hooks.push(step);
+		}),
+		executeStep: vi.fn(async (step: Step) => {
+			if (executeStepFn) {
+				await executeStepFn(step);
+			}
+		}),
+		clearHooks: vi.fn((_testCaseId: string) => {
+			hooks.length = 0;
+		}),
+	};
+}
+
 describe("Step Executor", () => {
-	describe("executeStep", () => {
-		it("should execute a successful step", async () => {
-			const step: TestStep = {
-				type: "custom",
-				phase: "test",
-				description: "Test step",
-				action: vi.fn().mockResolvedValue(undefined),
-			};
-
-			const context: StepExecutionContext = {
-				currentStep: step,
-				totalSteps: 1,
-				stepIndex: 0,
-				testContext: {},
-			};
-
-			const result = await executeStep(step, context);
-
-			expect(result.passed).toBe(true);
-			expect(result.error).toBeUndefined();
-			expect(step.action).toHaveBeenCalled();
-		});
-
-		it("should handle step failure", async () => {
-			const error = new Error("Step failed");
-			const step: TestStep = {
-				type: "custom",
-				phase: "test",
-				description: "Failing step",
-				action: vi.fn().mockRejectedValue(error),
-			};
-
-			const context: StepExecutionContext = {
-				currentStep: step,
-				totalSteps: 1,
-				stepIndex: 0,
-				testContext: {},
-			};
-
-			const result = await executeStep(step, context);
-
-			expect(result.passed).toBe(false);
-			expect(result.error?.message).toBe("Step failed");
-		});
-
-		it("should timeout long-running steps", async () => {
-			const step: TestStep = {
-				type: "custom",
-				phase: "test",
-				description: "Slow step",
-				timeout: 50,
-				action: () => new Promise((resolve) => setTimeout(resolve, 200)),
-			};
-
-			const context: StepExecutionContext = {
-				currentStep: step,
-				totalSteps: 1,
-				stepIndex: 0,
-				testContext: {},
-			};
-
-			const result = await executeStep(step, context);
-
-			expect(result.passed).toBe(false);
-			expect(result.error?.message).toContain("timeout");
-		});
-
-		it("should record duration", async () => {
-			const step: TestStep = {
-				type: "wait",
-				phase: "test",
-				description: "Wait step",
-				action: () => new Promise((resolve) => setTimeout(resolve, 50)),
-			};
-
-			const context: StepExecutionContext = {
-				currentStep: step,
-				totalSteps: 1,
-				stepIndex: 0,
-				testContext: {},
-			};
-
-			const result = await executeStep(step, context);
-
-			expect(result.duration).toBeGreaterThanOrEqual(40);
-			expect(result.startTime).toBeLessThan(result.endTime);
-		});
-	});
-
 	describe("executeSteps", () => {
-		it("should execute multiple steps sequentially", async () => {
-			const executionOrder: number[] = [];
+		it("should execute action steps", async () => {
+			const executionOrder: string[] = [];
+			const component = createMockComponent("test", (step) => {
+				executionOrder.push(step.description ?? step.type);
+			});
 
-			const steps: TestStep[] = [
+			const steps: Step[] = [
 				{
-					type: "custom",
-					phase: "test",
+					id: "step_1",
+					type: "request",
+					component: component as unknown as Step["component"],
 					description: "Step 1",
-					action: () => {
-						executionOrder.push(1);
-					},
+					params: {},
+					handlers: [],
+					mode: "action",
 				},
 				{
-					type: "custom",
-					phase: "test",
+					id: "step_2",
+					type: "request",
+					component: component as unknown as Step["component"],
 					description: "Step 2",
-					action: () => {
-						executionOrder.push(2);
-					},
-				},
-				{
-					type: "custom",
-					phase: "test",
-					description: "Step 3",
-					action: () => {
-						executionOrder.push(3);
-					},
+					params: {},
+					handlers: [],
+					mode: "action",
 				},
 			];
 
-			const results = await executeSteps(steps, {});
+			const results = await executeSteps(steps, "tc_1");
 
-			expect(results).toHaveLength(3);
+			expect(results).toHaveLength(2);
 			expect(results.every((r) => r.passed)).toBe(true);
-			expect(executionOrder).toEqual([1, 2, 3]);
+			expect(executionOrder).toEqual(["Step 1", "Step 2"]);
+			expect(component.executeStep).toHaveBeenCalledTimes(2);
 		});
 
-		it("should stop on failure with failFast", async () => {
-			const steps: TestStep[] = [
+		it("should register hooks before execution (Phase 1)", async () => {
+			const component = createMockComponent("test");
+			const callOrder: string[] = [];
+
+			component.registerHook = vi.fn((step: Step) => {
+				callOrder.push(`register:${step.description ?? ""}`);
+			});
+			component.executeStep = vi.fn(async (step: Step) => {
+				callOrder.push(`execute:${step.description ?? ""}`);
+			});
+
+			const steps: Step[] = [
 				{
-					type: "custom",
-					phase: "test",
-					description: "Step 1",
-					action: vi.fn(),
+					id: "step_1",
+					type: "request",
+					component: component as unknown as Step["component"],
+					description: "Action",
+					params: {},
+					handlers: [],
+					mode: "action",
 				},
 				{
-					type: "custom",
-					phase: "test",
-					description: "Step 2 (fails)",
-					action: () => {
-						throw new Error("Failed");
-					},
-				},
-				{
-					type: "custom",
-					phase: "test",
-					description: "Step 3",
-					action: vi.fn(),
+					id: "step_2",
+					type: "onResponse",
+					component: component as unknown as Step["component"],
+					description: "Hook",
+					params: {},
+					handlers: [],
+					mode: "hook",
 				},
 			];
 
-			const results = await executeSteps(steps, {}, { failFast: true });
+			await executeSteps(steps, "tc_1");
+
+			// Hook registration (Phase 1) should happen BEFORE any step execution (Phase 2)
+			// Expected order: register Hook, then execute Action, then execute Hook
+			expect(callOrder).toEqual(["register:Hook", "execute:Action", "execute:Hook"]);
+		});
+
+		it("should clear hooks after execution (Phase 3)", async () => {
+			const component = createMockComponent("test");
+
+			const steps: Step[] = [
+				{
+					id: "step_1",
+					type: "onResponse",
+					component: component as unknown as Step["component"],
+					description: "Hook step",
+					params: {},
+					handlers: [],
+					mode: "hook",
+				},
+			];
+
+			await executeSteps(steps, "tc_1");
+
+			expect(component.clearHooks).toHaveBeenCalledWith("tc_1");
+		});
+
+		it("should clear hooks even on error", async () => {
+			const component = createMockComponent("test", () => {
+				throw new Error("Step failed");
+			});
+
+			const steps: Step[] = [
+				{
+					id: "step_1",
+					type: "request",
+					component: component as unknown as Step["component"],
+					description: "Failing step",
+					params: {},
+					handlers: [],
+					mode: "action",
+				},
+			];
+
+			const results = await executeSteps(steps, "tc_1");
+
+			expect(results[0].passed).toBe(false);
+			expect(component.clearHooks).toHaveBeenCalledWith("tc_1");
+		});
+
+		it("should stop on failure with failFast (default)", async () => {
+			const component = createMockComponent("test", (step) => {
+				if (step.description === "Failing step") {
+					throw new Error("Failed");
+				}
+			});
+
+			const steps: Step[] = [
+				{
+					id: "step_1",
+					type: "request",
+					component: component as unknown as Step["component"],
+					description: "Step 1",
+					params: {},
+					handlers: [],
+					mode: "action",
+				},
+				{
+					id: "step_2",
+					type: "request",
+					component: component as unknown as Step["component"],
+					description: "Failing step",
+					params: {},
+					handlers: [],
+					mode: "action",
+				},
+				{
+					id: "step_3",
+					type: "request",
+					component: component as unknown as Step["component"],
+					description: "Step 3",
+					params: {},
+					handlers: [],
+					mode: "action",
+				},
+			];
+
+			const results = await executeSteps(steps, "tc_1", { failFast: true });
 
 			expect(results).toHaveLength(2);
 			expect(results[0].passed).toBe(true);
 			expect(results[1].passed).toBe(false);
-			expect(steps[2].action).not.toHaveBeenCalled();
 		});
 
 		it("should continue on failure without failFast", async () => {
-			const steps: TestStep[] = [
+			const component = createMockComponent("test", (step) => {
+				if (step.description === "Failing step") {
+					throw new Error("Failed");
+				}
+			});
+
+			const steps: Step[] = [
 				{
-					type: "custom",
-					phase: "test",
+					id: "step_1",
+					type: "request",
+					component: component as unknown as Step["component"],
 					description: "Step 1",
-					action: vi.fn(),
+					params: {},
+					handlers: [],
+					mode: "action",
 				},
 				{
-					type: "custom",
-					phase: "test",
-					description: "Step 2 (fails)",
-					action: () => {
-						throw new Error("Failed");
-					},
+					id: "step_2",
+					type: "request",
+					component: component as unknown as Step["component"],
+					description: "Failing step",
+					params: {},
+					handlers: [],
+					mode: "action",
 				},
 				{
-					type: "custom",
-					phase: "test",
+					id: "step_3",
+					type: "request",
+					component: component as unknown as Step["component"],
 					description: "Step 3",
-					action: vi.fn(),
+					params: {},
+					handlers: [],
+					mode: "action",
 				},
 			];
 
-			const results = await executeSteps(steps, {}, { failFast: false });
+			const results = await executeSteps(steps, "tc_1", { failFast: false });
 
 			expect(results).toHaveLength(3);
 			expect(results[0].passed).toBe(true);
@@ -200,85 +240,112 @@ describe("Step Executor", () => {
 
 		it("should call onStepComplete callback", async () => {
 			const callback = vi.fn();
+			const component = createMockComponent("test");
 
-			const steps: TestStep[] = [
+			const steps: Step[] = [
 				{
-					type: "custom",
-					phase: "test",
+					id: "step_1",
+					type: "request",
+					component: component as unknown as Step["component"],
 					description: "Step 1",
-					action: vi.fn(),
+					params: {},
+					handlers: [],
+					mode: "action",
 				},
 				{
-					type: "custom",
-					phase: "test",
+					id: "step_2",
+					type: "request",
+					component: component as unknown as Step["component"],
 					description: "Step 2",
-					action: vi.fn(),
+					params: {},
+					handlers: [],
+					mode: "action",
 				},
 			];
 
-			await executeSteps(steps, {}, { onStepComplete: callback });
+			await executeSteps(steps, "tc_1", { onStepComplete: callback });
 
 			expect(callback).toHaveBeenCalledTimes(2);
 		});
-	});
 
-	describe("filterStepsByPhase", () => {
-		it("should filter steps by phase", () => {
-			const steps: TestStep[] = [
-				{ type: "custom", phase: "init", description: "Init", action: vi.fn() },
+		it("should handle abort signal", async () => {
+			const controller = new AbortController();
+			const component = createMockComponent("test");
+
+			// Abort immediately
+			controller.abort();
+
+			const steps: Step[] = [
 				{
-					type: "custom",
-					phase: "before",
-					description: "Before",
-					action: vi.fn(),
-				},
-				{
-					type: "custom",
-					phase: "test",
-					description: "Test 1",
-					action: vi.fn(),
-				},
-				{
-					type: "custom",
-					phase: "test",
-					description: "Test 2",
-					action: vi.fn(),
-				},
-				{
-					type: "custom",
-					phase: "after",
-					description: "After",
-					action: vi.fn(),
+					id: "step_1",
+					type: "request",
+					component: component as unknown as Step["component"],
+					description: "Step 1",
+					params: {},
+					handlers: [],
+					mode: "action",
 				},
 			];
 
-			const testSteps = filterStepsByPhase(steps, "test");
+			const results = await executeSteps(steps, "tc_1", {
+				abortSignal: controller.signal,
+			});
 
-			expect(testSteps).toHaveLength(2);
-			expect(testSteps[0].description).toBe("Test 1");
-			expect(testSteps[1].description).toBe("Test 2");
+			expect(results[0].passed).toBe(false);
+			expect(results[0].error?.message).toContain("aborted");
+		});
+
+		it("should record duration for each step", async () => {
+			const component = createMockComponent("test", async () => {
+				await new Promise((resolve) => setTimeout(resolve, 50));
+			});
+
+			const steps: Step[] = [
+				{
+					id: "step_1",
+					type: "request",
+					component: component as unknown as Step["component"],
+					description: "Step 1",
+					params: {},
+					handlers: [],
+					mode: "action",
+				},
+			];
+
+			const results = await executeSteps(steps, "tc_1");
+
+			expect(results[0].duration).toBeGreaterThanOrEqual(40);
+			expect(results[0].startTime).toBeLessThan(results[0].endTime);
 		});
 	});
 
 	describe("summarizeStepResults", () => {
 		it("should summarize step results", () => {
+			const mockStep = {
+				type: "request",
+				componentName: "test",
+				description: "Test",
+				phase: "test" as const,
+				action: async () => {},
+			};
+
 			const results = [
 				{
-					step: {} as TestStep,
+					step: mockStep,
 					passed: true,
 					duration: 100,
 					startTime: 0,
 					endTime: 100,
 				},
 				{
-					step: {} as TestStep,
+					step: mockStep,
 					passed: true,
 					duration: 50,
 					startTime: 100,
 					endTime: 150,
 				},
 				{
-					step: {} as TestStep,
+					step: mockStep,
 					passed: false,
 					duration: 25,
 					startTime: 150,
@@ -297,16 +364,24 @@ describe("Step Executor", () => {
 		});
 
 		it("should report allPassed when all pass", () => {
+			const mockStep = {
+				type: "request",
+				componentName: "test",
+				description: "Test",
+				phase: "test" as const,
+				action: async () => {},
+			};
+
 			const results = [
 				{
-					step: {} as TestStep,
+					step: mockStep,
 					passed: true,
 					duration: 100,
 					startTime: 0,
 					endTime: 100,
 				},
 				{
-					step: {} as TestStep,
+					step: mockStep,
 					passed: true,
 					duration: 50,
 					startTime: 100,

@@ -2,14 +2,20 @@
  * Publisher Component Unit Tests
  *
  * Tests for the MQ Publisher component including lifecycle,
- * publishing, step builder, and type-safe operations.
+ * step execution, and step builder.
  */
 
-import { TestCaseBuilder } from "testurio";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { DefaultTopics } from "../../packages/core/src/components/mq.base";
 import { Publisher } from "../../packages/core/src/components/publisher";
-import { createFakeMQAdapter, createInMemoryBroker, type InMemoryBroker } from "../mocks/fakeMQAdapter";
+import type { Step } from "../../packages/core/src/components/base/step.types";
+import {
+	createFakeMQAdapter,
+	createInMemoryBroker,
+	type InMemoryBroker,
+	type FakePublishOptions,
+	type FakeBatchMessage,
+} from "../mocks/fakeMQAdapter";
 
 describe("Publisher", () => {
 	let broker: InMemoryBroker;
@@ -34,6 +40,8 @@ describe("Publisher", () => {
 
 			expect(publisher.getState()).toBe("started");
 			expect(publisher.isStarted()).toBe(true);
+
+			await publisher.stop();
 		});
 
 		it("should stop and close publisher adapter", async () => {
@@ -53,6 +61,8 @@ describe("Publisher", () => {
 			await publisher.start();
 
 			await expect(publisher.start()).rejects.toThrow();
+
+			await publisher.stop();
 		});
 
 		it("should allow restart after stop", async () => {
@@ -64,6 +74,8 @@ describe("Publisher", () => {
 			await publisher.start();
 
 			expect(publisher.isStarted()).toBe(true);
+
+			await publisher.stop();
 		});
 
 		it("should handle adapter connection failure", async () => {
@@ -75,80 +87,157 @@ describe("Publisher", () => {
 		});
 	});
 
-	describe("publish", () => {
+	describe("executeStep - publish", () => {
 		it("should publish message to topic", async () => {
 			const adapter = createFakeMQAdapter(broker);
-			const publisher = new Publisher("test-pub", { adapter });
+			const publisher = new Publisher<DefaultTopics, FakePublishOptions, FakeBatchMessage>("test-pub", { adapter });
 			await publisher.start();
 
-			await publisher.publish("orders", { orderId: "123", status: "pending" });
+			const step: Step = {
+				id: "test-step-1",
+				type: "publish",
+				component: publisher,
+				mode: "action",
+				params: {
+					topic: "orders",
+					payload: { orderId: "123", status: "pending" },
+				},
+				handlers: [],
+			};
+
+			await publisher.executeStep(step);
 
 			const messages = broker.getMessages("orders");
 			expect(messages).toHaveLength(1);
 			expect(messages[0].topic).toBe("orders");
 			expect(messages[0].payload).toEqual({ orderId: "123", status: "pending" });
+
+			await publisher.stop();
 		});
 
 		it("should publish with options (key, headers)", async () => {
 			const adapter = createFakeMQAdapter(broker);
-			const publisher = new Publisher("test-pub", { adapter });
+			const publisher = new Publisher<DefaultTopics, FakePublishOptions, FakeBatchMessage>("test-pub", { adapter });
 			await publisher.start();
 
-			await publisher.publish(
-				"orders",
-				{ orderId: "123" },
-				{
-					key: "customer-1",
-					headers: { "correlation-id": "abc-123" },
-				}
-			);
+			const step: Step = {
+				id: "test-step-2",
+				type: "publish",
+				component: publisher,
+				mode: "action",
+				params: {
+					topic: "orders",
+					payload: { orderId: "123" },
+					options: {
+						key: "customer-1",
+						headers: { "correlation-id": "abc-123" },
+					},
+				},
+				handlers: [],
+			};
+
+			await publisher.executeStep(step);
 
 			const messages = broker.getMessages("orders");
 			expect(messages).toHaveLength(1);
 			expect(messages[0].key).toBe("customer-1");
 			expect(messages[0].headers).toEqual({ "correlation-id": "abc-123" });
+
+			await publisher.stop();
 		});
 
-		it("should throw if publish called before start", async () => {
+		it("should throw if executeStep called before start", async () => {
 			const adapter = createFakeMQAdapter(broker);
-			const publisher = new Publisher("test-pub", { adapter });
+			const publisher = new Publisher<DefaultTopics, FakePublishOptions, FakeBatchMessage>("test-pub", { adapter });
 
-			await expect(publisher.publish("orders", { orderId: "123" })).rejects.toThrow(/not started/);
+			const step: Step = {
+				id: "test-step-3",
+				type: "publish",
+				component: publisher,
+				mode: "action",
+				params: {
+					topic: "orders",
+					payload: { orderId: "123" },
+				},
+				handlers: [],
+			};
+
+			await expect(publisher.executeStep(step)).rejects.toThrow(/not started/);
 		});
 
 		it("should handle publish failure", async () => {
 			const adapter = createFakeMQAdapter(broker, { failOnPublish: true });
-			const publisher = new Publisher("test-pub", { adapter });
+			const publisher = new Publisher<DefaultTopics, FakePublishOptions, FakeBatchMessage>("test-pub", { adapter });
 			await publisher.start();
 
-			await expect(publisher.publish("orders", { orderId: "123" })).rejects.toThrow(/Publish failed/);
+			const step: Step = {
+				id: "test-step-4",
+				type: "publish",
+				component: publisher,
+				mode: "action",
+				params: {
+					topic: "orders",
+					payload: { orderId: "123" },
+				},
+				handlers: [],
+			};
+
+			await expect(publisher.executeStep(step)).rejects.toThrow(/Publish failed/);
+
+			await publisher.stop();
 		});
 	});
 
-	describe("publishBatch", () => {
+	describe("executeStep - publishBatch", () => {
 		it("should publish multiple messages in batch", async () => {
 			const adapter = createFakeMQAdapter(broker);
-			const publisher = new Publisher("test-pub", { adapter });
+			const publisher = new Publisher<DefaultTopics, FakePublishOptions, FakeBatchMessage>("test-pub", { adapter });
 			await publisher.start();
 
-			await publisher.publishBatch("orders", [
-				{ payload: { orderId: "1" } },
-				{ payload: { orderId: "2" }, key: "customer-1" },
-				{ payload: { orderId: "3" }, headers: { priority: "high" } },
-			]);
+			const step: Step = {
+				id: "test-step-5",
+				type: "publishBatch",
+				component: publisher,
+				mode: "action",
+				params: {
+					topic: "orders",
+					messages: [
+						{ payload: { orderId: "1" } },
+						{ payload: { orderId: "2" }, key: "customer-1" },
+						{ payload: { orderId: "3" }, headers: { priority: "high" } },
+					],
+				},
+				handlers: [],
+			};
+
+			await publisher.executeStep(step);
 
 			const messages = broker.getMessages("orders");
 			expect(messages).toHaveLength(3);
 			expect(messages[0].payload).toEqual({ orderId: "1" });
 			expect(messages[1].key).toBe("customer-1");
 			expect(messages[2].headers).toEqual({ priority: "high" });
+
+			await publisher.stop();
 		});
 
 		it("should throw if publishBatch called before start", async () => {
 			const adapter = createFakeMQAdapter(broker);
-			const publisher = new Publisher("test-pub", { adapter });
+			const publisher = new Publisher<DefaultTopics, FakePublishOptions, FakeBatchMessage>("test-pub", { adapter });
 
-			await expect(publisher.publishBatch("orders", [{ payload: {} }])).rejects.toThrow(/not started/);
+			const step: Step = {
+				id: "test-step-6",
+				type: "publishBatch",
+				component: publisher,
+				mode: "action",
+				params: {
+					topic: "orders",
+					messages: [{ payload: {} }],
+				},
+				handlers: [],
+			};
+
+			await expect(publisher.executeStep(step)).rejects.toThrow(/not started/);
 		});
 	});
 
@@ -175,83 +264,26 @@ describe("Publisher", () => {
 			expect(publisher.getUnhandledErrors()).toEqual([]);
 		});
 	});
-});
 
-describe("PublisherStepBuilder", () => {
-	let broker: InMemoryBroker;
-	let publisher: Publisher<DefaultTopics>;
-	let builder: TestCaseBuilder;
+	describe("unknown step type", () => {
+		it("should throw for unknown step type", async () => {
+			const adapter = createFakeMQAdapter(broker);
+			const publisher = new Publisher<DefaultTopics, FakePublishOptions, FakeBatchMessage>("test-pub", { adapter });
+			await publisher.start();
 
-	beforeEach(async () => {
-		broker = createInMemoryBroker();
-		const adapter = createFakeMQAdapter(broker);
-		publisher = new Publisher("test-pub", { adapter });
-		await publisher.start();
-		builder = new TestCaseBuilder(new Map());
-	});
+			const step: Step = {
+				id: "test-step-7",
+				type: "unknownType",
+				component: publisher,
+				mode: "action",
+				params: {},
+				handlers: [],
+			};
 
-	afterEach(async () => {
-		await publisher.stop();
-		broker.clear();
-	});
+			await expect(publisher.executeStep(step)).rejects.toThrow(/Unknown step type/);
 
-	it("should register publish step", () => {
-		const stepBuilder = publisher.createStepBuilder(builder);
-
-		stepBuilder.publish("orders", { orderId: "123" });
-
-		const steps = builder.getSteps();
-		expect(steps).toHaveLength(1);
-		expect(steps[0].type).toBe("custom");
-		expect(steps[0].metadata?.operation).toBe("publish");
-	});
-
-	it("should register publishBatch step", () => {
-		const stepBuilder = publisher.createStepBuilder(builder);
-
-		stepBuilder.publishBatch("orders", [{ payload: { orderId: "1" } }, { payload: { orderId: "2" } }]);
-
-		const steps = builder.getSteps();
-		expect(steps).toHaveLength(1);
-		expect(steps[0].type).toBe("custom");
-		expect(steps[0].metadata?.operation).toBe("publishBatch");
-	});
-
-	it("should execute publish step and send message", async () => {
-		const stepBuilder = publisher.createStepBuilder(builder);
-
-		stepBuilder.publish("orders", { orderId: "123" });
-
-		const steps = builder.getSteps();
-		await steps[0].action();
-
-		const messages = broker.getMessages("orders");
-		expect(messages).toHaveLength(1);
-		expect(messages[0].payload).toEqual({ orderId: "123" });
-	});
-
-	it("should execute publishBatch step and send messages", async () => {
-		const stepBuilder = publisher.createStepBuilder(builder);
-
-		stepBuilder.publishBatch("orders", [{ payload: { orderId: "1" } }, { payload: { orderId: "2" } }]);
-
-		const steps = builder.getSteps();
-		await steps[0].action();
-
-		const messages = broker.getMessages("orders");
-		expect(messages).toHaveLength(2);
-	});
-
-	it("should support publish with options", async () => {
-		const stepBuilder = publisher.createStepBuilder(builder);
-
-		stepBuilder.publish("orders", { orderId: "123" }, { key: "customer-1" });
-
-		const steps = builder.getSteps();
-		await steps[0].action();
-
-		const messages = broker.getMessages("orders");
-		expect(messages[0].key).toBe("customer-1");
+			await publisher.stop();
+		});
 	});
 });
 
@@ -259,12 +291,29 @@ describe("Publisher Type Safety", () => {
 	it("should accept any topic in loose mode", async () => {
 		const broker = createInMemoryBroker();
 		const adapter = createFakeMQAdapter(broker);
-		const publisher = new Publisher("test-pub", { adapter });
+		const publisher = new Publisher<DefaultTopics, FakePublishOptions, FakeBatchMessage>("test-pub", { adapter });
 		await publisher.start();
 
 		// In loose mode, any topic string is valid
-		await publisher.publish("any-topic", { any: "data" });
-		await publisher.publish("another-topic", { different: "payload" });
+		const step1: Step = {
+			id: "type-step-1",
+			type: "publish",
+			component: publisher,
+			mode: "action",
+			params: { topic: "any-topic", payload: { any: "data" } },
+			handlers: [],
+		};
+		const step2: Step = {
+			id: "type-step-2",
+			type: "publish",
+			component: publisher,
+			mode: "action",
+			params: { topic: "another-topic", payload: { different: "payload" } },
+			handlers: [],
+		};
+
+		await publisher.executeStep(step1);
+		await publisher.executeStep(step2);
 
 		expect(broker.getMessages("any-topic")).toHaveLength(1);
 		expect(broker.getMessages("another-topic")).toHaveLength(1);
@@ -280,12 +329,29 @@ describe("Publisher Type Safety", () => {
 
 		const broker = createInMemoryBroker();
 		const adapter = createFakeMQAdapter(broker);
-		const publisher = new Publisher<OrderTopics>("test-pub", { adapter });
+		const publisher = new Publisher<OrderTopics, FakePublishOptions, FakeBatchMessage>("test-pub", { adapter });
 		await publisher.start();
 
 		// Type-safe publish - only defined topics accepted
-		await publisher.publish("order-created", { orderId: "ORD-1", customerId: "CUST-1" });
-		await publisher.publish("order-updated", { orderId: "ORD-1", status: "shipped" });
+		const step1: Step = {
+			id: "type-step-3",
+			type: "publish",
+			component: publisher,
+			mode: "action",
+			params: { topic: "order-created", payload: { orderId: "ORD-1", customerId: "CUST-1" } },
+			handlers: [],
+		};
+		const step2: Step = {
+			id: "type-step-4",
+			type: "publish",
+			component: publisher,
+			mode: "action",
+			params: { topic: "order-updated", payload: { orderId: "ORD-1", status: "shipped" } },
+			handlers: [],
+		};
+
+		await publisher.executeStep(step1);
+		await publisher.executeStep(step2);
 
 		const created = broker.getMessages("order-created");
 		const updated = broker.getMessages("order-updated");

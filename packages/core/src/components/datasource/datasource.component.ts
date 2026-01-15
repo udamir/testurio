@@ -5,18 +5,19 @@
  * via pluggable adapters. Unlike network components, DataSource does not use
  * protocols or hooks - it provides direct exec() access to native clients.
  *
- * This is a standalone component that does NOT extend BaseComponent.
+ * Extends BaseComponent for consistent lifecycle and error handling.
+ *
+ * Key differences from network components:
+ * - No hooks (registerHook/clearHooks are no-ops effectively)
+ * - All steps are mode: "action" (direct execution)
+ * - No protocol layer (adapter provides direct client access)
  */
 
-import type { ITestCaseBuilder } from "../../execution";
-import { DataSourceStepBuilderImpl } from "./datasource.step-builder";
-import type {
-	DataSourceAdapter,
-	DataSourceOptions,
-	DataSourceState,
-	DataSourceStepBuilder,
-	IDataSource,
-} from "./datasource.types";
+import { BaseComponent } from "../base/base.component";
+import type { ITestCaseContext } from "../base/base.types";
+import type { Step, Handler } from "../base/step.types";
+import { DataSourceStepBuilder } from "./datasource.step-builder";
+import type { DataSourceAdapter, DataSourceOptions } from "./datasource.types";
 
 /**
  * DataSource Component
@@ -37,13 +38,10 @@ import type {
  * });
  * ```
  */
-export class DataSource<TClient, A extends DataSourceAdapter<TClient, unknown>> implements IDataSource<TClient, A> {
-	private state: DataSourceState = "created";
-	private error?: Error;
-
-	/** Component name */
-	readonly name: string;
-
+export class DataSource<
+	TClient,
+	A extends DataSourceAdapter<TClient, unknown>,
+> extends BaseComponent<DataSourceStepBuilder<TClient>> {
 	/** Adapter instance */
 	readonly adapter: A;
 
@@ -54,81 +52,135 @@ export class DataSource<TClient, A extends DataSourceAdapter<TClient, unknown>> 
 	 * @param options - Component options including adapter
 	 */
 	constructor(name: string, options: DataSourceOptions<TClient, A>) {
-		this.name = name;
+		super(name);
 		this.adapter = options.adapter;
 	}
 
 	// =========================================================================
-	// State Management
+	// Step Builder Creation
 	// =========================================================================
 
 	/**
-	 * Get current component state
+	 * Create a step builder for use in testCase
+	 *
+	 * Called by TestCaseBuilder.use()
 	 */
-	getState(): DataSourceState {
-		return this.state;
-	}
-
-	/**
-	 * Check if component is started
-	 */
-	isStarted(): boolean {
-		return this.state === "started";
-	}
-
-	/**
-	 * Check if component is stopped
-	 */
-	isStopped(): boolean {
-		return this.state === "stopped";
+	createStepBuilder(context: ITestCaseContext): DataSourceStepBuilder<TClient> {
+		return new DataSourceStepBuilder<TClient>(context, this);
 	}
 
 	// =========================================================================
-	// Lifecycle
+	// Step Execution
 	// =========================================================================
 
 	/**
-	 * Start the component (connects adapter)
+	 * Execute a step based on its type.
+	 *
+	 * DataSource only supports "exec" step type with mode: "action".
 	 */
-	async start(): Promise<void> {
-		if (this.state !== "created" && this.state !== "stopped") {
-			throw new Error(`Cannot start DataSource "${this.name}" in state ${this.state}`);
-		}
-
-		this.state = "starting";
-
-		try {
-			await this.adapter.init();
-			this.state = "started";
-		} catch (error) {
-			this.state = "error";
-			this.error = error instanceof Error ? error : new Error(String(error));
-			throw error;
+	async executeStep(step: Step): Promise<void> {
+		switch (step.type) {
+			case "exec":
+				await this.executeExec(step);
+				break;
+			default:
+				throw new Error(`Unknown step type: ${step.type} for DataSource ${this.name}`);
 		}
 	}
 
 	/**
-	 * Stop the component (disconnects adapter)
+	 * Execute an exec step.
+	 *
+	 * 1. Get native client from adapter
+	 * 2. Execute callback with optional timeout
+	 * 3. Run handlers on result (e.g., assert)
 	 */
-	async stop(): Promise<void> {
-		if (this.state === "stopped") {
-			return;
+	private async executeExec(step: Step): Promise<void> {
+		const params = step.params as {
+			callback: (client: TClient) => Promise<unknown>;
+			description?: string;
+			timeout?: number;
+		};
+
+		// Get native client
+		const client = this.getClient();
+
+		// Execute callback with optional timeout
+		let result: unknown;
+		if (params.timeout) {
+			result = await this.withTimeout(params.callback(client), params.timeout, params.description);
+		} else {
+			result = await params.callback(client);
 		}
 
-		if (this.state !== "started" && this.state !== "error") {
-			throw new Error(`Cannot stop DataSource "${this.name}" in state ${this.state}`);
-		}
+		// Execute handlers (e.g., assert)
+		await this.executeHandlers(step, result);
+	}
 
-		this.state = "stopping";
+	/**
+	 * Wrap a promise with a timeout.
+	 */
+	private async withTimeout<T>(promise: Promise<T>, timeoutMs: number, description?: string): Promise<T> {
+		return Promise.race([
+			promise,
+			new Promise<never>((_, reject) => {
+				setTimeout(() => {
+					const desc = description ? `"${description}"` : "exec";
+					reject(new Error(`DataSource ${desc} timeout after ${timeoutMs}ms`));
+				}, timeoutMs);
+			}),
+		]);
+	}
 
-		try {
-			await this.adapter.dispose();
-			this.state = "stopped";
-		} catch (error) {
-			this.state = "error";
-			this.error = error instanceof Error ? error : new Error(String(error));
-			throw error;
+	// =========================================================================
+	// Handler Execution
+	// =========================================================================
+
+	/**
+	 * Execute a single handler.
+	 *
+	 * DataSource supports:
+	 * - assert: Validate result with predicate
+	 */
+	protected async executeHandler<TContext = unknown>(
+		handler: Handler,
+		payload: unknown,
+		_context?: TContext
+	): Promise<unknown> {
+		const params = handler.params as Record<string, unknown>;
+
+		switch (handler.type) {
+			case "assert": {
+				const predicate = params.predicate as (p: unknown) => boolean | Promise<boolean>;
+				const result = await predicate(payload);
+				if (!result) {
+					const errorMsg = handler.description
+						? `Assertion failed: ${handler.description}`
+						: "Assertion failed";
+					throw new Error(errorMsg);
+				}
+				return undefined;
+			}
+
+			default:
+				// Unknown handler type - ignore (or could throw)
+				return undefined;
 		}
+	}
+
+	// =========================================================================
+	// Hook Matching (No-op for DataSource)
+	// =========================================================================
+
+	/**
+	 * Create hook matcher.
+	 *
+	 * DataSource doesn't use hooks - all steps are action mode.
+	 * This is required by abstract base class but never called.
+	 */
+	protected createHookMatcher(_step: Step): (message: unknown) => boolean {
+		// DataSource doesn't use hooks - return always-false matcher
+		return () => false;
 	}
 
 	// =========================================================================
@@ -136,7 +188,7 @@ export class DataSource<TClient, A extends DataSourceAdapter<TClient, unknown>> 
 	// =========================================================================
 
 	/**
-	 * Get the native SDK client
+	 * Get the native SDK client.
 	 *
 	 * @throws Error if component is not started
 	 */
@@ -148,7 +200,7 @@ export class DataSource<TClient, A extends DataSourceAdapter<TClient, unknown>> 
 	}
 
 	/**
-	 * Execute an operation using the native client
+	 * Execute an operation using the native client.
 	 *
 	 * This is the direct exec method for programmatic use outside of testCase.
 	 * Inside testCase, use the step builder: test.use(dataSource).exec(...)
@@ -162,54 +214,20 @@ export class DataSource<TClient, A extends DataSourceAdapter<TClient, unknown>> 
 	}
 
 	// =========================================================================
-	// Step Builder
+	// Lifecycle
 	// =========================================================================
 
 	/**
-	 * Create a step builder for use in testCase
-	 *
-	 * Called by TestCaseBuilder.use()
+	 * Start the component (connects adapter).
 	 */
-	createStepBuilder(builder: ITestCaseBuilder): DataSourceStepBuilder<TClient> {
-		return new DataSourceStepBuilderImpl<TClient>(this, builder);
-	}
-
-	// =========================================================================
-	// For BaseComponent compatibility (used by TestScenario)
-	// =========================================================================
-
-	/**
-	 * Set test case context for hook isolation (no-op for DataSource, no hooks)
-	 */
-	setTestCaseContext(_testCaseId?: string): void {
-		// DataSource doesn't have hooks - no-op
+	protected async doStart(): Promise<void> {
+		await this.adapter.init();
 	}
 
 	/**
-	 * Clear test case hooks (no-op for DataSource, no hooks)
+	 * Stop the component (disconnects adapter).
 	 */
-	clearTestCaseHooks(_testCaseId?: string): void {
-		// DataSource doesn't have hooks - no-op
-	}
-
-	/**
-	 * Clear all hooks (no-op for DataSource, no hooks)
-	 */
-	clearHooks(): void {
-		// DataSource doesn't have hooks - no-op
-	}
-
-	/**
-	 * Get unhandled errors (DataSource doesn't track these)
-	 */
-	getUnhandledErrors(): Error[] {
-		return this.error ? [this.error] : [];
-	}
-
-	/**
-	 * Clear unhandled errors
-	 */
-	clearUnhandledErrors(): void {
-		this.error = undefined;
+	protected async doStop(): Promise<void> {
+		await this.adapter.dispose();
 	}
 }

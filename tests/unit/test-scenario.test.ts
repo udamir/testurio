@@ -1,50 +1,103 @@
 /**
  * TestScenario Tests
+ *
+ * Tests for the new three-phase execution model TestScenario.
  */
 
-import type { TestScenarioConfig } from "testurio";
-import { BaseSyncProtocol, Client, scenario, TestScenario, testCase } from "testurio";
-import { describe, expect, it } from "vitest";
+import type { Component, ITestCaseContext, Step, TestScenarioConfig } from "testurio";
+import { scenario, TestScenario, testCase } from "testurio";
+import { describe, expect, it, vi } from "vitest";
 
-// Mock adapter class
-class MockAdapter extends BaseSyncProtocol {
-	readonly type = "http";
+/**
+ * Mock component for testing the new execution model.
+ * Implements the full Component interface.
+ */
+function createMockComponent(
+	name: string,
+	executeStepFn?: (step: Step) => Promise<void> | void
+): Component {
+	const hooks: Step[] = [];
+	const unhandledErrors: Error[] = [];
+	let state: "created" | "starting" | "started" | "stopping" | "stopped" | "error" = "created";
 
-	async startServer() {}
-	async stopServer() {}
-	async createClient() {}
-	async closeClient() {}
+	const component = {
+		name,
+		hooks,
+		// State methods
+		getState: vi.fn(() => state),
+		isStarted: vi.fn(() => state === "started"),
+		isStopped: vi.fn(() => state === "stopped"),
+		// Hook methods
+		registerHook: vi.fn((step: Step) => {
+			hooks.push(step);
+		}),
+		executeStep: vi.fn(async (step: Step) => {
+			if (executeStepFn) {
+				await executeStepFn(step);
+			}
+		}),
+		clearHooks: vi.fn((_testCaseId?: string) => {
+			hooks.length = 0;
+		}),
+		// Error tracking
+		getUnhandledErrors: vi.fn(() => [...unhandledErrors]),
+		clearUnhandledErrors: vi.fn(() => {
+			unhandledErrors.length = 0;
+		}),
+		// Step builder factory
+		createStepBuilder: vi.fn((context: ITestCaseContext) => ({
+			// Return a mock step builder that registers steps
+			doAction: (description: string) => {
+				context.registerStep({
+					id: `step_${Date.now()}_${Math.random()}`,
+					type: "action",
+					component: component as unknown as Step["component"],
+					description,
+					params: {},
+					handlers: [],
+					mode: "action",
+				});
+			},
+			onEvent: (description: string) => {
+				context.registerStep({
+					id: `step_${Date.now()}_${Math.random()}`,
+					type: "onEvent",
+					component: component as unknown as Step["component"],
+					description,
+					params: {},
+					handlers: [],
+					mode: "hook",
+				});
+			},
+		})),
+		// Lifecycle
+		start: vi.fn(async () => {
+			state = "started";
+		}),
+		stop: vi.fn(async () => {
+			state = "stopped";
+		}),
+	};
 
-	async request<TRes = unknown>(): Promise<TRes> {
-		return { status: 200, data: "ok" } as TRes;
-	}
-
-	respond(): void {}
+	return component as unknown as Component;
 }
 
-// Helper to create type-safe client for tests
-const createTestClient = () =>
-	new Client("api", {
-		protocol: new MockAdapter() as unknown as Parameters<typeof Client.create>[1]["protocol"],
-		targetAddress: { host: "localhost", port: 8080 },
-	});
-
 describe("TestScenario", () => {
-	const config: TestScenarioConfig = {
+	const createConfig = (): TestScenarioConfig => ({
 		name: "Test Scenario",
-		components: [createTestClient()],
-	};
+		components: [createMockComponent("api")],
+	});
 
 	describe("constructor", () => {
 		it("should create a scenario with config", () => {
-			const testScenario = new TestScenario(config);
+			const testScenario = new TestScenario(createConfig());
 
 			expect(testScenario).toBeInstanceOf(TestScenario);
 		});
 
 		it("should accept config with recording option", () => {
 			const configWithRecording = {
-				...config,
+				...createConfig(),
 				recording: true,
 			};
 
@@ -56,7 +109,7 @@ describe("TestScenario", () => {
 
 	describe("init/stop handlers", () => {
 		it("should chain init handler", () => {
-			const testScenario = new TestScenario(config);
+			const testScenario = new TestScenario(createConfig());
 
 			const result = testScenario.init(() => {});
 
@@ -64,7 +117,7 @@ describe("TestScenario", () => {
 		});
 
 		it("should chain stop handler", () => {
-			const testScenario = new TestScenario(config);
+			const testScenario = new TestScenario(createConfig());
 
 			const result = testScenario.stop(() => {});
 
@@ -74,10 +127,15 @@ describe("TestScenario", () => {
 
 	describe("run", () => {
 		it("should run a single test case", async () => {
-			const testScenario = new TestScenario(config);
+			const mockComponent = createMockComponent("api");
+			const testScenario = new TestScenario({
+				name: "Test",
+				components: [mockComponent],
+			});
 
 			const tc = testCase("Simple Test", (test) => {
-				test.wait(10);
+				const api = test.use(mockComponent);
+				api.doAction("Action 1");
 			});
 
 			const result = await testScenario.run(tc);
@@ -89,14 +147,20 @@ describe("TestScenario", () => {
 		});
 
 		it("should run multiple test cases", async () => {
-			const testScenario = new TestScenario(config);
+			const mockComponent = createMockComponent("api");
+			const testScenario = new TestScenario({
+				name: "Test",
+				components: [mockComponent],
+			});
 
 			const tc1 = testCase("Test 1", (test) => {
-				test.wait(5);
+				const api = test.use(mockComponent);
+				api.doAction("Action 1");
 			});
 
 			const tc2 = testCase("Test 2", (test) => {
-				test.wait(5);
+				const api = test.use(mockComponent);
+				api.doAction("Action 2");
 			});
 
 			const result = await testScenario.run(tc1, tc2);
@@ -107,15 +171,17 @@ describe("TestScenario", () => {
 		});
 
 		it("should handle failing test cases", async () => {
-			const testScenario = new TestScenario(config);
+			const failingComponent = createMockComponent("api", () => {
+				throw new Error("Test failed");
+			});
+			const testScenario = new TestScenario({
+				name: "Test",
+				components: [failingComponent],
+			});
 
 			const tc = testCase("Failing Test", (test) => {
-				test.waitUntil(
-					() => {
-						throw new Error("Test failed");
-					},
-					{ timeout: 100 }
-				);
+				const api = test.use(failingComponent);
+				api.doAction("Failing action");
 			});
 
 			const result = await testScenario.run(tc);
@@ -125,39 +191,63 @@ describe("TestScenario", () => {
 		});
 
 		it("should run init handler before tests", async () => {
-			const testScenario = new TestScenario(config).init(() => {
-				// Init runs synchronously, no steps registered
+			const mockComponent = createMockComponent("api");
+			const initCalled = vi.fn();
+
+			const testScenario = new TestScenario({
+				name: "Test",
+				components: [mockComponent],
+			}).init((test) => {
+				initCalled();
+				// Init can register hooks
+				const api = test.use(mockComponent);
+				api.onEvent("Init event");
 			});
 
 			const tc = testCase("Test", (test) => {
-				test.wait(10);
+				const api = test.use(mockComponent);
+				api.doAction("Action");
 			});
 
 			const result = await testScenario.run(tc);
 
 			expect(result.passed).toBe(true);
+			expect(initCalled).toHaveBeenCalled();
 		});
 
 		it("should run stop handler after tests", async () => {
-			const testScenario = new TestScenario(config).stop(() => {
-				// Stop runs synchronously, no steps registered
+			const mockComponent = createMockComponent("api");
+			const stopCalled = vi.fn();
+
+			const testScenario = new TestScenario({
+				name: "Test",
+				components: [mockComponent],
+			}).stop(() => {
+				stopCalled();
 			});
 
 			const tc = testCase("Test", (test) => {
-				test.wait(10);
+				const api = test.use(mockComponent);
+				api.doAction("Action");
 			});
 
 			const result = await testScenario.run(tc);
 
 			expect(result.passed).toBe(true);
+			expect(stopCalled).toHaveBeenCalled();
 		});
 
 		it("should include summary in result", async () => {
-			const testScenario = new TestScenario(config);
+			const mockComponent = createMockComponent("api");
+			const testScenario = new TestScenario({
+				name: "Test",
+				components: [mockComponent],
+			});
 
 			const tc = testCase("Test", (test) => {
-				test.wait(10);
-				test.wait(10);
+				const api = test.use(mockComponent);
+				api.doAction("Action 1");
+				api.doAction("Action 2");
 			});
 
 			const result = await testScenario.run(tc);
@@ -169,10 +259,17 @@ describe("TestScenario", () => {
 		});
 
 		it("should record duration", async () => {
-			const testScenario = new TestScenario(config);
+			const slowComponent = createMockComponent("api", async () => {
+				await new Promise((resolve) => setTimeout(resolve, 50));
+			});
+			const testScenario = new TestScenario({
+				name: "Test",
+				components: [slowComponent],
+			});
 
 			const tc = testCase("Test", (test) => {
-				test.wait(50);
+				const api = test.use(slowComponent);
+				api.doAction("Slow action");
 			});
 
 			const result = await testScenario.run(tc);
@@ -184,7 +281,7 @@ describe("TestScenario", () => {
 
 	describe("scenario factory", () => {
 		it("should create a TestScenario instance", () => {
-			const testScenario = scenario(config);
+			const testScenario = scenario(createConfig());
 
 			expect(testScenario).toBeInstanceOf(TestScenario);
 		});
@@ -192,20 +289,62 @@ describe("TestScenario", () => {
 
 	describe("sequential test execution", () => {
 		it("should run array of tests sequentially", async () => {
-			const testScenario = new TestScenario(config);
+			const mockComponent = createMockComponent("api");
+			const testScenario = new TestScenario({
+				name: "Test",
+				components: [mockComponent],
+			});
 
 			const tc1 = testCase("Test 1", (test) => {
-				test.wait(10);
+				const api = test.use(mockComponent);
+				api.doAction("Action 1");
 			});
 
 			const tc2 = testCase("Test 2", (test) => {
-				test.wait(10);
+				const api = test.use(mockComponent);
+				api.doAction("Action 2");
 			});
 
 			const result = await testScenario.run([tc1, tc2]);
 
 			expect(result.passed).toBe(true);
 			expect(result.totalTests).toBe(2);
+		});
+	});
+
+	describe("component lifecycle", () => {
+		it("should start components before running tests", async () => {
+			const mockComponent = createMockComponent("api");
+			const testScenario = new TestScenario({
+				name: "Test",
+				components: [mockComponent],
+			});
+
+			const tc = testCase("Test", (test) => {
+				const api = test.use(mockComponent);
+				api.doAction("Action");
+			});
+
+			await testScenario.run(tc);
+
+			expect(mockComponent.start).toHaveBeenCalled();
+		});
+
+		it("should stop components after running tests", async () => {
+			const mockComponent = createMockComponent("api");
+			const testScenario = new TestScenario({
+				name: "Test",
+				components: [mockComponent],
+			});
+
+			const tc = testCase("Test", (test) => {
+				const api = test.use(mockComponent);
+				api.doAction("Action");
+			});
+
+			await testScenario.run(tc);
+
+			expect(mockComponent.stop).toHaveBeenCalled();
 		});
 	});
 });

@@ -111,7 +111,7 @@ describe("TCP Error Scenarios Integration Tests", () => {
 				const api = test.use(client);
 
 				api.sendMessage("ping", { seq: 1 });
-				api.waitEvent("pong", { timeout: 1000 }).assert((msg) => msg.seq === 1);
+				api.waitEvent("pong").timeout(1000).assert((msg) => msg.seq === 1);
 			});
 
 			const result = await scenario.run(tc);
@@ -137,12 +137,12 @@ describe("TCP Error Scenarios Integration Tests", () => {
 			const tc = testCase("Message wait times out", (test) => {
 				const backend = test.use(server);
 				// Wait for a message that will never arrive
-				backend.waitMessage("ping", { timeout: 200 }).assert(() => true);
+				backend.waitMessage("ping").timeout(200).assert(() => true);
 			});
 
 			const result = await scenario.run(tc);
 			expect(result.passed).toBe(false);
-			expect(result.testCases[0].error).toContain("timeout");
+			expect(result.testCases[0].error?.toLowerCase()).toContain("timeout");
 		});
 	});
 
@@ -168,7 +168,7 @@ describe("TCP Error Scenarios Integration Tests", () => {
 				const backend = test.use(server);
 
 				api.sendMessage("data", { payload: "test message" });
-				backend.waitMessage("data", { timeout: 1000 }).assert((msg) => msg.payload === "test message");
+				backend.waitMessage("data").timeout(1000).assert((msg) => msg.payload === "test message");
 			});
 
 			const result = await scenario.run(tc);
@@ -196,7 +196,7 @@ describe("TCP Error Scenarios Integration Tests", () => {
 				const backend = test.use(server);
 
 				api.sendMessage("data", { payload: "binary-framed message" });
-				backend.waitMessage("data", { timeout: 1000 }).assert((msg) => msg.payload === "binary-framed message");
+				backend.waitMessage("data").timeout(1000).assert((msg) => msg.payload === "binary-framed message");
 			});
 
 			const result = await scenario.run(tc);
@@ -227,7 +227,7 @@ describe("TCP Error Scenarios Integration Tests", () => {
 
 				// Send a message and verify it's received
 				api.sendMessage("ping", { seq: 42 });
-				backend.waitMessage("ping", { timeout: 1000 }).assert((msg) => msg.seq === 42);
+				backend.waitMessage("ping").timeout(1000).assert((msg) => msg.seq === 42);
 			});
 
 			const result = await scenario.run(tc);

@@ -5,7 +5,9 @@
  * Component management is inlined for simplicity.
  */
 
-import { AsyncClient, AsyncServer, Client, Server } from "../components";
+// TODO: AsyncClient and AsyncServer not yet migrated to new execution model
+// import { AsyncClient, AsyncServer, Client, Server } from "../components";
+import { Client, Server } from "../components";
 import type { Component } from "../components/base";
 import type { Interaction, TestReporter } from "../recording";
 import { ConsoleReporter, InteractionRecorder } from "../recording";
@@ -69,14 +71,10 @@ export class TestScenario {
 
 	/**
 	 * Check if a component is a network component (Server, Client, AsyncServer, AsyncClient)
+	 * TODO: Add AsyncServer/AsyncClient back when migrated
 	 */
 	private isNetworkComponent(component: Component): boolean {
-		return (
-			component instanceof Server ||
-			component instanceof AsyncServer ||
-			component instanceof Client ||
-			component instanceof AsyncClient
-		);
+		return component instanceof Server || component instanceof Client;
 	}
 
 	/**
@@ -96,8 +94,9 @@ export class TestScenario {
 
 		// Categorize components
 		const nonNetwork = all.filter((c) => !this.isNetworkComponent(c));
-		const servers = all.filter((c) => c instanceof Server || c instanceof AsyncServer);
-		const clients = all.filter((c) => c instanceof Client || c instanceof AsyncClient);
+		// TODO: Add AsyncServer/AsyncClient back when migrated
+		const servers = all.filter((c) => c instanceof Server);
+		const clients = all.filter((c) => c instanceof Client);
 
 		// Start non-network components first (e.g., DataSource) - they may be dependencies
 		for (const component of nonNetwork) {
@@ -130,21 +129,37 @@ export class TestScenario {
 		const all = this.config.components;
 
 		// Categorize components
-		const clients = all.filter((c) => c instanceof Client || c instanceof AsyncClient);
-		const servers = all.filter((c) => c instanceof Server || c instanceof AsyncServer);
+		// TODO: Add AsyncServer/AsyncClient back when migrated
+		const clients = all.filter((c) => c instanceof Client);
+		const servers = all.filter((c) => c instanceof Server);
 		const nonNetwork = all.filter((c) => !this.isNetworkComponent(c));
 
+		// Helper to stop with timeout (1 second)
+		const stopWithTimeout = async (component: Component): Promise<void> => {
+			const stopTimeout = 1000;
+			try {
+				await Promise.race([
+					component.stop(),
+					new Promise<void>((_, reject) =>
+						setTimeout(() => reject(new Error(`Stop timeout for ${component.name}`)), stopTimeout)
+					),
+				]);
+			} catch {
+				// Ignore stop errors and timeouts
+			}
+		};
+
 		// Stop clients in parallel
-		await Promise.all(clients.map((c) => c.stop().catch(() => {})));
+		await Promise.all(clients.map((c) => stopWithTimeout(c)));
 
 		// Stop servers sequentially in reverse order (proxies before backends)
 		for (let i = servers.length - 1; i >= 0; i--) {
-			await servers[i].stop().catch(() => {});
+			await stopWithTimeout(servers[i]);
 		}
 
 		// Stop non-network components last (in reverse order)
 		for (let i = nonNetwork.length - 1; i >= 0; i--) {
-			await nonNetwork[i].stop().catch(() => {});
+			await stopWithTimeout(nonNetwork[i]);
 		}
 	}
 
@@ -191,20 +206,32 @@ export class TestScenario {
 	 * Run initialization
 	 *
 	 * Lifecycle order:
-	 * 1. Run init handler (register hooks, routes, create dynamic components)
-	 * 2. Start components (servers start with all routes already registered)
-	 * 3. Execute init steps (mockResponse actions, etc.)
+	 * 1. Run init handler (collect steps)
+	 * 2. Register init hooks BEFORE starting components (routes must be registered for HTTP)
+	 * 3. Start components (servers start with all routes already registered)
+	 * 4. Process any dynamically created components
 	 */
 	private async runInit(): Promise<void> {
 		if (this.initialized) return;
 
 		let builder: ReturnType<typeof this.createBuilder> | undefined;
 
-		// Run init handler FIRST to register routes/hooks before components start
+		// Run init handler FIRST to collect steps
 		if (this.initHandler) {
 			builder = this.createBuilder();
 			builder.setPhase("init");
 			this.initHandler(builder);
+		}
+
+		// Register init hooks BEFORE starting components
+		// This is critical for HTTP where routes must be registered before server starts
+		if (builder) {
+			const steps = builder.getSteps();
+			for (const step of steps) {
+				if (step.mode === "hook" || step.mode === "wait") {
+					step.component.registerHook(step);
+				}
+			}
 		}
 
 		// Start initial components (from constructor config)
@@ -214,12 +241,6 @@ export class TestScenario {
 		// Process any dynamically created components (start them)
 		if (builder) {
 			await this.processPendingComponents(builder);
-
-			// Execute init steps
-			const steps = builder.getSteps();
-			for (const step of steps) {
-				await step.action();
-			}
 		}
 
 		this.initialized = true;
@@ -239,7 +260,7 @@ export class TestScenario {
 			const steps = builder.getSteps();
 			for (const step of steps) {
 				try {
-					await step.action();
+					await step.component.executeStep(step);
 				} catch (_error) {
 					// Continue with cleanup even if stop steps fail
 				}
@@ -423,7 +444,7 @@ export class TestScenario {
 
 		// Clear test case hooks from all components (only for this test case)
 		for (const component of this.components.values()) {
-			component.clearTestCaseHooks(testCase.testCaseId);
+			component.clearHooks(testCase.testCaseId);
 		}
 
 		// Record interactions if enabled

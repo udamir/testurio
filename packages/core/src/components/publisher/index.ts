@@ -1,8 +1,7 @@
 /**
- * Publisher Component
- *
- * Exports Publisher component and related types.
+ * Publisher component for message queue publishing.
  */
 
-export * from "./publisher.component";
-export * from "./publisher.step-builder";
+export { Publisher } from "./publisher.component";
+export type { PublisherOptions } from "./publisher.component";
+export { PublisherStepBuilder } from "./publisher.step-builder";

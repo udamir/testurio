@@ -10,9 +10,36 @@ import type {
 	IMQAdapter,
 	IMQPublisherAdapter,
 	IMQSubscriberAdapter,
-	PublishOptions,
-	QueueMessage,
 } from "../../packages/core/src/components/mq.base";
+
+/**
+ * Fake message type for testing.
+ * This represents the adapter-specific message format.
+ */
+export interface FakeMessage<T = unknown> {
+	readonly topic: string;
+	readonly payload: T;
+	readonly key?: string;
+	readonly headers?: Record<string, string>;
+	readonly timestamp: number;
+}
+
+/**
+ * Fake publish options for testing.
+ */
+export interface FakePublishOptions {
+	key?: string;
+	headers?: Record<string, string>;
+}
+
+/**
+ * Fake batch message for testing.
+ */
+export interface FakeBatchMessage<T = unknown> {
+	payload: T;
+	key?: string;
+	headers?: Record<string, string>;
+}
 
 /**
  * Options for creating fake MQ adapter
@@ -30,26 +57,26 @@ export interface FakeMQAdapterOptions {
  * In-memory message broker for testing
  */
 export class InMemoryBroker {
-	private topics: Map<string, QueueMessage[]> = new Map();
-	private subscribers: Map<string, Set<(message: QueueMessage) => void>> = new Map();
+	private topics: Map<string, FakeMessage[]> = new Map();
+	private subscribers: Map<string, Set<(topic: string, message: FakeMessage) => void>> = new Map();
 
-	publish(topic: string, message: QueueMessage): void {
+	publish(topic: string, message: FakeMessage): void {
 		// Store message
 		if (!this.topics.has(topic)) {
 			this.topics.set(topic, []);
 		}
 		this.topics.get(topic)?.push(message);
 
-		// Notify subscribers
+		// Notify subscribers (pass topic separately as per new interface)
 		const handlers = this.subscribers.get(topic);
 		if (handlers) {
 			for (const handler of handlers) {
-				handler(message);
+				handler(topic, message);
 			}
 		}
 	}
 
-	subscribe(topic: string, handler: (message: QueueMessage) => void): () => void {
+	subscribe(topic: string, handler: (topic: string, message: FakeMessage) => void): () => void {
 		if (!this.subscribers.has(topic)) {
 			this.subscribers.set(topic, new Set());
 		}
@@ -60,7 +87,7 @@ export class InMemoryBroker {
 		};
 	}
 
-	getMessages(topic: string): QueueMessage[] {
+	getMessages(topic: string): FakeMessage[] {
 		return this.topics.get(topic) ?? [];
 	}
 
@@ -73,7 +100,7 @@ export class InMemoryBroker {
 /**
  * Mock publisher adapter
  */
-class FakeMQPublisherAdapter implements IMQPublisherAdapter {
+class FakeMQPublisherAdapter implements IMQPublisherAdapter<FakePublishOptions, FakeBatchMessage> {
 	private _isConnected = true;
 
 	constructor(
@@ -85,7 +112,7 @@ class FakeMQPublisherAdapter implements IMQPublisherAdapter {
 		return this._isConnected;
 	}
 
-	async publish<T>(topic: string, payload: T, options?: PublishOptions): Promise<void> {
+	async publish(topic: string, payload: unknown, options?: FakePublishOptions): Promise<void> {
 		if (this.options.operationDelay) {
 			await new Promise((resolve) => setTimeout(resolve, this.options.operationDelay));
 		}
@@ -98,7 +125,7 @@ class FakeMQPublisherAdapter implements IMQPublisherAdapter {
 			throw new Error("Publisher is not connected");
 		}
 
-		const message: QueueMessage<T> = {
+		const message: FakeMessage = {
 			topic,
 			payload,
 			key: options?.key,
@@ -106,13 +133,10 @@ class FakeMQPublisherAdapter implements IMQPublisherAdapter {
 			timestamp: Date.now(),
 		};
 
-		this.broker.publish(topic, message as QueueMessage);
+		this.broker.publish(topic, message);
 	}
 
-	async publishBatch<T>(
-		topic: string,
-		messages: Array<{ payload: T; key?: string; headers?: Record<string, string> }>
-	): Promise<void> {
+	async publishBatch(topic: string, messages: FakeBatchMessage[]): Promise<void> {
 		for (const msg of messages) {
 			await this.publish(topic, msg.payload, { key: msg.key, headers: msg.headers });
 		}
@@ -126,10 +150,10 @@ class FakeMQPublisherAdapter implements IMQPublisherAdapter {
 /**
  * Mock subscriber adapter with dynamic topic subscription
  */
-class FakeMQSubscriberAdapter implements IMQSubscriberAdapter {
+class FakeMQSubscriberAdapter implements IMQSubscriberAdapter<FakeMessage> {
 	readonly id: string;
 	private _isConnected = true;
-	private messageHandler?: (message: QueueMessage) => void;
+	private messageHandler?: (topic: string, message: FakeMessage) => void;
 	private errorHandler?: (error: Error) => void;
 	private disconnectHandler?: () => void;
 	private unsubscribes: Map<string, () => void> = new Map();
@@ -148,9 +172,9 @@ class FakeMQSubscriberAdapter implements IMQSubscriberAdapter {
 			return; // Already subscribed
 		}
 
-		const unsubscribe = this.broker.subscribe(topic, (message) => {
+		const unsubscribe = this.broker.subscribe(topic, (t, message) => {
 			if (this.messageHandler && this._isConnected) {
-				this.messageHandler(message);
+				this.messageHandler(t, message);
 			}
 		});
 
@@ -171,7 +195,7 @@ class FakeMQSubscriberAdapter implements IMQSubscriberAdapter {
 		return Array.from(this.subscribedTopics);
 	}
 
-	onMessage(handler: (message: QueueMessage) => void): void {
+	onMessage(handler: (topic: string, message: FakeMessage) => void): void {
 		this.messageHandler = handler;
 	}
 
@@ -208,7 +232,7 @@ class FakeMQSubscriberAdapter implements IMQSubscriberAdapter {
 /**
  * Mock MQ adapter for testing
  */
-export class FakeMQAdapter implements IMQAdapter {
+export class FakeMQAdapter implements IMQAdapter<FakeMessage, FakePublishOptions, FakeBatchMessage> {
 	readonly type = "fake";
 	readonly broker: InMemoryBroker;
 	private subscriberAdapters: FakeMQSubscriberAdapter[] = [];
@@ -220,7 +244,7 @@ export class FakeMQAdapter implements IMQAdapter {
 		this.broker = broker ?? new InMemoryBroker();
 	}
 
-	async createPublisher(): Promise<IMQPublisherAdapter> {
+	async createPublisher(): Promise<IMQPublisherAdapter<FakePublishOptions, FakeBatchMessage>> {
 		if (this.options.failOnConnect) {
 			throw new Error("Connection failed");
 		}
@@ -232,7 +256,7 @@ export class FakeMQAdapter implements IMQAdapter {
 		return new FakeMQPublisherAdapter(this.broker, this.options);
 	}
 
-	async createSubscriber(): Promise<IMQSubscriberAdapter> {
+	async createSubscriber(): Promise<IMQSubscriberAdapter<FakeMessage>> {
 		if (this.options.failOnConnect) {
 			throw new Error("Connection failed");
 		}

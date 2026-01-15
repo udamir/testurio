@@ -65,10 +65,21 @@ export interface StepExecutionContext {
 }
 
 /**
+ * Step info for execution results.
+ * Contains only the data needed for reporting, no action function.
+ */
+export interface StepInfo {
+	type: string;
+	componentName?: string;
+	description?: string;
+	messageType?: string;
+}
+
+/**
  * Step execution result
  */
 export interface StepExecutionResult {
-	step: TestStep;
+	step: StepInfo;
 	passed: boolean;
 	duration: number;
 	startTime: number;
@@ -205,16 +216,3 @@ export interface TestExecutionOptions {
  * Test execution status
  */
 export type TestExecutionStatus = "pending" | "running" | "passed" | "failed" | "skipped" | "timeout" | "cancelled";
-
-// =============================================================================
-// Test Case Builder Interface (for components)
-// =============================================================================
-
-/**
- * Minimal interface for TestCaseBuilder used by components
- * This breaks the circular dependency between base-component and execution
- */
-export interface ITestCaseBuilder {
-	phase: TestPhase;
-	registerStep(step: Omit<TestStep, "phase">): void;
-}

@@ -3,160 +3,113 @@
  *
  * Builder for sync client operations (HTTP/gRPC unary requests).
  * Implements the declarative sequential pattern:
- *   request() -> mock handles -> onResponse()
+ *   request() -> onResponse()/waitResponse()
+ *
+ * Response handling methods:
+ * - onResponse(): Non-strict - works regardless of timing (response can arrive before step starts)
+ * - waitResponse(): Strict - must be waiting when response arrives (error if response arrives early)
+ *
+ * Per design:
+ * - Contains NO logic, only step registration
+ * - All execution logic is in the Component
  */
 
-import type { ITestCaseBuilder } from "../../execution/execution.types";
 import type { ISyncProtocol, SyncOperationId } from "../../protocols/base";
-import { generateId } from "../../utils";
-import type { Client } from "./sync-client.component";
+import { BaseStepBuilder } from "../base/step-builder";
 import { SyncClientHookBuilder } from "./sync-client.hook-builder";
 import type { ExtractClientResponse, ExtractRequestData } from "./sync-client.types";
-
-/**
- * Request entry for tracking correlation
- */
-interface RequestEntry {
-	traceId: string;
-	messageType: string;
-	response?: unknown;
-	matched: boolean;
-}
-
-/**
- * Request tracker for correlating requests with responses
- */
-export class RequestTracker {
-	private requests: Map<string, RequestEntry[]> = new Map();
-	private responsesByTraceId: Map<string, unknown> = new Map();
-
-	/**
-	 * Track a request
-	 */
-	trackRequest(messageType: string, traceId?: string): string {
-		const id = traceId ?? generateId("req_");
-		const entries = this.requests.get(messageType) ?? [];
-		entries.push({ traceId: id, messageType, matched: false });
-		this.requests.set(messageType, entries);
-		return id;
-	}
-
-	/**
-	 * Store response for a traceId
-	 */
-	storeResponse(traceId: string, response: unknown): void {
-		this.responsesByTraceId.set(traceId, response);
-	}
-
-	/**
-	 * Find request and get its response
-	 */
-	findResponse(messageType: string, traceId?: string): unknown {
-		const entries = this.requests.get(messageType);
-		if (!entries?.length) {
-			throw new Error(`No request found for messageType: ${messageType}`);
-		}
-
-		if (traceId) {
-			// Explicit match by traceId
-			const entry = entries.find((e) => e.traceId === traceId);
-			if (!entry) {
-				throw new Error(`No request found with traceId: ${traceId}`);
-			}
-			return this.responsesByTraceId.get(entry.traceId);
-		}
-
-		// Implicit match - return last unmatched request's response
-		const unmatchedEntries = entries.filter((e) => !e.matched);
-		if (!unmatchedEntries.length) {
-			throw new Error(`All ${messageType} requests already matched`);
-		}
-		const lastEntry = unmatchedEntries[unmatchedEntries.length - 1];
-		lastEntry.matched = true;
-		return this.responsesByTraceId.get(lastEntry.traceId);
-	}
-
-	/**
-	 * Clear all tracked requests
-	 */
-	clear(): void {
-		this.requests.clear();
-		this.responsesByTraceId.clear();
-	}
-}
 
 /**
  * Sync Client Step Builder
  *
  * Provides declarative API for sync request/response flows.
+ * All methods register steps - no execution logic here.
  *
- * @template A - Protocol type (ISyncProtocol) - contains service definition via __types.service
+ * @template P - Protocol type (ISyncProtocol) - contains service definition via __types.service
  */
-export class SyncClientStepBuilder<A extends ISyncProtocol = ISyncProtocol> {
-	private requestTracker: RequestTracker;
-
-	constructor(
-		private client: Client<A>,
-		private testBuilder: ITestCaseBuilder
-	) {
-		// Get or create request tracker from the client component
-		// This keeps internal state out of the user-facing test context
-		this.requestTracker = this.client.getRequestTracker(() => new RequestTracker());
-	}
-
+export class SyncClientStepBuilder<P extends ISyncProtocol = ISyncProtocol> extends BaseStepBuilder {
 	/**
 	 * Send a request (generic API for all sync protocols)
 	 *
-	 * In loose mode (no type parameter on protocol):
-	 * - messageType accepts any string
-	 * - data is typed as the protocol's raw request type (e.g., HttpRequest)
-	 *
-	 * In strict mode (with type parameter):
-	 * - messageType is constrained to defined operation IDs
-	 * - data is typed according to service definition
+	 * After receiving response, triggers matching onResponse hooks.
 	 *
 	 * @param messageType - Message type identifier (operationId for HTTP, method name for gRPC)
 	 * @param data - Request data (type comes directly from service definition)
-	 * @param timeout - Optional request timeout in milliseconds
+	 * @param traceId - Optional traceId for explicit correlation with onResponse()
 	 */
-	request<K extends SyncOperationId<A>>(messageType: K, data: ExtractRequestData<A, K>, timeout?: number): void {
-		const traceId = this.requestTracker.trackRequest(messageType);
-
-		this.testBuilder.registerStep({
+	request<K extends SyncOperationId<P>>(messageType: K, data: ExtractRequestData<P, K>, traceId?: string): void {
+		this.registerStep({
 			type: "request",
-			componentName: this.client.name,
-			messageType,
-			description: `Request ${messageType}`,
-			action: async () => {
-				const response = await this.client.request(messageType, data, timeout);
-				this.requestTracker.storeResponse(traceId, response);
+			description: `Request ${messageType}${traceId ? ` (${traceId})` : ""}`,
+			params: {
+				messageType,
+				data,
+				traceId,
 			},
+			handlers: [],
+			mode: "action",
 		});
 	}
 
 	/**
-	 * Handle a response (declarative, sequential)
+	 * Register a hook to handle response (NON-STRICT)
 	 *
-	 * In loose mode (no type parameter on protocol):
-	 * - Returns hook builder with protocol's raw response type (e.g., HttpResponse)
-	 *
-	 * In strict mode (with type parameter):
-	 * - Returns hook builder with typed response from service definition
+	 * Flexible timing - works regardless of whether response arrives before or after step starts.
+	 * Use this when step order might vary, or testing scenarios where timing is unpredictable.
 	 *
 	 * @param messageType - Message type to match
 	 * @param traceId - Optional traceId for explicit correlation
-	 *                  If omitted, matches last request of this messageType
+	 * @param timeout - Optional timeout in ms (default: 5000)
 	 */
-	onResponse<K extends SyncOperationId<A>, TResponse = ExtractClientResponse<A, K>>(
+	onResponse<K extends SyncOperationId<P>, TResponse = ExtractClientResponse<P, K>>(
 		messageType: K,
-		traceId?: string
+		traceId?: string,
+		timeout?: number
 	): SyncClientHookBuilder<TResponse> {
-		return new SyncClientHookBuilder<TResponse>(
-			this.client.name,
-			this.testBuilder,
-			this.requestTracker,
-			messageType,
-			traceId
+		return this.registerStep(
+			{
+				type: "onResponse",
+				description: `Handle response for ${messageType}${traceId ? ` (${traceId})` : ""}`,
+				params: {
+					messageType,
+					traceId,
+					timeout,
+				},
+				handlers: [],
+				mode: "hook",
+			},
+			SyncClientHookBuilder<TResponse>
+		);
+	}
+
+	/**
+	 * Wait for response (STRICT)
+	 *
+	 * Must be waiting when response arrives - error if response arrives before step starts.
+	 * Use this when you want strict ordering enforced, fail-fast if test logic is wrong.
+	 *
+	 * @param messageType - Message type to match
+	 * @param traceId - Optional traceId for explicit correlation
+	 * @param timeout - Optional timeout in ms (default: 5000)
+	 */
+	waitResponse<K extends SyncOperationId<P>, TResponse = ExtractClientResponse<P, K>>(
+		messageType: K,
+		traceId?: string,
+		timeout?: number
+	): SyncClientHookBuilder<TResponse> {
+		return this.registerStep(
+			{
+				type: "waitResponse",
+				description: `Wait for response ${messageType}${traceId ? ` (${traceId})` : ""}`,
+				params: {
+					messageType,
+					traceId,
+					timeout,
+				},
+				handlers: [],
+				mode: "wait",
+			},
+			SyncClientHookBuilder<TResponse>
 		);
 	}
 }

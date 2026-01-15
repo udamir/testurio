@@ -1,70 +1,99 @@
 /**
  * DataSource Step Builder
  *
- * Provides fluent API for DataSource operations in testCase.
- * Returned by test.use(dataSource).
+ * Builder for DataSource operations in testCase.
+ * Provides declarative API for direct SDK callback operations.
+ *
+ * Per design:
+ * - Contains NO logic, only step registration
+ * - All execution logic is in the Component
  */
 
-import type { ITestCaseBuilder } from "../../execution";
-import type { DataSource } from "./datasource.component";
-import { DataSourceExecBuilderImpl } from "./datasource.exec-builder";
-import type { DataSourceAdapter, DataSourceExecBuilder, DataSourceStepBuilder, ExecOptions } from "./datasource.types";
+import { BaseStepBuilder } from "../base/step-builder";
+import { DataSourceHookBuilder } from "./datasource.hook-builder";
+import type { ExecOptions } from "./datasource.types";
 
 /**
- * DataSource Step Builder Implementation
+ * DataSource Step Builder
  *
- * @typeParam TClient - Native SDK client type
+ * Provides declarative API for DataSource exec operations.
+ * All methods register steps - no execution logic here.
+ *
+ * @template TClient - Native SDK client type
  */
-export class DataSourceStepBuilderImpl<TClient> implements DataSourceStepBuilder<TClient> {
-	constructor(
-		private dataSource: DataSource<TClient, DataSourceAdapter<TClient, unknown>>,
-		private builder: ITestCaseBuilder
-	) {}
-
+export class DataSourceStepBuilder<TClient = unknown> extends BaseStepBuilder {
 	/**
-	 * Execute an operation as a test step
+	 * Execute an operation using the native client
 	 *
-	 * Overloaded to support:
-	 * - exec(callback)
-	 * - exec(callback, options)
-	 * - exec(description, callback)
-	 * - exec(description, callback, options)
+	 * Overloads:
+	 * - exec(callback) - Execute with callback only
+	 * - exec(description, callback) - Execute with description for reports
+	 * - exec(callback, options) - Execute with options (timeout)
+	 * - exec(description, callback, options) - Execute with description and options
+	 *
+	 * @returns DataSourceHookBuilder for chaining assert() and timeout()
+	 *
+	 * @example
+	 * // Without description
+	 * redis.exec(async (client) => client.get("key"))
+	 *
+	 * @example
+	 * // With description (for better reports)
+	 * redis.exec("fetch user from cache", async (client) => client.get("user:123"))
+	 *
+	 * @example
+	 * // With timeout
+	 * redis.exec(async (client) => client.get("key"), { timeout: 5000 })
+	 *
+	 * @example
+	 * // With assertion
+	 * redis.exec("get user", async (client) => client.get("user:123"))
+	 *   .assert("user should exist", (val) => val !== null)
 	 */
-	exec<T>(callback: (client: TClient) => Promise<T>, options?: ExecOptions): DataSourceExecBuilder<T>;
+	exec<T>(callback: (client: TClient) => Promise<T>): DataSourceHookBuilder<T>;
+	exec<T>(callback: (client: TClient) => Promise<T>, options: ExecOptions): DataSourceHookBuilder<T>;
+	exec<T>(description: string, callback: (client: TClient) => Promise<T>): DataSourceHookBuilder<T>;
 	exec<T>(
 		description: string,
 		callback: (client: TClient) => Promise<T>,
-		options?: ExecOptions
-	): DataSourceExecBuilder<T>;
+		options: ExecOptions
+	): DataSourceHookBuilder<T>;
 	exec<T>(
 		descriptionOrCallback: string | ((client: TClient) => Promise<T>),
 		callbackOrOptions?: ((client: TClient) => Promise<T>) | ExecOptions,
-		options?: ExecOptions
-	): DataSourceExecBuilder<T> {
+		maybeOptions?: ExecOptions
+	): DataSourceHookBuilder<T> {
 		// Parse overloaded arguments
 		let description: string | undefined;
 		let callback: (client: TClient) => Promise<T>;
-		let execOptions: ExecOptions | undefined;
+		let options: ExecOptions | undefined;
 
 		if (typeof descriptionOrCallback === "string") {
 			// exec(description, callback, options?)
 			description = descriptionOrCallback;
 			callback = callbackOrOptions as (client: TClient) => Promise<T>;
-			execOptions = options;
+			options = maybeOptions;
 		} else {
 			// exec(callback, options?)
 			callback = descriptionOrCallback;
-			execOptions = callbackOrOptions as ExecOptions | undefined;
+			if (callbackOrOptions && typeof callbackOrOptions !== "function") {
+				options = callbackOrOptions;
+			}
 		}
 
-		// Create exec builder
-		return new DataSourceExecBuilderImpl<T>(
-			this.builder,
-			() => this.dataSource.getClient(),
-			this.dataSource.name,
-			callback as (client: unknown) => Promise<T>,
-			description,
-			execOptions?.timeout
+		return this.registerStep(
+			{
+				type: "exec",
+				description: description ?? "exec",
+				params: {
+					callback,
+					description,
+					timeout: options?.timeout,
+				},
+				handlers: [],
+				mode: "action",
+			},
+			DataSourceHookBuilder<T>
 		);
 	}
 }

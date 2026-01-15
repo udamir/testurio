@@ -1,10 +1,8 @@
 /**
- * Subscriber Component
- *
- * Exports Subscriber component and related types.
- * Uses base Hook<QueueMessage> type from BaseComponent.
+ * Subscriber component for message queue subscription.
  */
 
-export * from "./subscriber.component";
-export * from "./subscriber.hook-builder";
-export * from "./subscriber.step-builder";
+export { Subscriber } from "./subscriber.component";
+export type { SubscriberOptions } from "./subscriber.component";
+export { SubscriberStepBuilder } from "./subscriber.step-builder";
+export { SubscriberHookBuilder } from "./subscriber.hook-builder";

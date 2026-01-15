@@ -1,58 +1,86 @@
 /**
- * Base Component
+ * Base Component - Abstract base class for all test components.
  *
- * Base class for all test components.
- * Includes hook management (registration and execution) and lifecycle management.
- *
- * This class is message-agnostic - it works with any message type.
- * Protocol-specific components should extend ServiceComponent instead.
- * MQ components should extend MQComponent instead.
+ * Three-phase execution model:
+ * 1. registerHook(step) - Register hooks before execution
+ * 2. executeStep(step) - Execute each step
+ * 3. clearHooks() - Cleanup after execution
  */
 
-import type { ITestCaseBuilder } from "../../execution";
-import type { Hook } from "./base.types";
-import { DropMessageError } from "./base.utils";
+import type { ITestCaseContext, ComponentState, Component } from "./base.types";
+import type { Step, Handler } from "./step.types";
+import type { Hook } from "./hook.types";
+import { generateId } from "../../utils";
 
-/**
- * Component state
- */
-export type ComponentState = "created" | "starting" | "started" | "stopping" | "stopped" | "error";
-
-/**
- * Base Component class
- *
- * Provides:
- * - Hook management (message-agnostic)
- * - Lifecycle management (start/stop)
- * - Error tracking
- *
- * Does NOT include protocol or adapter - those belong in subclasses:
- * - ServiceComponent<P> - for protocol-based components (HTTP, gRPC, WS, TCP)
- * - MQComponent - for adapter-based components (Kafka, RabbitMQ, Redis)
- *
- * @typeParam TStepBuilder - Step builder type returned by createStepBuilder
- */
-export abstract class BaseComponent<TStepBuilder = unknown> {
+export abstract class BaseComponent<TStepBuilder = unknown> implements Component<TStepBuilder> {
+	readonly name: string;
 	protected state: ComponentState = "created";
-	protected error?: Error;
 	protected hooks: Hook[] = [];
 	protected unhandledErrors: Error[] = [];
-
-	/**
-	 * Current test case context for hook isolation.
-	 * Set by TestCaseBuilder.use() before hooks are registered.
-	 */
-	protected currentTestCaseId?: string;
-
-	/** Component name */
-	readonly name: string;
 
 	constructor(name: string) {
 		this.name = name;
 	}
 
 	// =========================================================================
-	// Component State
+	// Abstract Methods - Must be implemented by subclasses
+	// =========================================================================
+
+	/**
+	 * Create step builder for this component.
+	 * Called by TestCaseBuilder.use() to get typed builder API.
+	 *
+	 * Implementation: Return new XxxStepBuilder(context, this)
+	 */
+	abstract createStepBuilder(context: ITestCaseContext): TStepBuilder;
+
+	/**
+	 * Execute a step based on its mode.
+	 *
+	 * Implementation should handle step.mode:
+	 * - "action": Execute the action (send request, publish message, etc.)
+	 * - "hook": Usually no-op (hook already registered in Phase 1)
+	 * - "wait": Wait for hook to be triggered, then execute handlers
+	 */
+	abstract executeStep(step: Step): Promise<void>;
+
+	/**
+	 * Create a matcher function for hook registration.
+	 * Called by registerHook() to create hook.isMatch predicate.
+	 *
+	 * Implementation: Return a function that tests if incoming message
+	 * matches the step's criteria (messageType, traceId, custom matcher, etc.)
+	 */
+	protected abstract createHookMatcher(step: Step): (message: unknown) => boolean;
+
+	/**
+	 * Execute a single handler.
+	 *
+	 * Implementation should switch on handler.type and execute accordingly.
+	 * Common handler types: assert, transform, delay, drop, mockResponse, proxy
+	 *
+	 * @returns New value to chain, null to terminate, undefined to keep current
+	 */
+	protected abstract executeHandler<TContext = unknown>(
+		handler: Handler,
+		payload: unknown,
+		context?: TContext
+	): Promise<unknown>;
+
+	/**
+	 * Start the component (connect, listen, etc.)
+	 * Called by start() after state validation.
+	 */
+	protected abstract doStart(): Promise<void>;
+
+	/**
+	 * Stop the component (disconnect, close, cleanup).
+	 * Called by stop() after state validation.
+	 */
+	protected abstract doStop(): Promise<void>;
+
+	// =========================================================================
+	// State
 	// =========================================================================
 
 	getState(): ComponentState {
@@ -67,58 +95,102 @@ export abstract class BaseComponent<TStepBuilder = unknown> {
 		return this.state === "stopped";
 	}
 
-	/**
-	 * Track an unhandled error that occurred during async operations
-	 */
+	// =========================================================================
+	// Error Tracking
+	// =========================================================================
+
 	protected trackUnhandledError(error: Error): void {
 		this.unhandledErrors.push(error);
 	}
 
-	/**
-	 * Get all tracked unhandled errors
-	 */
 	getUnhandledErrors(): Error[] {
 		return [...this.unhandledErrors];
 	}
 
-	/**
-	 * Clear tracked unhandled errors
-	 */
 	clearUnhandledErrors(): void {
 		this.unhandledErrors = [];
 	}
 
 	// =========================================================================
-	// Hook Management (Message-Agnostic)
+	// Phase 1: Hook Registration
+	// =========================================================================
+
+	registerHook(step: Step): void {
+		const hook: Hook = {
+			id: generateId("hook_"),
+			stepId: step.id,
+			testCaseId: step.testCaseId,
+			isMatch: this.createHookMatcher(step),
+			step: step,
+			persistent: step.testCaseId === undefined,
+		};
+		this.hooks.push(hook);
+	}
+
+	// =========================================================================
+	// Phase 3: Cleanup
 	// =========================================================================
 
 	/**
-	 * Set current test case context for hook isolation.
-	 * Called by TestCaseBuilder.use() to tag subsequent hooks with testCaseId.
+	 * Clear hooks.
+	 * @param testCaseId - If provided, clears only non-persistent hooks for this testCaseId.
+	 *                     If empty, clears all hooks.
 	 */
-	setTestCaseContext(testCaseId?: string): void {
-		this.currentTestCaseId = testCaseId;
+	clearHooks(testCaseId?: string): void {
+		if (testCaseId) {
+			this.hooks = this.hooks.filter((hook) => hook.persistent || hook.testCaseId !== testCaseId);
+		} else {
+			this.hooks = [];
+		}
 	}
 
-	/**
-	 * Register a hook for message interception.
-	 * The hook's `isMatch` function determines which messages it handles.
-	 * Automatically injects testCaseId from current context if not already set.
-	 */
-	registerHook<TMessage>(hook: Hook<TMessage>): void {
-		const hookWithContext = {
-			...hook,
-			testCaseId: hook.testCaseId ?? this.currentTestCaseId,
-		};
-		this.hooks.push(hookWithContext as Hook);
+	getAllHooks(): Hook[] {
+		return [...this.hooks];
 	}
 
+	getHookById(id: string): Hook | undefined {
+		return this.hooks.find((hook) => hook.id === id);
+	}
+
+	// =========================================================================
+	// Handler Execution
+	// =========================================================================
+
 	/**
-	 * Find a hook that matches the given message.
-	 * Uses the hook's `isMatch` function for matching.
-	 * Errors thrown by `isMatch` are treated as no match.
+	 * Execute handlers for a step with result chaining.
+	 *
+	 * Return value semantics:
+	 * - null = terminate chain (message dropped)
+	 * - undefined = keep current value, continue
+	 * - other = use as new value, continue
 	 */
-	findMatchingHook<TMessage>(message: TMessage): Hook<TMessage> | null {
+	protected async executeHandlers<TMessage, TContext = unknown>(
+		step: Step,
+		message: TMessage,
+		context?: TContext
+	): Promise<TMessage | null> {
+		let current = message;
+
+		for (const handler of step.handlers) {
+			const result = await this.executeHandler(handler, current, context);
+
+			if (result === null) {
+				return null;
+			}
+
+			if (result !== undefined) {
+				current = result as TMessage;
+			}
+		}
+
+		return current;
+	}
+
+	// =========================================================================
+	// Hook Utilities
+	// =========================================================================
+
+	protected findMatchingHook<TMessage>(message: TMessage): Hook<TMessage> | null {
 		for (const hook of this.hooks) {
 			try {
 				if (hook.isMatch(message)) {
@@ -131,64 +203,8 @@ export abstract class BaseComponent<TStepBuilder = unknown> {
 		return null;
 	}
 
-	/**
-	 * Execute a hook's handlers on a message.
-	 * Returns the processed message, or null if dropped.
-	 */
-	async executeHook<TMessage>(hook: Hook<TMessage>, message: TMessage): Promise<TMessage | null> {
-		try {
-			let current = message;
-			for (const handler of hook.handlers) {
-				current = (await handler.execute(current)) as TMessage;
-			}
-			return current;
-		} catch (error) {
-			// DropMessageError is expected - return null to indicate message was dropped
-			if (error instanceof DropMessageError) {
-				return null;
-			}
-			// Track and re-throw other errors (e.g., assertion failures)
-			if (error instanceof Error) {
-				this.trackUnhandledError(error);
-			}
-			throw error;
-		}
-	}
-
-	/**
-	 * Find and execute a matching hook for the given message.
-	 * Returns the processed message, or the original if no hook matches.
-	 */
-	async executeMatchingHook<TMessage>(message: TMessage): Promise<TMessage | null> {
-		const hook = this.findMatchingHook(message);
-		return hook ? this.executeHook(hook, message) : message;
-	}
-
-	/**
-	 * Clear test case hooks.
-	 * If testCaseId provided, only clears hooks for that test case.
-	 * Otherwise clears all non-persistent hooks (backwards compatible).
-	 */
-	clearTestCaseHooks(testCaseId?: string): void {
-		if (testCaseId) {
-			// Only clear hooks belonging to this specific test case
-			this.hooks = this.hooks.filter((hook) => hook.persistent || hook.testCaseId !== testCaseId);
-		} else {
-			// Backwards compatible - clear all non-persistent hooks
-			this.hooks = this.hooks.filter((hook) => hook.persistent);
-		}
-	}
-
-	clearHooks(): void {
-		this.hooks = [];
-	}
-
-	getAllHooks(): Hook[] {
-		return [...this.hooks];
-	}
-
-	getHookById(id: string): Hook | undefined {
-		return this.hooks.find((hook) => hook.id === id);
+	protected removeHook(hookId: string): void {
+		this.hooks = this.hooks.filter((h) => h.id !== hookId);
 	}
 
 	// =========================================================================
@@ -207,7 +223,6 @@ export abstract class BaseComponent<TStepBuilder = unknown> {
 			this.state = "started";
 		} catch (error) {
 			this.state = "error";
-			this.error = error instanceof Error ? error : new Error(String(error));
 			throw error;
 		}
 	}
@@ -228,12 +243,7 @@ export abstract class BaseComponent<TStepBuilder = unknown> {
 			this.state = "stopped";
 		} catch (error) {
 			this.state = "error";
-			this.error = error instanceof Error ? error : new Error(String(error));
 			throw error;
 		}
 	}
-
-	protected abstract doStart(): Promise<void>;
-	protected abstract doStop(): Promise<void>;
-	abstract createStepBuilder(builder: ITestCaseBuilder): TStepBuilder;
 }

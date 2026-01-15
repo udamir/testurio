@@ -1,70 +1,112 @@
 /**
  * Publisher Component
  *
- * Publishes messages to message queues/topics.
- * Fire-and-forget pattern - no hooks.
- *
- * @example Loose mode
- * ```typescript
- * const publisher = new Publisher("pub", { adapter });
- * await publisher.publish("orders", { orderId: "123" });
- * ```
- *
- * @example Strict mode
- * ```typescript
- * interface MyTopics {
- *   orders: { orderId: string };
- * }
- * const publisher = new Publisher<MyTopics>("pub", { adapter });
- * await publisher.publish("orders", { orderId: "123" }); // Type-safe
- * ```
+ * Fire-and-forget message publishing to message queues.
+ * Extends BaseComponent directly (no protocol required).
  */
 
-import type { Codec } from "../../codecs";
-import { defaultJsonCodec } from "../../codecs";
-import type { ITestCaseBuilder } from "../../execution";
-import { BaseMQComponent } from "../mq.base";
-import type {
-	BatchMessage,
-	DefaultTopics,
-	IMQAdapter,
-	IMQPublisherAdapter,
-	Payload,
-	PublishOptions,
-	Topic,
-	Topics,
-} from "../mq.base";
+import { BaseComponent } from "../base/base.component";
+import type { ITestCaseContext } from "../base/base.types";
+import type { Step, Handler } from "../base/step.types";
+import type { IMQAdapter, IMQPublisherAdapter, Topics } from "../mq.base";
 import { PublisherStepBuilder } from "./publisher.step-builder";
 
-/**
- * Publisher component options
- */
-export interface PublisherOptions {
-	/**
-	 * Message queue adapter
-	 */
-	adapter: IMQAdapter;
-
-	/**
-	 * Codec for payload serialization (defaults to JSON)
-	 */
-	codec?: Codec;
+export interface PublisherOptions<
+	TOptions = unknown,
+	TBatchMessage = unknown,
+> {
+	adapter: IMQAdapter<unknown, TOptions, TBatchMessage>;
 }
 
 /**
- * Publisher component for sending messages to message queues.
+ * Publisher Component
  *
- * @template T - Topic definitions for type-safe publish (defaults to loose mode)
+ * Publishes messages to message queue topics.
+ * No hooks - fire-and-forget only.
+ *
+ * @template T - Topics type for topic/payload validation
+ * @template TOptions - Adapter-specific publish options
+ * @template TBatchMessage - Adapter-specific batch message type
  */
-export class Publisher<T extends Topics = DefaultTopics> extends BaseMQComponent<PublisherStepBuilder<T>> {
-	private readonly adapter: IMQAdapter;
-	private readonly codec: Codec;
-	private publisherAdapter: IMQPublisherAdapter | null = null;
+export class Publisher<
+	T extends Topics = Topics,
+	TOptions = unknown,
+	TBatchMessage = unknown,
+> extends BaseComponent<PublisherStepBuilder<T, TOptions, TBatchMessage>> {
+	private readonly _adapter: IMQAdapter<unknown, TOptions, TBatchMessage>;
+	private _publisherAdapter?: IMQPublisherAdapter<TOptions, TBatchMessage>;
 
-	constructor(name: string, options: PublisherOptions) {
+	constructor(name: string, options: PublisherOptions<TOptions, TBatchMessage>) {
 		super(name);
-		this.adapter = options.adapter;
-		this.codec = options.codec ?? defaultJsonCodec;
+		this._adapter = options.adapter;
+	}
+
+	createStepBuilder(context: ITestCaseContext): PublisherStepBuilder<T, TOptions, TBatchMessage> {
+		return new PublisherStepBuilder<T, TOptions, TBatchMessage>(context, this);
+	}
+
+	// =========================================================================
+	// Step Execution
+	// =========================================================================
+
+	async executeStep(step: Step): Promise<void> {
+		switch (step.type) {
+			case "publish":
+				return this.executePublish(step);
+			case "publishBatch":
+				return this.executePublishBatch(step);
+			default:
+				throw new Error(`Unknown step type: ${step.type} for Publisher ${this.name}`);
+		}
+	}
+
+	private async executePublish(step: Step): Promise<void> {
+		const params = step.params as {
+			topic: string;
+			payload: unknown;
+			options?: TOptions;
+		};
+
+		if (!this._publisherAdapter) {
+			throw new Error(`Publisher ${this.name} is not started`);
+		}
+
+		await this._publisherAdapter.publish(params.topic, params.payload, params.options);
+	}
+
+	private async executePublishBatch(step: Step): Promise<void> {
+		const params = step.params as {
+			topic: string;
+			messages: TBatchMessage[];
+		};
+
+		if (!this._publisherAdapter) {
+			throw new Error(`Publisher ${this.name} is not started`);
+		}
+
+		await this._publisherAdapter.publishBatch(params.topic, params.messages);
+	}
+
+	// =========================================================================
+	// Hook Matching (Publisher has no hooks)
+	// =========================================================================
+
+	protected createHookMatcher(_step: Step): (message: unknown) => boolean {
+		// Publisher has no hooks - always return false
+		return () => false;
+	}
+
+	// =========================================================================
+	// Handler Execution (Publisher has no handlers)
+	// =========================================================================
+
+	protected async executeHandler<TContext = unknown>(
+		_handler: Handler,
+		_payload: unknown,
+		_context?: TContext
+	): Promise<unknown> {
+		// Publisher has no handlers
+		return undefined;
 	}
 
 	// =========================================================================
@@ -72,66 +114,14 @@ export class Publisher<T extends Topics = DefaultTopics> extends BaseMQComponent
 	// =========================================================================
 
 	protected async doStart(): Promise<void> {
-		this.publisherAdapter = await this.adapter.createPublisher(this.codec);
+		this._publisherAdapter = await this._adapter.createPublisher();
 	}
 
 	protected async doStop(): Promise<void> {
-		if (this.publisherAdapter) {
-			await this.publisherAdapter.close();
-			this.publisherAdapter = null;
+		if (this._publisherAdapter) {
+			await this._publisherAdapter.close();
+			this._publisherAdapter = undefined;
 		}
-	}
-
-	// =========================================================================
-	// Publishing API
-	// =========================================================================
-
-	/**
-	 * Publish a single message to a topic.
-	 *
-	 * @param topic - Topic name
-	 * @param payload - Message payload
-	 * @param options - Optional publish options (key, headers)
-	 *
-	 * @example
-	 * ```typescript
-	 * await publisher.publish("orders", { orderId: "123" });
-	 * await publisher.publish("orders", { orderId: "123" }, { key: "customer-1" });
-	 * ```
-	 */
-	async publish<K extends Topic<T>>(topic: K, payload: Payload<T, K>, options?: PublishOptions): Promise<void> {
-		if (!this.publisherAdapter) {
-			throw new Error(`Publisher ${this.name} is not started`);
-		}
-		await this.publisherAdapter.publish(topic, payload, options);
-	}
-
-	/**
-	 * Publish multiple messages to a topic in a batch.
-	 *
-	 * @param topic - Topic name
-	 * @param messages - Array of messages to publish
-	 *
-	 * @example
-	 * ```typescript
-	 * await publisher.publishBatch("orders", [
-	 *   { payload: { orderId: "1" } },
-	 *   { payload: { orderId: "2" }, key: "customer-1" },
-	 * ]);
-	 * ```
-	 */
-	async publishBatch<K extends Topic<T>>(topic: K, messages: BatchMessage<Payload<T, K>>[]): Promise<void> {
-		if (!this.publisherAdapter) {
-			throw new Error(`Publisher ${this.name} is not started`);
-		}
-		await this.publisherAdapter.publishBatch(topic, messages);
-	}
-
-	// =========================================================================
-	// Step Builder
-	// =========================================================================
-
-	createStepBuilder(builder: ITestCaseBuilder): PublisherStepBuilder<T> {
-		return new PublisherStepBuilder<T>(this, builder);
+		this.clearHooks();
 	}
 }

@@ -1,201 +1,317 @@
 /**
- * Server Component
+ * Server Component - Sync server for mock/proxy modes (HTTP, gRPC unary).
  *
- * Unified component that can act as either a mock server or a proxy.
- * - Mock mode: Listens for connections and generates responses via handlers
- * - Proxy mode: Listens for connections and forwards to a target server
+ * Modes:
+ * - Mock: No targetAddress - generates responses via handlers
+ * - Proxy: With targetAddress - forwards to target, can intercept/transform
  *
- * Mode is determined by the presence of `targetAddress` in config:
- * - No targetAddress = mock mode
- * - With targetAddress = proxy mode
+ * Request handling modes:
+ * - onRequest (non-strict): Works regardless of timing
+ * - waitRequest (strict): Error if request arrives before step starts
  */
 
-import type { ITestCaseBuilder } from "../../execution/execution.types";
-import type { Address, ISyncClientAdapter, ISyncProtocol, ISyncServerAdapter, TlsConfig } from "../../protocols/base";
-import { ServiceComponent } from "../base";
+import type { Address, ISyncClientAdapter, ISyncProtocol, ISyncServerAdapter, MessageMatcher, TlsConfig } from "../../protocols/base";
+import type { ITestCaseContext } from "../base/base.types";
+import type { Step, Handler } from "../base/step.types";
+import { ServiceComponent } from "../base/service.component";
+import { DropMessageError, sleep } from "../base/base.utils";
 import { SyncServerStepBuilder } from "./sync-server.step-builder";
 
-/**
- * Server component options
- */
 export interface ServerOptions<P extends ISyncProtocol = ISyncProtocol> {
-	/** Protocol instance (contains all protocol configuration) */
 	protocol: P;
-	/** Address to listen on */
 	listenAddress: Address;
-	/** Target address to forward to (if present, enables proxy mode) */
 	targetAddress?: Address;
-	/** TLS configuration */
 	tls?: TlsConfig;
 }
 
-/**
- * Server Component
- *
- * Unified mock/proxy component.
- *
- * @example Mock mode:
- * ```typescript
- * const server = new Server("backend", {
- *   protocol: new HttpProtocol(),
- *   listenAddress: { host: "localhost", port: 3000 },
- * });
- * ```
- *
- * @example Proxy mode:
- * ```typescript
- * const proxy = new Server("gateway", {
- *   protocol: new HttpProtocol(),
- *   listenAddress: { host: "localhost", port: 3001 },
- *   targetAddress: { host: "localhost", port: 3000 },
- * });
- * ```
- */
-export class Server<A extends ISyncProtocol = ISyncProtocol> extends ServiceComponent<A, SyncServerStepBuilder<A>> {
+export class Server<P extends ISyncProtocol = ISyncProtocol> extends ServiceComponent<P, SyncServerStepBuilder<P>> {
 	private readonly _listenAddress: Address;
 	private readonly _targetAddress?: Address;
 	private readonly _tls?: TlsConfig;
-
-	/** Server adapter (v3 API) */
 	private _serverAdapter?: ISyncServerAdapter;
-	/** Client adapter for proxy mode (v3 API) */
 	private _clientAdapter?: ISyncClientAdapter;
 
-	constructor(name: string, options: ServerOptions<A>) {
+	constructor(name: string, options: ServerOptions<P>) {
 		super(name, options.protocol);
 		this._listenAddress = options.listenAddress;
 		this._targetAddress = options.targetAddress;
 		this._tls = options.tls;
 	}
 
-	/**
-	 * Static factory method to create a Server instance
-	 *
-	 * @example Mock mode:
-	 * ```typescript
-	 * const server = Server.create("backend", {
-	 *   protocol: new HttpProtocol(),
-	 *   listenAddress: { host: "localhost", port: 3000 },
-	 * });
-	 * ```
-	 *
-	 * @example Proxy mode:
-	 * ```typescript
-	 * const proxy = Server.create("gateway", {
-	 *   protocol: new HttpProtocol(),
-	 *   listenAddress: { host: "localhost", port: 3001 },
-	 *   targetAddress: { host: "localhost", port: 3000 },
-	 * });
-	 * ```
-	 */
-	static create<A extends ISyncProtocol>(name: string, options: ServerOptions<A>): Server<A> {
-		return new Server<A>(name, options);
+	static create<P extends ISyncProtocol>(name: string, options: ServerOptions<P>): Server<P> {
+		return new Server<P>(name, options);
 	}
 
-	/**
-	 * Create a step builder for this server component
-	 */
-	createStepBuilder(builder: ITestCaseBuilder): SyncServerStepBuilder<A> {
-		return new SyncServerStepBuilder<A>(this, builder.phase);
+	createStepBuilder(context: ITestCaseContext): SyncServerStepBuilder<P> {
+		return new SyncServerStepBuilder<P>(context, this);
 	}
 
-	/**
-	 * Check if running in proxy mode
-	 */
 	get isProxy(): boolean {
 		return this._targetAddress !== undefined;
 	}
 
-	/**
-	 * Start the server (and client connection if proxy mode)
-	 */
-	protected async doStart(): Promise<void> {
-		// Create server adapter (v3 API)
-		this._serverAdapter = await this.protocol.createServer({
-			listenAddress: this._listenAddress,
-			tls: this._tls,
-		});
+	// =========================================================================
+	// Step Execution
+	// =========================================================================
 
-		// Set request handler to delegate request handling to this component
-		this._serverAdapter.onRequest((messageType, request) => this.handleIncomingRequest(messageType, request));
-
-		// If proxy mode, create client connection to target
-		if (this._targetAddress) {
-			this._clientAdapter = await this.protocol.createClient({
-				targetAddress: this._targetAddress,
-				tls: this._tls,
-			});
+	async executeStep(step: Step): Promise<void> {
+		switch (step.type) {
+			case "onRequest":
+			case "onResponse":
+				// Hook steps are no-op - triggered by incoming requests
+				break;
+			case "waitRequest":
+				await this.executeWaitRequest(step);
+				break;
+			default:
+				throw new Error(`Unknown step type: ${step.type} for Server ${this.name}`);
 		}
 	}
 
-	/**
-	 * Stop server and dispose protocol
-	 */
-	protected async doStop(): Promise<void> {
-		// Stop server adapter
-		if (this._serverAdapter) {
-			await this._serverAdapter.stop();
-			this._serverAdapter = undefined;
+	private async executeWaitRequest(step: Step): Promise<void> {
+		const params = step.params as {
+			messageType: string;
+			timeout?: number;
+		};
+		const timeout = params.timeout ?? 5000;
+
+		// Get existing pending (if request arrived first) or create new one
+		let pending = this.getPending(step.id);
+		if (pending) {
+			this.setWaiting(step.id);
+		} else {
+			pending = this.createPending(step.id, true);
 		}
 
-		// Disconnect client adapter (proxy mode)
-		if (this._clientAdapter) {
-			await this._clientAdapter.close();
-			this._clientAdapter = undefined;
+		try {
+			// Wait for handleIncomingRequest to resolve (after executing handlers)
+			await Promise.race([
+				pending.promise,
+				new Promise<never>((_, reject) => {
+					setTimeout(() => {
+						reject(new Error(`Timeout waiting for request: ${params.messageType} (${timeout}ms)`));
+					}, timeout);
+				}),
+			]);
+		} finally {
+			this.cleanupPending(step.id);
 		}
-
-		// Clear hooks
-		this.clearHooks();
 	}
 
-	/**
-	 * Handle incoming request (sync protocols)
-	 * Called by the protocol when a request is received
-	 */
-	async handleIncomingRequest(messageType: string, request: A["$request"]): Promise<A["$response"] | null> {
+	// =========================================================================
+	// Request Handling
+	// =========================================================================
+
+	async handleIncomingRequest(messageType: string, request: P["$request"]): Promise<P["$response"] | null> {
 		const message = { type: messageType, payload: request };
 
-		// Find matching hook
 		const hook = this.findMatchingHook(message);
 		if (!hook) {
-			// No matching hook - check if we're in proxy mode
 			if (this.isProxy) {
 				return this.forwardRequest(messageType, request);
 			}
-			// Mock mode with no handler - return null to let protocol send default 404
+			return null; // No handler - protocol sends default 404
+		}
+
+		const step = hook.step;
+		const isWaitStep = step.type === "waitRequest";
+
+		// For wait steps, check strict ordering
+		if (isWaitStep) {
+			let pending = this.getPending(step.id);
+			if (!pending) {
+				pending = this.createPending(step.id, false);
+			}
+			if (!pending.isWaiting) {
+				const error = new Error(
+					`Strict sequence violation: Request arrived before waitRequest started. ` +
+						`Step: ${step.id}, messageType: ${messageType}`
+				);
+				pending.reject(error);
+				throw error;
+			}
+		}
+
+		try {
+			const result = await this.executeServerHandlers(step, message);
+
+			// Notify wait step that handling is complete
+			if (isWaitStep) {
+				this.getPending(step.id)?.resolve(undefined);
+			}
+
+			if (!result) {
+				return null;
+			}
+
+			if (result.type === "response") {
+				return result.payload as P["$response"];
+			}
+
+			if (this.isProxy) {
+				return this.forwardRequest(result.type, result.payload);
+			}
+
 			return null;
+		} catch (error) {
+			// Notify wait step of error
+			if (isWaitStep) {
+				this.getPending(step.id)?.reject(error instanceof Error ? error : new Error(String(error)));
+			}
+
+			if (error instanceof DropMessageError) {
+				return null;
+			}
+			if (error instanceof Error) {
+				this.trackUnhandledError(error);
+			}
+			throw error;
 		}
-
-		// Execute the matched hook (params already extracted by adapter)
-		const processedMessage = await this.executeHook(hook, message);
-
-		// If message was dropped by a hook, return null
-		if (!processedMessage) {
-			return null;
-		}
-
-		// If a hook produced a response, return the payload directly
-		if (processedMessage.type === "response") {
-			return processedMessage.payload as A["$response"];
-		}
-
-		// No hook produced a response - check if we're in proxy mode
-		if (this.isProxy) {
-			// Forward to target server
-			return this.forwardRequest(processedMessage.type, processedMessage.payload);
-		}
-
-		// Mock mode with no handler - return null to let protocol send default 404
-		return null;
 	}
 
 	/**
-	 * Forward request to target (sync protocols, proxy mode)
-	 * @param messageType - Message type identifier (e.g., "GET /users" for HTTP, "GetUser" for gRPC)
-	 * @param options - Request options (payload, metadata, timeout)
-	 * @returns Response body directly (protocol-agnostic)
+	 * Execute handlers for server step.
+	 * Extracts payload from message and handles response type specially.
 	 */
-	async forwardRequest(messageType: string, data?: A["$request"]): Promise<A["$response"]> {
+	private async executeServerHandlers<TMessage extends { type: string; payload: unknown }>(
+		step: Step,
+		message: TMessage
+	): Promise<TMessage | null> {
+		let payload = message.payload;
+		let resultType = message.type;
+
+		for (const handler of step.handlers) {
+			const result = await this.executeHandler(handler, payload, message);
+
+			if (result === null) {
+				return null;
+			}
+
+			if (result !== undefined) {
+				if (typeof result === "object" && result !== null && "type" in result && "payload" in result) {
+					const typed = result as { type: string; payload: unknown };
+					if (typed.type === "response") {
+						return typed as unknown as TMessage;
+					}
+					payload = typed.payload;
+					resultType = typed.type;
+				} else {
+					payload = result;
+				}
+			}
+		}
+
+		return { ...message, type: resultType, payload } as TMessage;
+	}
+
+	// =========================================================================
+	// Handler Execution
+	// =========================================================================
+
+	protected async executeHandler<TContext = unknown>(
+		handler: Handler,
+		payload: unknown,
+		_context?: TContext
+	): Promise<unknown> {
+		const params = handler.params as Record<string, unknown>;
+
+		switch (handler.type) {
+			case "assert": {
+				const predicate = params.predicate as (p: unknown) => boolean | Promise<boolean>;
+				const result = await predicate(payload);
+				if (!result) {
+					const errorMsg = handler.description
+						? `Assertion failed: ${handler.description}`
+						: "Assertion failed";
+					throw new Error(errorMsg);
+				}
+				return undefined;
+			}
+
+			case "transform": {
+				const transformFn = params.handler as (p: unknown) => unknown | Promise<unknown>;
+				return await transformFn(payload);
+			}
+
+			case "delay": {
+				const ms = params.ms as number | (() => number);
+				const delayMs = typeof ms === "function" ? ms() : ms;
+				await sleep(delayMs);
+				return undefined;
+			}
+
+			case "drop":
+				throw new DropMessageError();
+
+			case "proxy": {
+				const transformFn = params.handler as ((p: unknown) => unknown | Promise<unknown>) | undefined;
+				if (transformFn) {
+					return await transformFn(payload);
+				}
+				return undefined;
+			}
+
+			case "mockResponse": {
+				const responseHandler = params.handler as (p: unknown) => unknown | Promise<unknown>;
+				const response = await responseHandler(payload);
+				return { type: "response", payload: response };
+			}
+
+			default:
+				return undefined;
+		}
+	}
+
+	// =========================================================================
+	// Hook Matching
+	// =========================================================================
+
+	protected createHookMatcher(step: Step): (message: unknown) => boolean {
+		if (step.type !== "onRequest" && step.type !== "waitRequest" && step.type !== "onResponse") {
+			return () => false;
+		}
+
+		const params = step.params as {
+			messageType?: string;
+			options?: { method?: string; path?: string };
+		};
+
+		const messageType = params.messageType ?? "";
+
+		// Use protocol-specific matcher if available (e.g., HTTP method+path matching)
+		if ("createMessageTypeMatcher" in this.protocol && typeof this.protocol.createMessageTypeMatcher === "function") {
+			const protocolMatcher = (this.protocol.createMessageTypeMatcher as (
+				messageType: string,
+				options: unknown
+			) => MessageMatcher<unknown> | string).bind(this.protocol);
+
+			const matcher = protocolMatcher(messageType, params.options);
+
+			if (typeof matcher === "function") {
+				return (message: unknown): boolean => {
+					const msg = message as { type: string; payload: unknown };
+					return matcher(msg.type, msg.payload);
+				};
+			}
+
+			return (message: unknown): boolean => {
+				const msg = message as { type: string };
+				return msg.type === matcher;
+			};
+		}
+
+		// Fallback: simple string matching
+		return (message: unknown): boolean => {
+			const msg = message as { type: string };
+			return msg.type === messageType;
+		};
+	}
+
+	// =========================================================================
+	// Protocol Operations
+	// =========================================================================
+
+	async forwardRequest(messageType: string, data?: P["$request"]): Promise<P["$response"]> {
 		if (!this.isProxy) {
 			throw new Error(`Server ${this.name} is not in proxy mode`);
 		}
@@ -205,5 +321,40 @@ export class Server<A extends ISyncProtocol = ISyncProtocol> extends ServiceComp
 		}
 
 		return this._clientAdapter.request(messageType, data);
+	}
+
+	// =========================================================================
+	// Lifecycle
+	// =========================================================================
+
+	protected async doStart(): Promise<void> {
+		this._serverAdapter = await this.protocol.createServer({
+			listenAddress: this._listenAddress,
+			tls: this._tls,
+		});
+
+		this._serverAdapter.onRequest((messageType, request) => this.handleIncomingRequest(messageType, request));
+
+		if (this._targetAddress) {
+			this._clientAdapter = await this.protocol.createClient({
+				targetAddress: this._targetAddress,
+				tls: this._tls,
+			});
+		}
+	}
+
+	protected async doStop(): Promise<void> {
+		if (this._serverAdapter) {
+			await this._serverAdapter.stop();
+			this._serverAdapter = undefined;
+		}
+
+		if (this._clientAdapter) {
+			await this._clientAdapter.close();
+			this._clientAdapter = undefined;
+		}
+
+		this.clearPendingRequests();
+		this.clearHooks();
 	}
 }

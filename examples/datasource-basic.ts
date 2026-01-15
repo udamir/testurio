@@ -4,20 +4,20 @@
  * Demonstrates testing with DataSource component for database/cache operations.
  * This example shows how to integrate DataSource with network components.
  *
- * Note: This example uses FakeAdapter for demonstration.
- * In real tests, use @testurio/adapter-redis, @testurio/adapter-pg, or @testurio/adapter-mongo.
+ * For real tests, install the appropriate adapter:
+ * - @testurio/adapter-redis - Redis cache/key-value store
+ * - @testurio/adapter-pg - PostgreSQL database
+ * - @testurio/adapter-mongo - MongoDB database
  */
 
-import {
-	Client,
-	createFakeAdapter,
-	createInMemoryClient,
-	DataSource,
-	HttpProtocol,
-	Server,
-	TestScenario,
-	testCase,
-} from "testurio";
+import { Client, DataSource, HttpProtocol, Server, TestScenario, testCase } from "testurio";
+// In real tests, import from adapter package:
+// import { RedisAdapter } from "@testurio/adapter-redis";
+// import { PostgresAdapter } from "@testurio/adapter-pg";
+// import { MongoAdapter } from "@testurio/adapter-mongo";
+
+// For this example, we use the test mock (not exported from testurio)
+import { createFakeAdapter, createInMemoryClient } from "../tests/mocks/fakeAdapter";
 
 // =============================================================================
 // Type Definitions
@@ -47,6 +47,8 @@ const cacheClient = createInMemoryClient();
 // Create cache DataSource with fake adapter
 const cache = new DataSource("cache", {
 	adapter: createFakeAdapter(cacheClient),
+	// Real Redis example:
+	// adapter: new RedisAdapter({ host: "localhost", port: 6379 }),
 });
 
 // Create mock backend server

@@ -1,12 +1,17 @@
 /**
- * DataSource Module
+ * DataSource Component
  *
- * Exports DataSource component and related types for direct SDK access
- * to data stores (Redis, PostgreSQL, MongoDB, etc.)
+ * Provides direct SDK access to data stores (Redis, PostgreSQL, MongoDB, etc.)
+ * via pluggable adapters.
  */
 
-// Main component
-export * from "./datasource.component";
-
-// Types
-export * from "./datasource.types";
+export { DataSource } from "./datasource.component";
+export { DataSourceStepBuilder } from "./datasource.step-builder";
+export { DataSourceHookBuilder } from "./datasource.hook-builder";
+export type {
+	DataSourceAdapter,
+	DataSourceAdapterEvents,
+	DataSourceOptions,
+	ExecOptions,
+	Unsubscribe,
+} from "./datasource.types";

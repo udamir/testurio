@@ -186,12 +186,14 @@ describe("DataSource Integration", () => {
 					return (c as InMemoryClient).get("data");
 				});
 
-				// 2. Make HTTP request
+				// 2. Make HTTP request and wait for response
 				api.request("getData", { method: "GET", path: "/data" });
 				mock.onRequest("getData", { method: "GET", path: "/data" }).mockResponse(() => {
 					operations.push("http:request");
 					return { code: 200, body: { value: 42 } };
 				});
+				// Must wait for response to ensure mock is called before cache operations
+				api.onResponse("getData").assert((res) => res.code === 200);
 
 				// 3. Cache the response
 				cache.exec(async (c) => {

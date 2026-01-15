@@ -4,8 +4,9 @@
  * Tests for hook functionality in BaseComponent
  */
 
-import type { Hook, ITestCaseBuilder, Message } from "testurio";
+import type { Step, Handler } from "testurio";
 import { BaseComponent } from "testurio";
+import type { ITestCaseContext } from "testurio";
 import { beforeEach, describe, expect, it } from "vitest";
 
 /**
@@ -14,9 +15,49 @@ import { beforeEach, describe, expect, it } from "vitest";
 class TestComponent extends BaseComponent {
 	protected async doStart(): Promise<void> {}
 	protected async doStop(): Promise<void> {}
-	createStepBuilder(_builder: ITestCaseBuilder): unknown {
+
+	createStepBuilder(_context: ITestCaseContext): unknown {
 		return {};
 	}
+
+	async executeStep(_step: Step): Promise<void> {
+		// No-op for testing
+	}
+
+	protected createHookMatcher(step: Step): (message: unknown) => boolean {
+		const params = step.params as { messageType?: string };
+		return (message: unknown) => {
+			const msg = message as { type: string };
+			return msg.type === params.messageType;
+		};
+	}
+
+	protected async executeHandler<TContext = unknown>(
+		_handler: Handler,
+		payload: unknown,
+		_context?: TContext
+	): Promise<unknown> {
+		return payload;
+	}
+
+	// Expose protected method for testing
+	public testFindMatchingHook<T>(message: T) {
+		return this.findMatchingHook(message);
+	}
+}
+
+function createStep(overrides: Partial<Step> = {}): Step {
+	const component = new TestComponent("test");
+	return {
+		id: `step_${Math.random().toString(36).substring(7)}`,
+		type: "onResponse",
+		component,
+		description: "Test step",
+		params: { messageType: "Order" },
+		handlers: [],
+		mode: "hook",
+		...overrides,
+	};
 }
 
 describe("BaseComponent Hook Functionality", () => {
@@ -28,181 +69,107 @@ describe("BaseComponent Hook Functionality", () => {
 
 	describe("registerHook", () => {
 		it("should register a single hook", () => {
-			const hook: Hook<Message> = {
-				id: "hook-1",
-				componentName: "client",
-				phase: "test",
-				isMatch: (msg: Message) => msg.type === "Order",
-				handlers: [],
-				persistent: false,
-			};
+			const step = createStep({ testCaseId: "tc_1" });
+			step.component = component;
 
-			component.registerHook(hook);
+			component.registerHook(step);
 
 			expect(component.getAllHooks()).toHaveLength(1);
-			// registerHook creates a new object with testCaseId, so check by id and properties
-			const registered = component.getHookById("hook-1");
-			expect(registered?.id).toBe(hook.id);
-			expect(registered?.componentName).toBe(hook.componentName);
-			expect(registered?.phase).toBe(hook.phase);
-			expect(registered?.persistent).toBe(hook.persistent);
+			const registered = component.getAllHooks()[0];
+			expect(registered.stepId).toBe(step.id);
+			expect(registered.testCaseId).toBe("tc_1");
+			expect(registered.persistent).toBe(false);
 		});
 
 		it("should register multiple hooks", () => {
-			const hooks: Hook<Message>[] = [
-				{
-					id: "hook-1",
-					componentName: "client",
-					phase: "test",
-					isMatch: (msg: Message) => msg.type === "Order",
-					handlers: [],
-					persistent: false,
-				},
-				{
-					id: "hook-2",
-					componentName: "proxy",
-					phase: "test",
-					isMatch: (msg: Message) => msg.type === "Payment",
-					handlers: [],
-					persistent: false,
-				},
-			];
+			const step1 = createStep({ testCaseId: "tc_1" });
+			step1.component = component;
+			const step2 = createStep({ testCaseId: "tc_1", params: { messageType: "Payment" } });
+			step2.component = component;
 
-			hooks.forEach((hook) => {
-				component.registerHook(hook);
-			});
+			component.registerHook(step1);
+			component.registerHook(step2);
 
 			expect(component.getAllHooks()).toHaveLength(2);
 		});
 
 		it("should store hooks in component", () => {
-			const hook: Hook<Message> = {
-				id: "hook-1",
-				componentName: "client",
-				phase: "test",
-				isMatch: (msg: Message) => msg.type === "Order",
-				handlers: [],
-				persistent: false,
-			};
+			const step = createStep({ testCaseId: "tc_1" });
+			step.component = component;
 
-			component.registerHook(hook);
+			component.registerHook(step);
 
-			// Each component owns its own hooks
 			expect(component.getAllHooks()).toHaveLength(1);
 		});
 	});
 
-	describe("executeMatchingHook", () => {
-		it("should execute matching hooks", async () => {
-			let executed = false;
+	describe("findMatchingHook", () => {
+		it("should find matching hooks", () => {
+			const step = createStep({ testCaseId: "tc_1", params: { messageType: "Order" } });
+			step.component = component;
 
-			const hook: Hook<Message> = {
-				id: "hook-1",
-				componentName: "client",
-				phase: "test",
-				isMatch: (msg: Message) => msg.type === "Order",
-				handlers: [
-					{
-						type: "proxy",
-						execute: async (msg) => {
-							executed = true;
-							return msg;
-						},
-					},
-				],
-				persistent: false,
-			};
+			component.registerHook(step);
 
-			component.registerHook(hook);
+			const message = { type: "Order", payload: {} };
+			const hook = component.testFindMatchingHook(message);
 
-			const message: Message = { type: "Order", payload: {} };
-			await component.executeMatchingHook(message);
-
-			expect(executed).toBe(true);
+			expect(hook).not.toBeNull();
+			expect(hook?.stepId).toBe(step.id);
 		});
 
-		it("should transform message through hooks", async () => {
-			const hook: Hook<Message> = {
-				id: "hook-1",
-				componentName: "client",
-				phase: "test",
-				isMatch: (msg: Message) => msg.type === "Order",
-				handlers: [
-					{
-						type: "proxy",
-						execute: async (msg) => ({
-							...msg,
-							payload: { transformed: true },
-						}),
-					},
-				],
-				persistent: false,
-			};
+		it("should return null if no hooks match", () => {
+			const message = { type: "Order", payload: {} };
+			const hook = component.testFindMatchingHook(message);
 
-			component.registerHook(hook);
-
-			const message: Message = { type: "Order", payload: {} };
-			const result = await component.executeMatchingHook(message);
-
-			expect(result).not.toBeNull();
-			expect((result?.payload as { transformed: boolean }).transformed).toBe(true);
+			expect(hook).toBeNull();
 		});
 
-		it("should return original message if no hooks match", async () => {
-			const message: Message = { type: "Order", payload: {} };
-			const result = await component.executeMatchingHook(message);
+		it("should not match hooks with different message type", () => {
+			const step = createStep({ testCaseId: "tc_1", params: { messageType: "Order" } });
+			step.component = component;
 
-			expect(result).toBe(message);
+			component.registerHook(step);
+
+			const message = { type: "Payment", payload: {} };
+			const hook = component.testFindMatchingHook(message);
+
+			expect(hook).toBeNull();
 		});
 	});
 
-	describe("clearTestCaseHooks", () => {
-		it("should remove non-persistent hooks", () => {
-			const hooks: Hook<Message>[] = [
-				{
-					id: "hook-1",
-					componentName: "client",
-					phase: "init",
-					isMatch: (msg: Message) => msg.type === "Order",
-					handlers: [],
-					persistent: true, // Init hook
-				},
-				{
-					id: "hook-2",
-					componentName: "client",
-					phase: "test",
-					isMatch: (msg: Message) => msg.type === "Payment",
-					handlers: [],
-					persistent: false, // Test hook
-				},
-			];
+	describe("clearHooks with testCaseId", () => {
+		it("should remove non-persistent hooks for testCaseId", () => {
+			// Persistent hook (no testCaseId)
+			const step1 = createStep({ params: { messageType: "Order" } });
+			step1.component = component;
+			delete (step1 as Partial<Step>).testCaseId;
 
-			hooks.forEach((hook) => {
-				component.registerHook(hook);
-			});
+			// Non-persistent hook
+			const step2 = createStep({ testCaseId: "tc_1", params: { messageType: "Payment" } });
+			step2.component = component;
+
+			component.registerHook(step1);
+			component.registerHook(step2);
 			expect(component.getAllHooks()).toHaveLength(2);
 
-			component.clearTestCaseHooks();
+			component.clearHooks("tc_1");
 
+			// Only persistent hook (without testCaseId) remains
 			expect(component.getAllHooks()).toHaveLength(1);
-			expect(component.getHookById("hook-1")).toBeDefined();
-			expect(component.getHookById("hook-2")).toBeUndefined();
+			expect(component.getAllHooks()[0].persistent).toBe(true);
 		});
 	});
 
-	describe("clearHooks", () => {
+	describe("clearHooks without testCaseId", () => {
 		it("should remove all hooks", () => {
-			const hook: Hook<Message> = {
-				id: "hook-1",
-				componentName: "client",
-				phase: "test",
-				isMatch: (msg: Message) => msg.type === "Order",
-				handlers: [],
-				persistent: true,
-			};
+			const step1 = createStep({ testCaseId: "tc_1" });
+			step1.component = component;
+			const step2 = createStep({ params: { messageType: "Payment" } });
+			step2.component = component;
 
-			component.registerHook(hook);
-			expect(component.getAllHooks()).toHaveLength(1);
+			component.registerHook(step1);
+			component.registerHook(step2);
+			expect(component.getAllHooks()).toHaveLength(2);
 
 			component.clearHooks();
 

@@ -1,98 +1,128 @@
 /**
  * Subscriber Step Builder
  *
- * Provides test DSL integration for Subscriber component.
- * Registers steps for waitForMessage and hook operations.
+ * Builder for subscriber operations.
+ * Pure data builder - contains NO execution logic.
  */
 
-import type { ITestCaseBuilder } from "../../execution";
-import type { DefaultTopics, Payload, QueueMessage, Topic, Topics } from "../mq.base";
+import { BaseStepBuilder } from "../base/step-builder";
+import type { Topics, Topic } from "../mq.base";
+import { SubscriberHookBuilder } from "./subscriber.hook-builder";
 import type { Subscriber } from "./subscriber.component";
-import type { SubscriberHookBuilder } from "./subscriber.hook-builder";
 
 /**
- * Step builder for Subscriber component.
+ * Subscriber Step Builder
  *
- * @template T - Topic definitions type
+ * Provides declarative API for subscribing to messages.
+ * All methods register steps - no execution logic here.
+ *
+ * @template T - Topics type for topic validation
+ * @template TMessage - Adapter-specific message type
  */
-export class SubscriberStepBuilder<T extends Topics = DefaultTopics> {
-	private readonly subscriber: Subscriber<T>;
-	private readonly builder: ITestCaseBuilder;
-
-	constructor(subscriber: Subscriber<T>, builder: ITestCaseBuilder) {
-		this.subscriber = subscriber;
-		this.builder = builder;
-	}
-
+export class SubscriberStepBuilder<
+	T extends Topics = Topics,
+	TMessage = unknown,
+> extends BaseStepBuilder {
 	/**
-	 * Register a step to wait for a message.
-	 * The message is stored in the test context under the specified key.
+	 * Handle incoming message (non-strict hook).
 	 *
-	 * @param topic - Topic name or array of topic names
-	 * @param storeAs - Key to store the received message in test context
-	 * @param options - Optional matcher and timeout
-	 * @returns this for chaining
+	 * Works regardless of timing - message can arrive before or after step starts.
 	 *
-	 * @example
-	 * ```typescript
-	 * sub.waitForMessage("orders", "receivedOrder");
-	 * sub.waitForMessage("orders", "receivedOrder", {
-	 *   matcher: (msg) => msg.payload.orderId === "123",
-	 *   timeout: 10000,
-	 * });
-	 * ```
-	 */
-	waitForMessage<K extends Topic<T>>(
-		topic: K | K[],
-		storeAs: string,
-		options?: {
-			matcher?: (message: QueueMessage<Payload<T, K>>) => boolean;
-			timeout?: number;
-		}
-	): this {
-		const subscriberName = this.subscriber.name;
-		const topics = Array.isArray(topic) ? topic.map(String) : [String(topic)];
-
-		this.builder.registerStep({
-			type: "waitForMessage",
-			componentName: subscriberName,
-			messageType: topics.join(", "),
-			description: `Wait for message on "${topics.join(", ")}"`,
-			timeout: options?.timeout,
-			action: async () => {
-				await this.subscriber.waitForMessage(topic, options?.matcher, options?.timeout);
-			},
-			metadata: {
-				operation: "waitForMessage",
-				topics,
-				storeAs,
-				hasCustomMatcher: !!options?.matcher,
-			},
-		});
-
-		return this;
-	}
-
-	/**
-	 * Register a hook for messages on the specified topic.
-	 * This is equivalent to calling subscriber.onMessage() but registered as a step.
-	 *
-	 * @param topic - Topic name
-	 * @param payloadMatcher - Optional function to match specific messages
-	 * @returns Hook builder for chaining
-	 *
-	 * @example
-	 * ```typescript
-	 * sub.onMessage("orders")
-	 *   .assert((msg) => msg.payload.orderId !== undefined);
-	 * ```
+	 * @param topic - Topic name to match
+	 * @param options - Optional matcher function to filter messages
 	 */
 	onMessage<K extends Topic<T>>(
 		topic: K,
-		payloadMatcher?: (payload: Payload<T, K>) => boolean
-	): SubscriberHookBuilder<Payload<T, K>> {
-		// Register the hook directly on the subscriber
-		// The hook builder is returned for chaining
-		return this.subscriber.onMessage(topic, payloadMatcher);
+		options?: { matcher?: (message: TMessage) => boolean }
+	): SubscriberHookBuilder<TMessage> {
+		// Ensure subscription
+		const subscriber = this.component as Subscriber<T, TMessage>;
+		subscriber.ensureSubscribed(topic);
+
+		return this.registerStep(
+			{
+				type: "onMessage",
+				description: `Handle message from ${topic}`,
+				params: {
+					topic,
+					topics: [topic],
+					matcher: options?.matcher,
+				},
+				handlers: [],
+				mode: "hook",
+			},
+			SubscriberHookBuilder<TMessage>
+		);
+	}
+
+	/**
+	 * Wait for incoming message (strict wait).
+	 *
+	 * Error if message arrives before this step starts executing.
+	 *
+	 * @param topic - Topic name to match
+	 * @param options - Optional matcher function and timeout
+	 */
+	waitMessage<K extends Topic<T>>(
+		topic: K,
+		options?: {
+			matcher?: (message: TMessage) => boolean;
+			timeout?: number;
+		}
+	): SubscriberHookBuilder<TMessage> {
+		// Ensure subscription
+		const subscriber = this.component as Subscriber<T, TMessage>;
+		subscriber.ensureSubscribed(topic);
+
+		return this.registerStep(
+			{
+				type: "waitMessage",
+				description: `Wait for message from ${topic}`,
+				params: {
+					topic,
+					topics: [topic],
+					matcher: options?.matcher,
+					timeout: options?.timeout,
+				},
+				handlers: [],
+				mode: "wait",
+			},
+			SubscriberHookBuilder<TMessage>
+		);
+	}
+
+	/**
+	 * Wait for message from multiple topics (strict wait).
+	 *
+	 * @param topics - Array of topic names
+	 * @param options - Optional matcher function and timeout
+	 */
+	waitMessageFrom<K extends Topic<T>>(
+		topics: K[],
+		options?: {
+			matcher?: (message: TMessage) => boolean;
+			timeout?: number;
+		}
+	): SubscriberHookBuilder<TMessage> {
+		// Ensure subscription to all topics
+		const subscriber = this.component as Subscriber<T, TMessage>;
+		for (const topic of topics) {
+			subscriber.ensureSubscribed(topic);
+		}
+
+		return this.registerStep(
+			{
+				type: "waitMessage",
+				description: `Wait for message from [${topics.join(", ")}]`,
+				params: {
+					topics,
+					matcher: options?.matcher,
+					timeout: options?.timeout,
+				},
+				handlers: [],
+				mode: "wait",
+			},
+			SubscriberHookBuilder<TMessage>
+		);
 	}
 }

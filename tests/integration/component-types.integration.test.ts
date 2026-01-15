@@ -166,7 +166,7 @@ describe("Component Types Integration", () => {
 				client.sendMessage("ping", { seq: 1 });
 
 				// Server waits for and validates message
-				server.waitMessage("ping", { timeout: 2000 }).assert((payload) => {
+				server.waitMessage("ping").timeout(2000).assert((payload) => {
 					messageReceived = true;
 					return payload.seq === 1;
 				});
@@ -235,7 +235,7 @@ describe("Component Types Integration", () => {
 				subscriber.sendMessage("subscribe", { channel: "users" });
 
 				// WebSocket: server waits for message (simpler pattern)
-				events.waitMessage("subscribe", { timeout: 2000 }).assert((payload) => {
+				events.waitMessage("subscribe").timeout(2000).assert((payload) => {
 					wsMessageReceived = true;
 					return payload.channel === "users";
 				});

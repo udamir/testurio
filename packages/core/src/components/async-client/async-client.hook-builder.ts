@@ -1,140 +1,80 @@
 /**
  * Async Client Hook Builder
  *
- * Implements fluent hook builder for async client protocols.
- * Receives an already-registered hook and adds handlers to it.
- * Contains common methods used by both client and server.
+ * Builder for handling async client events in a declarative way.
+ * Extends BaseHookBuilder with client-specific handler methods.
+ *
+ * Per design:
+ * - Contains NO logic, only handler registration
+ * - All execution logic is in the Component
  */
 
-import type { Message } from "../../protocols/base";
-import type { Hook, HookHandler } from "../base";
-import { DropMessageError } from "../base";
+import { BaseHookBuilder } from "../base/hook-builder";
 
 /**
- * Async Client Hook Builder Implementation
+ * Async Client Hook Builder
  *
- * Base hook builder for async protocols with common methods.
- * Server hook builder extends this to add mockEvent capability.
+ * Builder for handling events in a declarative way.
+ * Adds handlers to the step that will be executed by the component.
  *
- * @template TPayload - Incoming message payload type
- * @template M - Full message definition for type inference (optional)
+ * @template TPayload - Event payload type from the protocol
  */
-export class AsyncClientHookBuilder<TPayload, _M = unknown> {
+export class AsyncClientHookBuilder<TPayload = unknown> extends BaseHookBuilder {
 	/**
-	 * Create a new async client hook builder.
+	 * Add assertion handler to validate the event.
 	 *
-	 * @param hook - Already registered hook to add handlers to
-	 */
-	constructor(protected hook: Hook<Message<TPayload>>) {}
-
-	/**
-	 * Get the hook ID
-	 */
-	get hookId(): string {
-		return this.hook.id;
-	}
-
-	/**
-	 * Add assertion handler
-	 *
-	 * @param descriptionOrHandler - Description string or handler function
-	 * @param handler - Handler function (if first param is description)
+	 * @param descriptionOrPredicate - Description string or predicate function
+	 * @param predicate - Predicate function (if first param is description)
+	 * @returns this for chaining
 	 */
 	assert(
-		descriptionOrHandler: string | ((payload: TPayload) => boolean | Promise<boolean>),
-		handler?: (payload: TPayload) => boolean | Promise<boolean>
+		descriptionOrPredicate: string | ((payload: TPayload) => boolean | Promise<boolean>),
+		predicate?: (payload: TPayload) => boolean | Promise<boolean>
 	): this {
-		const description = typeof descriptionOrHandler === "string" ? descriptionOrHandler : undefined;
-		const predicate = typeof descriptionOrHandler === "function" ? descriptionOrHandler : handler;
+		const [description, fn] =
+			typeof descriptionOrPredicate === "string"
+				? [descriptionOrPredicate, predicate]
+				: [undefined, descriptionOrPredicate];
 
-		this.addHandler({
+		return this.addHandler({
 			type: "assert",
-			metadata: description ? { description } : undefined,
-			execute: async (msg: Message<TPayload>) => {
-				const result = await Promise.resolve(predicate?.(msg.payload));
-				if (!result) {
-					const errorMsg = description
-						? `Assertion failed: ${description}`
-						: `Assertion failed for message type: ${msg.type}`;
-					throw new Error(errorMsg);
-				}
-				return msg;
-			},
+			description,
+			params: { predicate: fn },
 		});
-		return this;
 	}
 
 	/**
-	 * Add proxy handler (forward message, optionally transform)
+	 * Add transform handler to modify the event payload.
 	 *
-	 * @param descriptionOrHandler - Description string or handler function
-	 * @param handler - Handler function (if first param is description)
+	 * @param descriptionOrHandler - Description string or transform function
+	 * @param handler - Transform function (if first param is description)
+	 * @returns new hook builder with transformed type
 	 */
-	proxy(
-		descriptionOrHandler?: string | ((payload: TPayload) => TPayload | Promise<TPayload>),
-		handler?: (payload: TPayload) => TPayload | Promise<TPayload>
-	): this {
-		const description = typeof descriptionOrHandler === "string" ? descriptionOrHandler : undefined;
-		const transformer = typeof descriptionOrHandler === "function" ? descriptionOrHandler : handler;
+	transform<TResult = TPayload>(
+		descriptionOrHandler: string | ((payload: TPayload) => TResult | Promise<TResult>),
+		handler?: (payload: TPayload) => TResult | Promise<TResult>
+	): AsyncClientHookBuilder<TResult> {
+		const [description, fn] =
+			typeof descriptionOrHandler === "string"
+				? [descriptionOrHandler, handler]
+				: [undefined, descriptionOrHandler];
 
-		this.addHandler({
-			type: "proxy",
-			metadata: description ? { description } : undefined,
-			execute: async (msg: Message<TPayload>) => {
-				if (transformer) {
-					const transformedPayload = await Promise.resolve(transformer(msg.payload));
-					return {
-						...msg,
-						payload: transformedPayload,
-					};
-				}
-				// No handler - pass through unchanged
-				return msg;
-			},
+		return this.addHandler<AsyncClientHookBuilder<TResult>>({
+			type: "transform",
+			description,
+			params: { handler: fn },
 		});
-		return this;
 	}
 
 	/**
-	 * Add delay handler
+	 * Set timeout for waiting for the event.
+	 * If the event is not received within the timeout, the step fails.
+	 * Updates step.params.timeout (not a handler).
 	 *
-	 * @param descriptionOrMs - Description string or delay in ms
-	 * @param ms - Delay in ms (if first param is description)
+	 * @param ms - Timeout in milliseconds
+	 * @returns this for chaining
 	 */
-	delay(descriptionOrMs: string | number | (() => number), ms?: number | (() => number)): this {
-		const description = typeof descriptionOrMs === "string" ? descriptionOrMs : undefined;
-		const delayValue = typeof descriptionOrMs === "string" ? ms : descriptionOrMs;
-
-		this.addHandler({
-			type: "delay",
-			metadata: description ? { description } : undefined,
-			execute: async (msg: Message<TPayload>) => {
-				const delayMs = typeof delayValue === "function" ? delayValue() : delayValue;
-				await new Promise((resolve) => setTimeout(resolve, delayMs));
-				return msg;
-			},
-		});
-		return this;
-	}
-
-	/**
-	 * Drop the message (stop propagation)
-	 */
-	drop(): this {
-		this.addHandler({
-			type: "drop",
-			execute: async () => {
-				throw new DropMessageError();
-			},
-		});
-		return this;
-	}
-
-	/**
-	 * Add a handler to the hook.
-	 * Handlers work with Message<TPayload>.
-	 */
-	protected addHandler(handler: HookHandler<Message<TPayload>, Message<unknown>>): void {
-		this.hook.handlers.push(handler);
+	timeout(ms: number): this {
+		return this.setParam("timeout", ms);
 	}
 }

@@ -5,8 +5,9 @@
  * Supports metadata for integration with test reporters (e.g., Allure).
  */
 
-import type { Severity, TestCaseMetadata, TestCaseResult, TestStep, TestStepResult } from "./execution.types";
-import { executeSteps, filterStepsByPhase, summarizeStepResults } from "./step-executor";
+import type { Severity, TestCaseMetadata, TestCaseResult, TestStepResult } from "./execution.types";
+import type { Step } from "../components/base/step.types";
+import { executeSteps, summarizeStepResults } from "./step-executor";
 import type { TestCaseBuilder } from "./test-case-builder";
 import { generateId } from "../utils";
 
@@ -145,35 +146,35 @@ export class TestCase {
 	/**
 	 * Build all steps using the provided builder
 	 */
-	buildSteps(builder: TestCaseBuilder): TestStep[] {
-		const steps: TestStep[] = [];
+	buildSteps(builder: TestCaseBuilder): Step[] {
+		const steps: Step[] = [];
 
 		// Build before steps
 		if (this.beforeBuilder) {
 			builder.setPhase("before");
 			this.beforeBuilder(builder);
-			steps.push(...filterStepsByPhase(builder.getSteps(), "before"));
 		}
 
 		// Build test steps
 		if (this.testBuilder) {
 			builder.setPhase("test");
 			this.testBuilder(builder);
-			steps.push(...filterStepsByPhase(builder.getSteps(), "test"));
 		}
 
 		// Build after steps
 		if (this.afterBuilder) {
 			builder.setPhase("after");
 			this.afterBuilder(builder);
-			steps.push(...filterStepsByPhase(builder.getSteps(), "after"));
 		}
+
+		// Get all steps (pure data, no action functions)
+		steps.push(...builder.getSteps());
 
 		return steps;
 	}
 
 	/**
-	 * Execute the test case
+	 * Execute the test case using three-phase execution
 	 */
 	async execute(
 		builder: TestCaseBuilder,
@@ -191,7 +192,7 @@ export class TestCase {
 			// Set test case context for hook isolation
 			builder.setTestCaseId(this.testCaseId);
 
-			// Build all steps
+			// Build all steps (pure data)
 			const allSteps = this.buildSteps(builder);
 
 			// Allow caller to process pending components before execution
@@ -199,20 +200,16 @@ export class TestCase {
 				await options.onBeforeExecute();
 			}
 
-			// Execute steps
-			const stepResults = await executeSteps(
-				allSteps,
-				{},
-				{
-					failFast: options?.failFast ?? true,
-					abortSignal: options?.abortSignal,
-					onStepComplete: options?.onStepComplete
-						? (result, index) => {
-								options.onStepComplete?.(this.toStepResult(result, index), index);
-							}
-						: undefined,
-				}
-			);
+			// Execute steps using three-phase model
+			const stepResults = await executeSteps(allSteps, this.testCaseId, {
+				failFast: options?.failFast ?? true,
+				abortSignal: options?.abortSignal,
+				onStepComplete: options?.onStepComplete
+					? (result, index) => {
+							options.onStepComplete?.(this.toStepResult(result, index), index);
+						}
+					: undefined,
+			});
 
 			const endTime = Date.now();
 			const summary = summarizeStepResults(stepResults);
@@ -260,7 +257,7 @@ export class TestCase {
 	 */
 	private toStepResult(
 		result: {
-			step: TestStep;
+			step: { type: string; componentName?: string; description?: string; metadata?: Record<string, unknown> };
 			passed: boolean;
 			duration: number;
 			error?: Error;

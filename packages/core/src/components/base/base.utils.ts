@@ -1,13 +1,48 @@
-// =============================================================================
-// Hook Matching Helpers (for Protocol Messages)
-// =============================================================================
+/**
+ * Base Utilities
+ *
+ * Utility functions for components and builders.
+ */
 
 import type { Message, MessageMatcher } from "../../protocols/base";
 import type { PayloadMatcher } from "./base.types";
 
+// =============================================================================
+// Description Utility
+// =============================================================================
+
 /**
- * Creates an `isMatch` function for protocol messages (Message<T>).
- * This helper builds the matching logic from messageType and optional payloadMatcher.
+ * Extract optional description from overloaded function arguments.
+ *
+ * Many builder methods support both:
+ * - `.assert(predicate)` - without description
+ * - `.assert("description", predicate)` - with description
+ *
+ * This utility helps implement such overloads.
+ *
+ * @example
+ * ```typescript
+ * assert(...args: [string, PredicateFn] | [PredicateFn]): this {
+ *   const [description, predicate] = withDesc(args);
+ *   return this.addHandler({ type: "assert", description, params: { predicate } });
+ * }
+ * ```
+ */
+export function withDesc<T extends unknown[]>(args: [string, ...T] | [...T]): [string | undefined, ...T] {
+	return (typeof args[0] === "string" ? [args[0], ...args.slice(1)] : [undefined, ...args]) as [
+		string | undefined,
+		...T,
+	];
+}
+
+// =============================================================================
+// Hook Matching Helpers
+// =============================================================================
+
+/**
+ * Creates an `isMatch` function for protocol messages.
+ *
+ * This helper builds matching logic from messageType and optional payloadMatcher.
  *
  * @param messageType - Message type to match (string or function)
  * @param payloadMatcher - Optional payload-level matcher
@@ -15,11 +50,7 @@ import type { PayloadMatcher } from "./base.types";
  *
  * @example
  * ```typescript
- * const hook: Hook<Message> = {
- *   id: "hook-1",
- *   isMatch: createMessageMatcher("orderRequest", { type: "traceId", value: "123" }),
- *   handlers: [...],
- * };
+ * const isMatch = createMessageMatcher("orderRequest", { type: "traceId", value: "123" });
  * ```
  */
 export function createMessageMatcher<T = unknown>(
@@ -50,15 +81,37 @@ export function createMessageMatcher<T = unknown>(
 }
 
 // =============================================================================
-// Hook Errors
+// Errors
 // =============================================================================
 
 /**
- * Special error to signal message should be dropped
+ * Special error to signal message should be dropped.
+ * Thrown by handlers to indicate the message should not be processed further.
  */
 export class DropMessageError extends Error {
 	constructor() {
 		super("Message dropped by hook");
 		this.name = "DropMessageError";
 	}
+}
+
+/**
+ * Timeout error for wait operations.
+ */
+export class TimeoutError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = "TimeoutError";
+	}
+}
+
+// =============================================================================
+// Sleep Utility
+// =============================================================================
+
+/**
+ * Sleep for specified milliseconds.
+ */
+export function sleep(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
