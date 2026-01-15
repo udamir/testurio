@@ -137,4 +137,13 @@ export interface IMQSubscriberAdapter<TMessage = unknown> {
 	 * Close the subscriber and release resources.
 	 */
 	close(): Promise<void>;
+
+	/**
+	 * Start consuming messages after all topics have been subscribed.
+	 * For adapters like Kafka that benefit from batching subscriptions
+	 * before triggering consumer group coordination.
+	 *
+	 * If not implemented, subscribe() should start consuming automatically.
+	 */
+	startConsuming?(): Promise<void>;
 }

@@ -39,6 +39,20 @@ export class KafkaAdapter implements IMQAdapter {
 	constructor(config: KafkaAdapterConfig) {
 		this.config = config;
 
+		// Apply test mode optimizations for faster connections
+		const testModeKafkaConfig = config.testMode
+			? {
+					connectionTimeout: 3000, // 3s (default: 30s)
+					requestTimeout: 5000, // 5s (default: 30s)
+					enforceRequestTimeout: true,
+					retry: {
+						initialRetryTime: 100,
+						retries: 3,
+						maxRetryTime: 1000,
+					},
+				}
+			: {};
+
 		this.kafka = new Kafka({
 			clientId: config.clientId ?? "testurio-kafka-adapter",
 			brokers: config.brokers,
@@ -47,6 +61,7 @@ export class KafkaAdapter implements IMQAdapter {
 			ssl: config.ssl,
 			sasl: config.sasl,
 			logLevel: config.logLevel ?? KafkaLogLevel.WARN,
+			...testModeKafkaConfig,
 			...config.kafkaOptions,
 		});
 	}
@@ -64,8 +79,32 @@ export class KafkaAdapter implements IMQAdapter {
 			throw new Error("groupId is required for creating subscribers");
 		}
 
+		// Apply test mode optimizations for faster consumer coordination
+		const testModeConfig = this.config.testMode
+			? {
+					// Consumer group coordination (faster rebalancing)
+					heartbeatInterval: 500, // 500ms (default: 3000ms)
+					sessionTimeout: 6000, // 6s (default: 30000ms)
+					rebalanceTimeout: 10000, // 10s (default: 60000ms)
+
+					// Fetch settings (faster message delivery)
+					maxWaitTimeInMs: 100, // 100ms (default: 5000ms) - don't wait long for batches
+					minBytes: 1, // 1 byte (default: 1) - return immediately when data available
+					maxBytes: 1048576, // 1MB (default: 10MB) - smaller batches
+
+					// Retry settings (faster recovery)
+					retry: {
+						initialRetryTime: 100, // 100ms (default: 300ms)
+						retries: 5, // 5 retries (default: 5)
+						maxRetryTime: 1000, // 1s (default: 30s)
+						factor: 0.2, // Slower backoff growth
+					},
+				}
+			: {};
+
 		const consumer = this.kafka.consumer({
 			groupId: this.config.groupId,
+			...testModeConfig,
 			...this.config.consumerOptions,
 		});
 

@@ -17,11 +17,11 @@ import type { KafkaMessageMetadata } from "./kafka.types";
  * before consumer.run() is called. For testing purposes, we restart the consumer
  * when new topics are added.
  */
-export class KafkaSubscriberAdapter implements IMQSubscriberAdapter {
+export class KafkaSubscriberAdapter implements IMQSubscriberAdapter<QueueMessage> {
 	readonly id: string;
 	private _isConnected = false;
 	private _isRunning = false;
-	private messageHandler?: (message: QueueMessage) => void;
+	private messageHandler?: (topic: string, message: QueueMessage) => void;
 	private errorHandler?: (error: Error) => void;
 	private disconnectHandler?: () => void;
 	private subscribedTopics: Set<string> = new Set();
@@ -47,32 +47,24 @@ export class KafkaSubscriberAdapter implements IMQSubscriberAdapter {
 	}
 
 	/**
-	 * Subscribe to a topic dynamically.
-	 * Note: Kafka requires restarting the consumer to add new subscriptions.
+	 * Subscribe to a topic. Does NOT start the consumer.
+	 * Call startConsuming() after all subscriptions are registered.
+	 *
+	 * Note: This method only registers the topic subscription with KafkaJS.
+	 * The consumer must be started separately via startConsuming() to trigger
+	 * consumer group coordination (join, rebalance, partition assignment).
 	 */
 	async subscribe(topic: string): Promise<void> {
 		if (this.subscribedTopics.has(topic)) {
 			return; // Already subscribed
 		}
 
-		// Stop consumer if running
-		const wasRunning = this._isRunning;
-		if (wasRunning) {
-			await this.consumer.stop();
-			this._isRunning = false;
-		}
-
-		// Subscribe to new topic
+		// Just register the subscription - don't start/restart consumer
 		await this.consumer.subscribe({
 			topic,
 			fromBeginning: this.fromBeginning,
 		});
 		this.subscribedTopics.add(topic);
-
-		// Restart consumer if it was running
-		if (wasRunning || this.subscribedTopics.size === 1) {
-			await this.startConsuming();
-		}
 	}
 
 	/**
@@ -92,11 +84,19 @@ export class KafkaSubscriberAdapter implements IMQSubscriberAdapter {
 	}
 
 	/**
-	 * Start consuming messages.
+	 * Start consuming messages. Call after all topics are subscribed.
+	 * This triggers consumer group join and rebalancing.
+	 *
+	 * For optimal performance with Kafka, call subscribe() for all topics first,
+	 * then call startConsuming() once to trigger a single rebalancing cycle.
 	 */
-	private async startConsuming(): Promise<void> {
+	async startConsuming(): Promise<void> {
 		if (this._isRunning) {
 			return;
+		}
+
+		if (this.subscribedTopics.size === 0) {
+			return; // No topics to consume
 		}
 
 		await this.consumer.run({
@@ -151,13 +151,13 @@ export class KafkaSubscriberAdapter implements IMQSubscriberAdapter {
 				metadata,
 			};
 
-			this.messageHandler(queueMessage);
+			this.messageHandler(topic, queueMessage);
 		} catch (error) {
 			this.errorHandler?.(error instanceof Error ? error : new Error(String(error)));
 		}
 	}
 
-	onMessage(handler: (message: QueueMessage) => void): void {
+	onMessage(handler: (topic: string, message: QueueMessage) => void): void {
 		this.messageHandler = handler;
 	}
 

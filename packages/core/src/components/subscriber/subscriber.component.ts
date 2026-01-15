@@ -107,6 +107,11 @@ export class Subscriber<
 	// =========================================================================
 
 	async executeStep(step: Step): Promise<void> {
+		// Start consumer if not running (for Kafka-like adapters with deferred start)
+		// By this point, all hooks are registered and topics are subscribed
+		if (this._subscriberAdapter?.startConsuming) {
+			await this._subscriberAdapter.startConsuming();
+		}
 		switch (step.type) {
 			case "onMessage":
 				// Hook mode - no-op, triggered by incoming messages

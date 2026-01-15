@@ -76,6 +76,16 @@ export interface KafkaAdapterConfig {
 	 * Consumer-specific configuration
 	 */
 	consumerOptions?: Omit<ConsumerConfig, "groupId">;
+
+	/**
+	 * Enable test mode with optimized timeouts for faster consumer coordination.
+	 * Reduces sessionTimeout to 6s and rebalanceTimeout to 10s.
+	 *
+	 * Use this in integration tests to speed up consumer group coordination.
+	 *
+	 * @default false
+	 */
+	testMode?: boolean;
 }
 
 /**

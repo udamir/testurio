@@ -6,10 +6,6 @@
  *
  * These tests require Docker to be running. They will be skipped automatically
  * if Docker is not available.
- *
- * NOTE: Tests are currently skipped due to discovered issues with Kafka consumer
- * group coordination timing. See docs/DESIGN-testcontainers-kafka.md for details.
- * The testcontainer integration itself is working correctly.
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
@@ -17,9 +13,7 @@ import { Publisher, Subscriber, TestScenario, testCase } from "testurio";
 import { KafkaAdapter } from "@testurio/adapter-kafka";
 import { startKafkaContainer, stopKafkaContainer, isDockerAvailable, type KafkaTestContext } from "../containers";
 
-// TODO: Re-enable once Kafka adapter consumer group timing is fixed
-// See docs/DESIGN-testcontainers-kafka.md "Discovered Issues" section
-describe.skip("Kafka Pub/Sub Integration", () => {
+describe.skipIf(!isDockerAvailable())("Kafka Pub/Sub Integration", () => {
 	let kafka: KafkaTestContext;
 
 	beforeAll(async () => {
@@ -35,9 +29,10 @@ describe.skip("Kafka Pub/Sub Integration", () => {
 	it("should publish and receive a single message", async () => {
 		const adapter = new KafkaAdapter({
 			brokers: kafka.brokers,
-			clientId: "test-single-message",
-			groupId: "test-group-single",
+			clientId: `test-single-message-${Date.now()}`,
+			groupId: `test-group-single-${Date.now()}`,
 			fromBeginning: true,
+			testMode: true,
 		});
 
 		const publisher = new Publisher("pub", { adapter });
@@ -73,9 +68,10 @@ describe.skip("Kafka Pub/Sub Integration", () => {
 	it("should handle multiple messages on same topic", async () => {
 		const adapter = new KafkaAdapter({
 			brokers: kafka.brokers,
-			clientId: "test-multiple-messages",
-			groupId: "test-group-multiple",
+			clientId: `test-multiple-messages-${Date.now()}`,
+			groupId: `test-group-multiple-${Date.now()}`,
 			fromBeginning: true,
+			testMode: true,
 		});
 
 		const publisher = new Publisher("pub", { adapter });
@@ -116,9 +112,10 @@ describe.skip("Kafka Pub/Sub Integration", () => {
 	it("should support multiple topics", async () => {
 		const adapter = new KafkaAdapter({
 			brokers: kafka.brokers,
-			clientId: "test-multiple-topics",
-			groupId: "test-group-topics",
+			clientId: `test-multiple-topics-${Date.now()}`,
+			groupId: `test-group-topics-${Date.now()}`,
 			fromBeginning: true,
+			testMode: true,
 		});
 
 		const publisher = new Publisher("pub", { adapter });
@@ -156,9 +153,10 @@ describe.skip("Kafka Pub/Sub Integration", () => {
 	it("should include Kafka-specific metadata", async () => {
 		const adapter = new KafkaAdapter({
 			brokers: kafka.brokers,
-			clientId: "test-metadata",
-			groupId: "test-group-metadata",
+			clientId: `test-metadata-${Date.now()}`,
+			groupId: `test-group-metadata-${Date.now()}`,
 			fromBeginning: true,
+			testMode: true,
 		});
 
 		const publisher = new Publisher("pub", { adapter });
@@ -192,9 +190,10 @@ describe.skip("Kafka Pub/Sub Integration", () => {
 	it("should support message keys", async () => {
 		const adapter = new KafkaAdapter({
 			brokers: kafka.brokers,
-			clientId: "test-keys",
-			groupId: "test-group-keys",
+			clientId: `test-keys-${Date.now()}`,
+			groupId: `test-group-keys-${Date.now()}`,
 			fromBeginning: true,
+			testMode: true,
 		});
 
 		const publisher = new Publisher("pub", { adapter });
@@ -225,9 +224,10 @@ describe.skip("Kafka Pub/Sub Integration", () => {
 	it("should support message headers", async () => {
 		const adapter = new KafkaAdapter({
 			brokers: kafka.brokers,
-			clientId: "test-headers",
-			groupId: "test-group-headers",
+			clientId: `test-headers-${Date.now()}`,
+			groupId: `test-group-headers-${Date.now()}`,
 			fromBeginning: true,
+			testMode: true,
 		});
 
 		const publisher = new Publisher("pub", { adapter });
@@ -259,9 +259,10 @@ describe.skip("Kafka Pub/Sub Integration", () => {
 	it("should handle rapid message publishing", async () => {
 		const adapter = new KafkaAdapter({
 			brokers: kafka.brokers,
-			clientId: "test-rapid",
-			groupId: "test-group-rapid",
+			clientId: `test-rapid-${Date.now()}`,
+			groupId: `test-group-rapid-${Date.now()}`,
 			fromBeginning: true,
+			testMode: true,
 		});
 
 		const publisher = new Publisher("pub", { adapter });
@@ -302,9 +303,10 @@ describe.skip("Kafka Pub/Sub Integration", () => {
 	it("should support batch publishing", async () => {
 		const adapter = new KafkaAdapter({
 			brokers: kafka.brokers,
-			clientId: "test-batch",
-			groupId: "test-group-batch",
+			clientId: `test-batch-${Date.now()}`,
+			groupId: `test-group-batch-${Date.now()}`,
 			fromBeginning: true,
+			testMode: true,
 		});
 
 		const publisher = new Publisher("pub", { adapter });
@@ -349,19 +351,22 @@ describe.skip("Kafka Pub/Sub Integration", () => {
 
 	// Consumer groups: Each group gets the message once
 	it("should support independent consumer groups", async () => {
+		const timestamp = Date.now();
 		// Two adapters with different group IDs
 		const adapter1 = new KafkaAdapter({
 			brokers: kafka.brokers,
-			clientId: "test-group-a",
-			groupId: "group-a",
+			clientId: `test-group-a-${timestamp}`,
+			groupId: `group-a-${timestamp}`,
 			fromBeginning: true,
+			testMode: true,
 		});
 
 		const adapter2 = new KafkaAdapter({
 			brokers: kafka.brokers,
-			clientId: "test-group-b",
-			groupId: "group-b",
+			clientId: `test-group-b-${timestamp}`,
+			groupId: `group-b-${timestamp}`,
 			fromBeginning: true,
+			testMode: true,
 		});
 
 		const publisher = new Publisher("pub", { adapter: adapter1 });
