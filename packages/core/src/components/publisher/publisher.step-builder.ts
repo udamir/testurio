@@ -6,7 +6,7 @@
  */
 
 import { BaseStepBuilder } from "../base/step-builder";
-import type { Topics, Topic, Payload } from "../mq.base";
+import type { Topics, Topic, Payload, DefaultTopics } from "../mq.base";
 
 /**
  * Publisher Step Builder
@@ -14,12 +14,16 @@ import type { Topics, Topic, Payload } from "../mq.base";
  * Provides declarative API for publishing messages.
  * All methods register steps - no execution logic here.
  *
+ * Uses self-referential constraint `T extends Topics<T>` which:
+ * - Does NOT require T to have an index signature
+ * - Allows strict typing with specific topic keys
+ *
  * @template T - Topics type for topic/payload validation
  * @template TOptions - Adapter-specific publish options
  * @template TBatchMessage - Adapter-specific batch message type
  */
 export class PublisherStepBuilder<
-	T extends Topics = Topics,
+	T extends Topics<T> = DefaultTopics,
 	TOptions = unknown,
 	TBatchMessage = unknown,
 > extends BaseStepBuilder {

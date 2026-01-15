@@ -819,7 +819,7 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 				components: [server, client1, client2],
 			});
 
-			let waitMessagePayload: { clientId: string; data: string } | null = null;
+			const context: { waitMessagePayload?: DataRequest } = {};
 
 			const tc = testCase("waitMessage with matcher blocks until matching message", (test) => {
 				// Catch-all handler for client1 (so client1's message gets a response)
@@ -843,7 +843,7 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 					.waitMessage("Data", { matcher: (p) => p.clientId === "c2" })
 					.timeout(2000)
 					.assert((payload) => {
-						waitMessagePayload = payload as { clientId: string; data: string };
+						context.waitMessagePayload = payload;
 						return payload.clientId === "c2";
 					})
 					.mockEvent("DataResponse", (payload) => ({
@@ -866,9 +866,9 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 			const result = await scenario.run(tc);
 			expect(result.passed).toBe(true);
 			// waitMessage should have captured only client2's message
-			expect(waitMessagePayload).not.toBeNull();
-			expect(waitMessagePayload?.clientId).toBe("c2");
-			expect(waitMessagePayload?.data).toBe("from-client2");
+			expect(context.waitMessagePayload).not.toBeNull();
+			expect(context.waitMessagePayload?.clientId).toBe("c2");
+			expect(context.waitMessagePayload?.data).toBe("from-client2");
 		});
 
 		it("should match any message when no matcher is specified", async () => {

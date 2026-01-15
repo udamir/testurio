@@ -3,6 +3,9 @@
  *
  * Type helpers for loose/strict topic validation.
  * Message structure is fully adapter-specific - no base types here.
+ *
+ * Uses mapped type approach (same as HttpOperations) which does NOT require
+ * T to have an index signature - it only maps over the actual keys of T.
  */
 
 // =============================================================================
@@ -10,16 +13,37 @@
 // =============================================================================
 
 /**
- * Topic definitions type.
- * Maps topic names to their payload types.
- */
-export type Topics = Record<string, unknown>;
-
-/**
  * Default topics type for loose mode.
  * Uses index signature to accept any string key.
  */
 export type DefaultTopics = { [key: string]: unknown };
+
+/**
+ * Topic definitions type - maps topic names to their payload types.
+ *
+ * Uses mapped type `[K in keyof T]` which does NOT require T to have
+ * an index signature - it only maps over the actual keys of T.
+ *
+ * @template T - Topic definition type
+ *   - If T has index signature: loose mode (any string key)
+ *   - If T has specific keys: strict mode (only defined keys)
+ *
+ * @example
+ * ```typescript
+ * // Strict mode - specific keys only, no index signature required
+ * interface OrderTopics {
+ *   'orders.created': { orderId: string; amount: number };
+ *   'orders.shipped': { orderId: string; trackingId: string };
+ * }
+ * type Strict = Topics<OrderTopics>; // { 'orders.created': {...}, 'orders.shipped': {...} }
+ *
+ * // Loose mode - index signature allows any key
+ * type Loose = Topics<DefaultTopics>; // any string key
+ * ```
+ */
+export type Topics<T = object> = {
+	[K in keyof T]: T[K];
+};
 
 /**
  * Detects whether T is in loose mode (accepts any string key).

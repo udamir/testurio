@@ -8,7 +8,7 @@
 import { BaseComponent } from "../base/base.component";
 import type { ITestCaseContext } from "../base/base.types";
 import type { Step, Handler } from "../base/step.types";
-import type { IMQAdapter, IMQPublisherAdapter, Topics } from "../mq.base";
+import type { IMQAdapter, IMQPublisherAdapter, Topics, DefaultTopics } from "../mq.base";
 import { PublisherStepBuilder } from "./publisher.step-builder";
 
 export interface PublisherOptions<
@@ -24,12 +24,17 @@ export interface PublisherOptions<
  * Publishes messages to message queue topics.
  * No hooks - fire-and-forget only.
  *
+ * Uses self-referential constraint `T extends Topics<T>` which:
+ * - Does NOT require T to have an index signature
+ * - Allows strict typing with specific topic keys
+ * - Falls back to loose mode when T = DefaultTopics
+ *
  * @template T - Topics type for topic/payload validation
  * @template TOptions - Adapter-specific publish options
  * @template TBatchMessage - Adapter-specific batch message type
  */
 export class Publisher<
-	T extends Topics = Topics,
+	T extends Topics<T> = DefaultTopics,
 	TOptions = unknown,
 	TBatchMessage = unknown,
 > extends BaseComponent<PublisherStepBuilder<T, TOptions, TBatchMessage>> {

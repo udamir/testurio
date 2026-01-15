@@ -358,18 +358,31 @@ export interface GrpcStreamMessagesConstraint {
 /**
  * gRPC Unary Service definition - maps operation IDs to operations
  *
+ * Uses mapped type `[K in keyof T]` which does NOT require T to have
+ * an index signature - it only maps over the actual keys of T.
+ *
  * @template T - Service definition type
- *   - If T is omitted or DefaultGrpcUnaryOperations: loose mode (any string key)
- *   - If T is a specific interface: strict mode (only defined keys)
+ *   - If T has index signature: loose mode (any string key)
+ *   - If T has specific keys: strict mode (only defined keys)
+ *
+ * @example
+ * ```typescript
+ * // Strict mode - specific keys only, no index signature required
+ * interface MyGrpcService {
+ *   GetUser: { request: { id: number }; response: { name: string } };
+ * }
+ * type Strict = GrpcUnaryOperations<MyGrpcService>; // { GetUser: GrpcUnaryOperation }
+ *
+ * // Loose mode - index signature allows any key
+ * type Loose = GrpcUnaryOperations<DefaultGrpcUnaryOperations>; // any string key
+ * ```
  */
-export type GrpcUnaryOperations<T = DefaultGrpcUnaryOperations> = T extends DefaultGrpcUnaryOperations
-	? DefaultGrpcUnaryOperations
-	: {
-			[K in keyof T]: GrpcUnaryOperation<
-				T[K] extends { request: infer R } ? R : GrpcRequestPayload,
-				T[K] extends { response: infer S } ? S : GrpcResponsePayload
-			>;
-		};
+export type GrpcUnaryOperations<T = object> = {
+	[K in keyof T]: GrpcUnaryOperation<
+		T[K] extends { request: infer R } ? R : GrpcRequestPayload,
+		T[K] extends { response: infer S } ? S : GrpcResponsePayload
+	>;
+};
 
 // =============================================================================
 // Mode Detection Types

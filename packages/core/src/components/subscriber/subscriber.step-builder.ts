@@ -6,7 +6,7 @@
  */
 
 import { BaseStepBuilder } from "../base/step-builder";
-import type { Topics, Topic } from "../mq.base";
+import type { Topics, Topic, DefaultTopics } from "../mq.base";
 import { SubscriberHookBuilder } from "./subscriber.hook-builder";
 import type { Subscriber } from "./subscriber.component";
 
@@ -16,11 +16,15 @@ import type { Subscriber } from "./subscriber.component";
  * Provides declarative API for subscribing to messages.
  * All methods register steps - no execution logic here.
  *
+ * Uses self-referential constraint `T extends Topics<T>` which:
+ * - Does NOT require T to have an index signature
+ * - Allows strict typing with specific topic keys
+ *
  * @template T - Topics type for topic validation
  * @template TMessage - Adapter-specific message type
  */
 export class SubscriberStepBuilder<
-	T extends Topics = Topics,
+	T extends Topics<T> = DefaultTopics,
 	TMessage = unknown,
 > extends BaseStepBuilder {
 	/**

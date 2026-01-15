@@ -13,7 +13,7 @@ import { BaseComponent } from "../base/base.component";
 import type { ITestCaseContext } from "../base/base.types";
 import type { Step, Handler } from "../base/step.types";
 import type { Hook } from "../base/hook.types";
-import type { IMQAdapter, IMQSubscriberAdapter, Topics } from "../mq.base";
+import type { IMQAdapter, IMQSubscriberAdapter, Topics, DefaultTopics } from "../mq.base";
 import { SubscriberStepBuilder } from "./subscriber.step-builder";
 import { createDeferred, type Deferred } from "../../utils";
 
@@ -52,11 +52,16 @@ export interface SubscriberOptions<TMessage = unknown> {
  *
  * Subscribes to messages from message queue topics.
  *
+ * Uses self-referential constraint `T extends Topics<T>` which:
+ * - Does NOT require T to have an index signature
+ * - Allows strict typing with specific topic keys
+ * - Falls back to loose mode when T = DefaultTopics
+ *
  * @template T - Topics type for topic validation
  * @template TMessage - Adapter-specific message type
  */
 export class Subscriber<
-	T extends Topics = Topics,
+	T extends Topics<T> = DefaultTopics,
 	TMessage = unknown,
 > extends BaseComponent<SubscriberStepBuilder<T, TMessage>> {
 	private readonly _adapter: IMQAdapter<TMessage>;

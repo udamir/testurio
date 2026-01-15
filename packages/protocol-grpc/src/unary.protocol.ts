@@ -53,11 +53,24 @@ import { GrpcUnaryClientAdapter, GrpcUnaryServerAdapter } from "./unary.adapters
  *
  * Implements synchronous request/response pattern for gRPC unary calls.
  *
+ * Uses self-referential constraint `T extends GrpcUnaryOperations<T>` which:
+ * - Does NOT require T to have an index signature
+ * - Allows strict typing with specific operation keys
+ * - Falls back to loose mode when T = DefaultGrpcUnaryOperations
+ *
  * @template T - Service definition type for type-safe method calls
  *   - If omitted: loose mode (any operation ID accepted)
  *   - If provided: strict mode (only defined operations allowed)
+ *
+ * @example Strict mode (specific operations)
+ * ```typescript
+ * interface MyService {
+ *   GetUser: { request: { id: number }; response: { name: string } };
+ * }
+ * const protocol = new GrpcUnaryProtocol<MyService>({ schema: './service.proto' });
+ * ```
  */
-export class GrpcUnaryProtocol<T extends GrpcUnaryOperations = DefaultGrpcUnaryOperations>
+export class GrpcUnaryProtocol<T extends GrpcUnaryOperations<T> = DefaultGrpcUnaryOperations>
 	extends BaseSyncProtocol<GrpcUnaryOperations<T>, GrpcOperationRequest, GrpcOperationResponse>
 	implements ISyncProtocol<GrpcUnaryOperations<T>, GrpcOperationRequest, GrpcOperationResponse>
 {
@@ -162,8 +175,10 @@ export class GrpcUnaryProtocol<T extends GrpcUnaryOperations = DefaultGrpcUnaryO
 
 /**
  * Create gRPC unary protocol factory
+ *
+ * @template T - Service definition type (uses self-referential constraint)
  */
-export function createGrpcUnaryProtocol<T extends GrpcUnaryOperations = DefaultGrpcUnaryOperations>(
+export function createGrpcUnaryProtocol<T extends GrpcUnaryOperations<T> = DefaultGrpcUnaryOperations>(
 	options: GrpcUnaryProtocolOptions = {}
 ): GrpcUnaryProtocol<T> {
 	return new GrpcUnaryProtocol<T>(options);
