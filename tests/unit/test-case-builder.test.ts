@@ -9,10 +9,18 @@ import { TestCaseBuilder } from "testurio";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
+ * Mock step builder type for testing
+ */
+interface MockStepBuilder {
+	doAction(description: string): void;
+	onEvent(description: string): void;
+}
+
+/**
  * Mock component for testing the new execution model.
  * Implements the Component interface with registerHook, executeStep, clearHooks.
  */
-function createMockComponent(name: string): Component {
+function createMockComponent(name: string): Component<MockStepBuilder> {
 	const hooks: Step[] = [];
 
 	return {
@@ -55,7 +63,7 @@ function createMockComponent(name: string): Component {
 		})),
 		start: vi.fn(async () => {}),
 		stop: vi.fn(async () => {}),
-	} as unknown as Component;
+	} as unknown as Component<MockStepBuilder>;
 }
 
 describe("TestCaseBuilder", () => {

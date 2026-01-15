@@ -9,13 +9,22 @@ import { TestCase, TestCaseBuilder, testCase } from "testurio";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
+ * Mock step builder type for testing
+ */
+interface MockStepBuilder {
+	doAction(description: string): void;
+	onEvent(description: string): void;
+	delay(ms: number): void;
+}
+
+/**
  * Mock component for testing the new execution model.
  * Implements the Component interface with registerHook, executeStep, clearHooks.
  */
 function createMockComponent(
 	name: string,
 	executeStepFn?: (step: Step) => Promise<void> | void
-): Component {
+): Component<MockStepBuilder> {
 	const hooks: Step[] = [];
 	const componentRef = {} as Component;
 
@@ -77,13 +86,13 @@ function createMockComponent(
 	// Assign component reference for circular reference
 	Object.assign(componentRef, component);
 
-	return component as unknown as Component;
+	return component as unknown as Component<MockStepBuilder>;
 }
 
 describe("TestCase", () => {
 	let components: Map<string, Component>;
 	let builder: TestCaseBuilder;
-	let mockComponent: Component;
+	let mockComponent: Component<MockStepBuilder>;
 
 	beforeEach(() => {
 		components = new Map<string, Component>();

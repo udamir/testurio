@@ -34,7 +34,7 @@ interface ErrorResponse {
 // HTTP Service Definition for Type Safety
 // ============================================================================
 
-interface HttpServiceDef {
+interface ServiceOperations {
 	getUsers: {
 		request: { method: "GET"; path: "/users"; body?: never };
 		response: { code: 200; body: User[] };
@@ -85,19 +85,19 @@ function getNextPort(): number {
 // Helper functions for creating HTTP components with typed adapters
 const createMockServer = (name: string, port: number) =>
 	new Server(name, {
-		protocol: new HttpProtocol<HttpServiceDef>(),
+		protocol: new HttpProtocol<ServiceOperations>(),
 		listenAddress: { host: "localhost", port },
 	});
 
 const createClient = (name: string, port: number) =>
 	new Client(name, {
-		protocol: new HttpProtocol<HttpServiceDef>(),
+		protocol: new HttpProtocol<ServiceOperations>(),
 		targetAddress: { host: "localhost", port },
 	});
 
 const createProxyServer = (name: string, listenPort: number, targetPort: number) =>
 	new Server(name, {
-		protocol: new HttpProtocol<HttpServiceDef>(),
+		protocol: new HttpProtocol<ServiceOperations>(),
 		listenAddress: { host: "localhost", port: listenPort },
 		targetAddress: { host: "localhost", port: targetPort },
 	});
@@ -526,7 +526,7 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 			const backendPort = getNextPort();
 			const backendServer = createMockServer("backend", backendPort);
 			const apiClient = new Client("api", {
-				protocol: new HttpProtocol<HttpServiceDef>(),
+				protocol: new HttpProtocol<ServiceOperations>(),
 				targetAddress: { host: "localhost", port: backendPort },
 			});
 

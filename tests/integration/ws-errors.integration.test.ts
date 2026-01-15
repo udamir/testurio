@@ -43,7 +43,6 @@ describe("WebSocket Error Scenarios Integration Tests", () => {
 			const client = new AsyncClient("api", {
 				protocol: new WebSocketProtocol<WsTestService>(),
 				targetAddress: { host: "127.0.0.1", port: 19999 },
-				connectionTimeout: 1000,
 			});
 
 			const scenario = new TestScenario({
@@ -69,7 +68,6 @@ describe("WebSocket Error Scenarios Integration Tests", () => {
 			const client = new AsyncClient("api", {
 				protocol: new WebSocketProtocol<WsTestService>(),
 				targetAddress: { host: "10.255.255.1", port: 19998 }, // Non-routable IP for timeout
-				connectionTimeout: 500,
 			});
 
 			const scenario = new TestScenario({

@@ -9,13 +9,21 @@ import { scenario, TestScenario, testCase } from "testurio";
 import { describe, expect, it, vi } from "vitest";
 
 /**
+ * Mock step builder type for testing
+ */
+interface MockStepBuilder {
+	doAction(description: string): void;
+	onEvent(description: string): void;
+}
+
+/**
  * Mock component for testing the new execution model.
  * Implements the full Component interface.
  */
 function createMockComponent(
 	name: string,
 	executeStepFn?: (step: Step) => Promise<void> | void
-): Component {
+): Component<MockStepBuilder> {
 	const hooks: Step[] = [];
 	const unhandledErrors: Error[] = [];
 	let state: "created" | "starting" | "started" | "stopping" | "stopped" | "error" = "created";
@@ -79,7 +87,7 @@ function createMockComponent(
 		}),
 	};
 
-	return component as unknown as Component;
+	return component as unknown as Component<MockStepBuilder>;
 }
 
 describe("TestScenario", () => {
