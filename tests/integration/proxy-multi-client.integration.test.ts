@@ -920,9 +920,218 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 	});
 
 	// ============================================================================
-	// 0.6 Session Lifecycle
+	// 0.6 Stress Tests
 	// ============================================================================
-	describe("0.6 Session Lifecycle", () => {
+	describe("0.6 Stress Tests", () => {
+		it("should handle single onMessage processing multiple sequential messages", async () => {
+			const serverPort = getNextPort();
+			const server = createMockServer("server", serverPort);
+			const client = createClient("client", serverPort);
+
+			const scenario = new TestScenario({
+				name: "Single Handler Multiple Messages Test",
+				components: [server, client],
+			});
+
+			const receivedSeqs: number[] = [];
+
+			const tc = testCase("One onMessage handles 10 sequential messages", (test) => {
+				// Single handler for ALL Ping messages - should NOT be consumed after first match
+				test
+					.use(server)
+					.onMessage("Ping")
+					.mockEvent("Pong", (payload) => {
+						receivedSeqs.push(payload.seq);
+						return { seq: payload.seq, clientId: payload.clientId, pong: true };
+					});
+
+				// Send 10 messages - all should be handled by the same onMessage
+				for (let i = 1; i <= 10; i++) {
+					test.use(client).sendMessage("Ping", { seq: i, clientId: "stress" });
+				}
+
+				// Wait for last response
+				test
+					.use(client)
+					.waitEvent("Pong", { matcher: (p) => p.seq === 10 })
+					.timeout(5000)
+					.assert((p) => p.seq === 10);
+			});
+
+			const result = await scenario.run(tc);
+			expect(result.passed).toBe(true);
+			// All 10 messages should have been processed by the single handler
+			expect(receivedSeqs).toHaveLength(10);
+			expect(receivedSeqs.sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+		});
+
+		it("should handle high-volume message throughput through proxy", async () => {
+			const backendPort = getNextPort();
+			const proxyPort = getNextPort();
+			const backend = createMockServer("backend", backendPort);
+			const proxy = createProxyServer("proxy", proxyPort, backendPort);
+			const client = createClient("client", proxyPort);
+
+			const scenario = new TestScenario({
+				name: "High Volume Proxy Throughput Test",
+				components: [backend, proxy, client],
+			});
+
+			const MESSAGE_COUNT = 50;
+			const receivedSeqs: number[] = [];
+
+			const tc = testCase(`Process ${MESSAGE_COUNT} messages through proxy`, (test) => {
+				// Backend handler for all messages
+				test
+					.use(backend)
+					.onMessage("Ping")
+					.mockEvent("Pong", (payload) => {
+						receivedSeqs.push(payload.seq);
+						return { seq: payload.seq, clientId: payload.clientId, pong: true };
+					});
+
+				// Send many messages rapidly
+				for (let i = 1; i <= MESSAGE_COUNT; i++) {
+					test.use(client).sendMessage("Ping", { seq: i, clientId: "highvol" });
+				}
+
+				// Wait for last response
+				test
+					.use(client)
+					.waitEvent("Pong", { matcher: (p) => p.seq === MESSAGE_COUNT })
+					.timeout(10000)
+					.assert((p) => p.seq === MESSAGE_COUNT);
+			});
+
+			const result = await scenario.run(tc);
+			expect(result.passed).toBe(true);
+			expect(receivedSeqs).toHaveLength(MESSAGE_COUNT);
+		});
+
+		it("should handle multiple clients sending messages concurrently through proxy", async () => {
+			const backendPort = getNextPort();
+			const proxyPort = getNextPort();
+			const backend = createMockServer("backend", backendPort);
+			const proxy = createProxyServer("proxy", proxyPort, backendPort);
+			const client1 = createClient("client1", proxyPort);
+			const client2 = createClient("client2", proxyPort);
+			const client3 = createClient("client3", proxyPort);
+
+			const scenario = new TestScenario({
+				name: "Concurrent Multi-Client Stress Test",
+				components: [backend, proxy, client1, client2, client3],
+			});
+
+			const MESSAGES_PER_CLIENT = 10;
+			const receivedMessages: { clientId: string; seq: number }[] = [];
+
+			const tc = testCase("3 clients each send 10 messages concurrently", (test) => {
+				// Single handler processes all messages
+				test
+					.use(backend)
+					.onMessage("Data")
+					.mockEvent("DataResponse", (payload) => {
+						receivedMessages.push({ clientId: payload.clientId, seq: Number(payload.data) });
+						return { clientId: payload.clientId, data: payload.data, processed: true };
+					});
+
+				// All clients send messages (interleaved in step order)
+				for (let i = 1; i <= MESSAGES_PER_CLIENT; i++) {
+					test.use(client1).sendMessage("Data", { clientId: "c1", data: String(i) });
+					test.use(client2).sendMessage("Data", { clientId: "c2", data: String(i) });
+					test.use(client3).sendMessage("Data", { clientId: "c3", data: String(i) });
+				}
+
+				// Wait for last response from each client
+				test
+					.use(client1)
+					.waitEvent("DataResponse", { matcher: (p) => p.clientId === "c1" && p.data === String(MESSAGES_PER_CLIENT) })
+					.timeout(10000);
+				test
+					.use(client2)
+					.waitEvent("DataResponse", { matcher: (p) => p.clientId === "c2" && p.data === String(MESSAGES_PER_CLIENT) })
+					.timeout(10000);
+				test
+					.use(client3)
+					.waitEvent("DataResponse", { matcher: (p) => p.clientId === "c3" && p.data === String(MESSAGES_PER_CLIENT) })
+					.timeout(10000);
+			});
+
+			const result = await scenario.run(tc);
+			expect(result.passed).toBe(true);
+			// Total: 3 clients * 10 messages = 30 messages
+			expect(receivedMessages).toHaveLength(MESSAGES_PER_CLIENT * 3);
+			// Verify each client sent all their messages
+			expect(receivedMessages.filter((m) => m.clientId === "c1")).toHaveLength(MESSAGES_PER_CLIENT);
+			expect(receivedMessages.filter((m) => m.clientId === "c2")).toHaveLength(MESSAGES_PER_CLIENT);
+			expect(receivedMessages.filter((m) => m.clientId === "c3")).toHaveLength(MESSAGES_PER_CLIENT);
+		});
+
+		it("should handle proxy with delay transformation under load", async () => {
+			const backendPort = getNextPort();
+			const proxyPort = getNextPort();
+			const backend = createMockServer("backend", backendPort);
+			const proxy = createProxyServer("proxy", proxyPort, backendPort);
+			const client = createClient("client", proxyPort);
+
+			const scenario = new TestScenario({
+				name: "Proxy Delay Under Load Test",
+				components: [backend, proxy, client],
+			});
+
+			const MESSAGE_COUNT = 5;
+			const DELAY_MS = 50;
+			const receivedSeqs: number[] = [];
+			const receivedTimes: number[] = [];
+			const startTime = Date.now();
+
+			const tc = testCase("Proxy delays messages under load", (test) => {
+				// Proxy adds delay to each message
+				test
+					.use(proxy)
+					.onMessage("Ping")
+					.delay(DELAY_MS)
+					.proxy();
+
+				// Backend responds and records time
+				test
+					.use(backend)
+					.onMessage("Ping")
+					.mockEvent("Pong", (payload) => {
+						receivedSeqs.push(payload.seq);
+						receivedTimes.push(Date.now() - startTime);
+						return { seq: payload.seq, clientId: payload.clientId, pong: true };
+					});
+
+				// Send messages
+				for (let i = 1; i <= MESSAGE_COUNT; i++) {
+					test.use(client).sendMessage("Ping", { seq: i, clientId: "delay" });
+				}
+
+				// Wait for last response
+				test
+					.use(client)
+					.waitEvent("Pong", { matcher: (p) => p.seq === MESSAGE_COUNT })
+					.timeout(10000)
+					.assert((p) => p.seq === MESSAGE_COUNT);
+			});
+
+			const result = await scenario.run(tc);
+
+			expect(result.passed).toBe(true);
+			expect(receivedSeqs).toHaveLength(MESSAGE_COUNT);
+			// All messages should arrive at backend after at least DELAY_MS
+			// (delays run in parallel for async processing)
+			receivedTimes.forEach((time) => {
+				expect(time).toBeGreaterThanOrEqual(DELAY_MS * 0.8);
+			});
+		});
+	});
+
+	// ============================================================================
+	// 0.7 Session Lifecycle
+	// ============================================================================
+	describe("0.7 Session Lifecycle", () => {
 		it("should close backend connection when client disconnects", async () => {
 			// This test verifies linked disconnect handling
 			// When client disconnects, the corresponding backend connection should close

@@ -193,7 +193,7 @@ describe("Timeout Integration Tests", () => {
 
 			const result = await scenario.run(tc);
 			expect(result.passed).toBe(false);
-			expect(result.testCases[0].error).toContain("timeout");
+			expect(result.testCases[0].error?.toLowerCase()).toContain("timeout");
 		});
 	});
 

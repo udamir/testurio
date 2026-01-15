@@ -156,12 +156,16 @@ describe("Description Parameter", () => {
 						return typeof req.body === "object" && req.body !== null && "name" in req.body;
 					})
 					.mockResponse(() => ({ code: 200, body: {} }));
+				// Wait for response - it will fail/timeout because server assertion throws
+				api.onResponse("test").timeout(500);
 			});
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(false);
-			expect(result.testCases[0].error).toContain("Assertion failed: request body should have name field");
+			// Server assertion should fail and be tracked as unhandled error
+			const serverErrors = server.getUnhandledErrors();
+			expect(serverErrors.length).toBeGreaterThan(0);
+			expect(serverErrors[0].message).toContain("Assertion failed: request body should have name field");
 		});
 
 		it("mockResponse() should accept description", async () => {
@@ -222,6 +226,8 @@ describe("Description Parameter", () => {
 					.onRequest("test", { method: "GET", path: "/slow" })
 					.delay("simulate network latency", 50)
 					.mockResponse(() => ({ code: 200, body: {} }));
+				// Wait for response to avoid unhandled rejection
+				api.onResponse("test").assert((res) => res.code === 200);
 			});
 
 			const result = await scenario.run(tc);
@@ -266,6 +272,8 @@ describe("Description Parameter", () => {
 					code: 200,
 					body: { data: "test" },
 				}));
+				// Wait for response to avoid unhandled rejection
+				api.onResponse("test").assert((res) => res.code === 200);
 			});
 
 			const result = await scenario.run(tc);

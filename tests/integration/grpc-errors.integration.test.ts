@@ -52,6 +52,8 @@ describe("gRPC Error Scenarios Integration Tests", () => {
 			const tc = testCase("Connection refused", (test) => {
 				const api = test.use(client);
 				api.request("GetUser", { payload: { user_id: 1 } });
+				// Wait for response with timeout to properly handle the expected connection error
+				api.onResponse("GetUser").timeout(2000);
 			});
 
 			try {
@@ -82,6 +84,8 @@ describe("gRPC Error Scenarios Integration Tests", () => {
 			const tc = testCase("Server unavailable", (test) => {
 				const api = test.use(client);
 				api.request("GetUser", { payload: { user_id: 1 } });
+				// Wait for response with timeout to properly handle the expected connection error
+				api.onResponse("GetUser").timeout(2000);
 			});
 
 			// Should either throw or return failed result
