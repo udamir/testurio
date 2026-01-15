@@ -153,8 +153,10 @@ export class RedisPubSubSubscriberAdapter implements IMQSubscriberAdapter<QueueM
 				metadata,
 			};
 
-			// Pass topic separately as per IMQSubscriberAdapter interface
-			this.messageHandler(channel, queueMessage);
+			// Pass pattern as topic for pattern subscriptions, channel otherwise
+			// Adapter normalizes topic to what was subscribed (pattern or exact channel)
+			const topic = pattern ?? channel;
+			this.messageHandler(topic, queueMessage);
 		} catch (error) {
 			this.errorHandler?.(error instanceof Error ? error : new Error(String(error)));
 		}

@@ -140,8 +140,7 @@ describe.skipIf(!isDockerAvailable())("Redis Pub/Sub Integration", () => {
 		expect(result.passed).toBe(true);
 	});
 
-	// TODO: Pattern subscriptions require investigation - async subscription timing
-	it.skip("should support pattern subscriptions", async () => {
+	it("should support pattern subscriptions", async () => {
 		const adapter = new RedisPubSubAdapter({
 			host: redis.host,
 			port: redis.port,
@@ -174,8 +173,7 @@ describe.skipIf(!isDockerAvailable())("Redis Pub/Sub Integration", () => {
 		expect(result.passed).toBe(true);
 	});
 
-	// TODO: Multiple subscribers with shared adapter requires investigation
-	it.skip("should handle multiple subscribers with shared adapter", async () => {
+	it("should handle multiple subscribers with shared adapter", async () => {
 		const adapter = new RedisPubSubAdapter({
 			host: redis.host,
 			port: redis.port,

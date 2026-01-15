@@ -13,6 +13,7 @@
 import type { Address, ISyncClientAdapter, ISyncProtocol, ISyncServerAdapter, MessageMatcher, TlsConfig } from "../../protocols/base";
 import type { ITestCaseContext } from "../base/base.types";
 import type { Step, Handler } from "../base/step.types";
+import type { Hook } from "../base/hook.types";
 import { ServiceComponent } from "../base/service.component";
 import { DropMessageError, sleep } from "../base/base.utils";
 import { SyncServerStepBuilder } from "./sync-server.step-builder";
@@ -51,6 +52,15 @@ export class Server<P extends ISyncProtocol = ISyncProtocol> extends ServiceComp
 	}
 
 	// =========================================================================
+	// Hook Registration
+	// =========================================================================
+
+	async registerHook(step: Step): Promise<Hook> {
+		const withPending = step.type === "waitRequest";
+		return super.registerHook(step, withPending);
+	}
+
+	// =========================================================================
 	// Step Execution
 	// =========================================================================
 
@@ -75,26 +85,27 @@ export class Server<P extends ISyncProtocol = ISyncProtocol> extends ServiceComp
 		};
 		const timeout = params.timeout ?? 5000;
 
-		// Get existing pending (if request arrived first) or create new one
-		let pending = this.getPending(step.id);
-		if (pending) {
-			this.setWaiting(step.id);
-		} else {
-			pending = this.createPending(step.id, true);
+		const hook = this.findHookByStepId(step.id);
+		if (!hook) {
+			throw new Error(`No hook found for waitRequest: ${params.messageType}`);
+		}
+
+		// Strict ordering check for waitRequest
+		if (hook.resolved) {
+			throw new Error(
+				`Strict ordering violation: Request arrived before waitRequest started. ` +
+					`Step: ${step.id}, messageType: ${params.messageType}. ` +
+					`Use onRequest() if ordering doesn't matter.`
+			);
 		}
 
 		try {
 			// Wait for handleIncomingRequest to resolve (after executing handlers)
-			await Promise.race([
-				pending.promise,
-				new Promise<never>((_, reject) => {
-					setTimeout(() => {
-						reject(new Error(`Timeout waiting for request: ${params.messageType} (${timeout}ms)`));
-					}, timeout);
-				}),
-			]);
+			await this.awaitHook(hook, timeout);
 		} finally {
-			this.cleanupPending(step.id);
+			if (!hook.persistent) {
+				this.removeHook(hook.id);
+			}
 		}
 	}
 
@@ -116,28 +127,12 @@ export class Server<P extends ISyncProtocol = ISyncProtocol> extends ServiceComp
 		const step = hook.step;
 		const isWaitStep = step.type === "waitRequest";
 
-		// For wait steps, check strict ordering
-		if (isWaitStep) {
-			let pending = this.getPending(step.id);
-			if (!pending) {
-				pending = this.createPending(step.id, false);
-			}
-			if (!pending.isWaiting) {
-				const error = new Error(
-					`Strict sequence violation: Request arrived before waitRequest started. ` +
-						`Step: ${step.id}, messageType: ${messageType}`
-				);
-				pending.reject(error);
-				throw error;
-			}
-		}
-
 		try {
 			const result = await this.executeServerHandlers(step, message);
 
 			// Notify wait step that handling is complete
 			if (isWaitStep) {
-				this.getPending(step.id)?.resolve(undefined);
+				this.resolveHook(hook, undefined);
 			}
 
 			if (!result) {
@@ -156,7 +151,7 @@ export class Server<P extends ISyncProtocol = ISyncProtocol> extends ServiceComp
 		} catch (error) {
 			// Notify wait step of error
 			if (isWaitStep) {
-				this.getPending(step.id)?.reject(error instanceof Error ? error : new Error(String(error)));
+				this.rejectHook(hook, error instanceof Error ? error : new Error(String(error)));
 			}
 
 			if (error instanceof DropMessageError) {
@@ -354,7 +349,6 @@ export class Server<P extends ISyncProtocol = ISyncProtocol> extends ServiceComp
 			this._clientAdapter = undefined;
 		}
 
-		this.clearPendingRequests();
 		this.clearHooks();
 	}
 }

@@ -208,7 +208,7 @@ export class Subscriber<
 		return (data: unknown): boolean => {
 			const { topic, message } = data as { topic: string; message: TMessage };
 
-			// First check topic match
+			// Check exact topic match (adapter handles pattern resolution)
 			if (!params.topics.includes(topic)) {
 				return false;
 			}

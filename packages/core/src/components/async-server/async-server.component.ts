@@ -26,6 +26,7 @@ import type {
 } from "../../protocols/base";
 import type { ITestCaseContext } from "../base/base.types";
 import type { Step, Handler } from "../base/step.types";
+import type { Hook } from "../base/hook.types";
 import { ServiceComponent } from "../base/service.component";
 import { DropMessageError, sleep } from "../base/base.utils";
 import { AsyncServerStepBuilder } from "./async-server.step-builder";
@@ -101,6 +102,18 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 	}
 
 	// =========================================================================
+	// Hook Registration
+	// =========================================================================
+
+	async registerHook(step: Step): Promise<Hook> {
+		const withPending =
+			step.type === "waitMessage" ||
+			step.type === "waitConnection" ||
+			step.type === "waitDisconnect";
+		return super.registerHook(step, withPending);
+	}
+
+	// =========================================================================
 	// Link Management
 	// =========================================================================
 
@@ -170,26 +183,27 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 		};
 		const timeout = params.timeout ?? 5000;
 
-		// Get existing pending (if message arrived first) or create new one
-		let pending = this.getPending(step.id);
-		if (pending) {
-			this.setWaiting(step.id);
-		} else {
-			pending = this.createPending(step.id, true);
+		const hook = this.findHookByStepId(step.id);
+		if (!hook) {
+			throw new Error(`No hook found for waitMessage: ${params.messageType}`);
+		}
+
+		// Strict ordering check for waitMessage
+		if (hook.resolved) {
+			throw new Error(
+				`Strict ordering violation: Message arrived before waitMessage started. ` +
+					`Step: ${step.id}, messageType: ${params.messageType}. ` +
+					`Use onMessage() if ordering doesn't matter.`
+			);
 		}
 
 		try {
 			// Wait for handleIncomingMessage to resolve (after executing handlers)
-			await Promise.race([
-				pending.promise,
-				new Promise<never>((_, reject) => {
-					setTimeout(() => {
-						reject(new Error(`Timeout waiting for message: ${params.messageType} (${timeout}ms)`));
-					}, timeout);
-				}),
-			]);
+			await this.awaitHook(hook, timeout);
 		} finally {
-			this.cleanupPending(step.id);
+			if (!hook.persistent) {
+				this.removeHook(hook.id);
+			}
 		}
 	}
 
@@ -201,26 +215,27 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 		};
 		const timeout = params.timeout ?? 5000;
 
-		// Get existing pending (if connection arrived first) or create new one
-		let pending = this.getPending(step.id);
-		if (pending) {
-			this.setWaiting(step.id);
-		} else {
-			pending = this.createPending(step.id, true);
+		const hook = this.findHookByStepId(step.id);
+		if (!hook) {
+			throw new Error(`No hook found for waitConnection: ${params.linkId}`);
+		}
+
+		// Strict ordering check for waitConnection
+		if (hook.resolved) {
+			throw new Error(
+				`Strict ordering violation: Connection arrived before waitConnection started. ` +
+					`Step: ${step.id}, linkId: ${params.linkId}. ` +
+					`Use onConnection() if ordering doesn't matter.`
+			);
 		}
 
 		try {
 			// Wait for handleNewConnection to resolve (after linking)
-			await Promise.race([
-				pending.promise,
-				new Promise<never>((_, reject) => {
-					setTimeout(() => {
-						reject(new Error(`Timeout waiting for connection: ${params.linkId} (${timeout}ms)`));
-					}, timeout);
-				}),
-			]);
+			await this.awaitHook(hook, timeout);
 		} finally {
-			this.cleanupPending(step.id);
+			if (!hook.persistent) {
+				this.removeHook(hook.id);
+			}
 		}
 	}
 
@@ -231,29 +246,30 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 		};
 		const timeout = params.timeout ?? 5000;
 
-		// Get existing pending (if disconnect happened first) or create new one
-		let pending = this.getPending(step.id);
-		if (pending) {
-			this.setWaiting(step.id);
-		} else {
-			pending = this.createPending(step.id, true);
+		const hook = this.findHookByStepId(step.id);
+		if (!hook) {
+			throw new Error(`No hook found for waitDisconnect: ${params.linkId}`);
+		}
+
+		// Strict ordering check for waitDisconnect
+		if (hook.resolved) {
+			throw new Error(
+				`Strict ordering violation: Disconnect happened before waitDisconnect started. ` +
+					`Step: ${step.id}, linkId: ${params.linkId}. ` +
+					`Use onDisconnect() if ordering doesn't matter.`
+			);
 		}
 
 		try {
 			// Wait for disconnect handler to resolve
-			await Promise.race([
-				pending.promise,
-				new Promise<never>((_, reject) => {
-					setTimeout(() => {
-						reject(new Error(`Timeout waiting for disconnect: ${params.linkId} (${timeout}ms)`));
-					}, timeout);
-				}),
-			]);
+			await this.awaitHook(hook, timeout);
 
 			// Execute handlers (e.g., assert)
 			await this.executeHandlers(step, undefined);
 		} finally {
-			this.cleanupPending(step.id);
+			if (!hook.persistent) {
+				this.removeHook(hook.id);
+			}
 		}
 	}
 
@@ -352,23 +368,6 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 		const isWaitStep = step.type === "waitMessage";
 		const context: ServerHandlerContext = { connectionId: connection.id };
 
-		// For wait steps, check strict ordering
-		if (isWaitStep) {
-			let pending = this.getPending(step.id);
-			if (!pending) {
-				pending = this.createPending(step.id, false);
-			}
-			if (!pending.isWaiting) {
-				const error = new Error(
-					`Strict sequence violation: Message arrived before waitMessage started. ` +
-						`Step: ${step.id}, messageType: ${message.type}`
-				);
-				pending.reject(error);
-				this.trackUnhandledError(error);
-				return;
-			}
-		}
-
 		try {
 			const result = await this.executeServerHandlers(step, incomingMessage, context);
 
@@ -380,7 +379,7 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 
 			// Notify wait step that handling is complete
 			if (isWaitStep) {
-				this.getPending(step.id)?.resolve(undefined);
+				this.resolveHook(hook, undefined);
 			}
 
 			// If result is null (dropped), don't forward
@@ -398,7 +397,7 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 		} catch (error) {
 			// Notify wait step of error
 			if (isWaitStep) {
-				this.getPending(step.id)?.reject(error instanceof Error ? error : new Error(String(error)));
+				this.rejectHook(hook, error instanceof Error ? error : new Error(String(error)));
 			}
 
 			if (error instanceof DropMessageError) {
@@ -624,6 +623,11 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 				continue;
 			}
 
+			// Skip if already resolved
+			if (hook.resolved) {
+				continue;
+			}
+
 			// Check matcher if specified
 			const params = hook.step.params as {
 				linkId: string;
@@ -640,29 +644,12 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 				}
 			}
 
-			// Check pending state for strict ordering
-			let pending = this.getPending(stepId);
-			if (!pending) {
-				pending = this.createPending(stepId, false);
-			}
-
-			if (!pending.isWaiting) {
-				// Connection arrived before waitConnection started - strict violation
-				const error = new Error(
-					`Strict sequence violation: Connection arrived before waitConnection started. ` +
-						`Step: ${stepId}, linkId: ${params.linkId}`
-				);
-				pending.reject(error);
-				this.trackUnhandledError(error);
-				return;
-			}
-
 			// Link the connection
 			this.linkConnection(connectionId, params.linkId);
 			this._consumedConnectionHooks.add(stepId);
 
-			// Resolve the pending promise
-			pending.resolve(undefined);
+			// Resolve the hook (strict ordering check happens in executeWaitConnection)
+			this.resolveHook(hook, undefined);
 			return; // Only one waitConnection per connection
 		}
 	}
@@ -684,27 +671,13 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 				continue;
 			}
 
-			const stepId = hook.step.id;
-
-			// Check pending state for strict ordering
-			let pending = this.getPending(stepId);
-			if (!pending) {
-				pending = this.createPending(stepId, false);
+			// Skip if already resolved
+			if (hook.resolved) {
+				continue;
 			}
 
-			if (!pending.isWaiting) {
-				// Disconnect happened before waitDisconnect started - strict violation
-				const error = new Error(
-					`Strict sequence violation: Disconnect happened before waitDisconnect started. ` +
-						`Step: ${stepId}, linkId: ${linkId}`
-				);
-				pending.reject(error);
-				this.trackUnhandledError(error);
-				return;
-			}
-
-			// Resolve the pending promise
-			pending.resolve(undefined);
+			// Resolve the hook (strict ordering check happens in executeWaitDisconnect)
+			this.resolveHook(hook, undefined);
 			return; // Only one waitDisconnect per linkId
 		}
 	}
@@ -992,7 +965,6 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 			this._serverAdapter = undefined;
 		}
 
-		this.clearPendingRequests();
 		this.clearHooks();
 	}
 }

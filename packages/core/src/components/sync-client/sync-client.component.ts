@@ -9,6 +9,7 @@
 import type { Address, ISyncClientAdapter, ISyncProtocol, TlsConfig } from "../../protocols/base";
 import type { ITestCaseContext } from "../base/base.types";
 import type { Step, Handler } from "../base/step.types";
+import type { Hook } from "../base/hook.types";
 import { ServiceComponent } from "../base/service.component";
 import { SyncClientStepBuilder } from "./sync-client.step-builder";
 
@@ -47,6 +48,15 @@ export class Client<P extends ISyncProtocol = ISyncProtocol> extends ServiceComp
 	}
 
 	// =========================================================================
+	// Hook Registration
+	// =========================================================================
+
+	async registerHook(step: Step): Promise<Hook> {
+		const withPending = step.type === "onResponse" || step.type === "waitResponse";
+		return super.registerHook(step, withPending);
+	}
+
+	// =========================================================================
 	// Step Execution
 	// =========================================================================
 
@@ -70,42 +80,23 @@ export class Client<P extends ISyncProtocol = ISyncProtocol> extends ServiceComp
 			data?: P["$request"];
 		};
 
-		// Find matching response hooks
+		// Find matching response hooks (already registered with pending in Phase 1)
 		const preMatchMessage: ResponseMessage = { type: params.messageType, payload: undefined };
 		const matchingHooks = this.findAllMatchingHooks(preMatchMessage);
 
 		// Start request (don't await)
 		const requestPromise = this.request(params.messageType, params.data);
 
-		// Create pending for each matching hook
+		// Resolve hooks when response arrives
 		for (const hook of matchingHooks) {
 			if (!hook.step) continue;
 
-			const stepId = hook.step.id;
-			const strict = hook.step.type === "waitResponse";
-			this.createPending(stepId, false);
-
 			requestPromise
 				.then((response) => {
-					const pending = this.getPending(stepId);
-					if (!pending) return;
-
-					if (strict && !pending.isWaiting) {
-						pending.reject(
-							new Error(
-								`Strict sequence violation: Response arrived before waitResponse started. ` +
-									`Step: ${stepId}, messageType: ${params.messageType}`
-							)
-						);
-					} else {
-						pending.resolve(response);
-					}
+					this.resolveHook(hook, response);
 				})
 				.catch((error) => {
-					const pending = this.getPending(stepId);
-					if (pending) {
-						pending.reject(error instanceof Error ? error : new Error(String(error)));
-					}
+					this.rejectHook(hook, error instanceof Error ? error : new Error(String(error)));
 				});
 		}
 	}
@@ -117,29 +108,30 @@ export class Client<P extends ISyncProtocol = ISyncProtocol> extends ServiceComp
 		};
 		const timeout = params.timeout ?? 5000;
 
-		const pending = this.getPending(step.id);
-		if (!pending) {
+		const hook = this.findHookByStepId(step.id);
+		if (!hook) {
 			throw new Error(
 				`No matching request for ${step.type}: ${params.messageType}. ` +
 					`Make sure request() is called before ${step.type}().`
 			);
 		}
 
-		this.setWaiting(step.id);
+		// Strict ordering check for waitResponse
+		if (step.type === "waitResponse" && hook.resolved) {
+			throw new Error(
+				`Strict ordering violation: Response arrived before waitResponse started. ` +
+					`Step: ${step.id}, messageType: ${params.messageType}. ` +
+					`Use onResponse() if ordering doesn't matter.`
+			);
+		}
 
 		try {
-			const response = await Promise.race([
-				pending.promise,
-				new Promise<never>((_, reject) => {
-					setTimeout(() => {
-						reject(new Error(`Timeout waiting for response: ${params.messageType} (${timeout}ms)`));
-					}, timeout);
-				}),
-			]);
-
+			const response = await this.awaitHook(hook, timeout);
 			await this.executeHandlers(step, response);
 		} finally {
-			this.cleanupPending(step.id);
+			if (!hook.persistent) {
+				this.removeHook(hook.id);
+			}
 		}
 	}
 
@@ -226,7 +218,6 @@ export class Client<P extends ISyncProtocol = ISyncProtocol> extends ServiceComp
 			await this._clientAdapter.close();
 			this._clientAdapter = undefined;
 		}
-		this.clearPendingRequests();
 		this.clearHooks();
 	}
 }
