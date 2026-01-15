@@ -5,7 +5,7 @@
  */
 
 import Redis from "ioredis";
-import type { Codec, IMQAdapter, IMQPublisherAdapter, IMQSubscriberAdapter } from "testurio";
+import { defaultJsonCodec, type Codec, type IMQAdapter, type IMQPublisherAdapter, type IMQSubscriberAdapter } from "testurio";
 import { RedisPubSubPublisherAdapter } from "./pubsub.publisher.adapter";
 import { RedisPubSubSubscriberAdapter } from "./pubsub.subscriber.adapter";
 import type { RedisPubSubAdapterConfig } from "./pubsub.types";
@@ -83,7 +83,7 @@ export class RedisPubSubAdapter implements IMQAdapter {
 		return redis;
 	}
 
-	async createPublisher(codec: Codec): Promise<IMQPublisherAdapter> {
+	async createPublisher(codec: Codec = defaultJsonCodec): Promise<IMQPublisherAdapter> {
 		const redis = this.getPublisherRedis();
 		const adapter = new RedisPubSubPublisherAdapter(redis, codec);
 		await adapter.connect();
@@ -91,7 +91,7 @@ export class RedisPubSubAdapter implements IMQAdapter {
 		return adapter;
 	}
 
-	async createSubscriber(codec: Codec): Promise<IMQSubscriberAdapter> {
+	async createSubscriber(codec: Codec = defaultJsonCodec): Promise<IMQSubscriberAdapter> {
 		// Create dedicated Redis connection for subscriber
 		const redis = this.createSubscriberRedis();
 

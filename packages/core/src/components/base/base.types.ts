@@ -56,8 +56,12 @@ export interface Component<TStepBuilder = unknown> {
 	 * Phase 1: Register a hook for a step.
 	 * Called by executor for steps with mode="hook" or mode="wait".
 	 * Creates Hook from Step and stores it for message matching.
+	 * May perform async setup (e.g., subscriptions) before returning.
+	 * @param step - The step to create a hook for
+	 * @param withPending - If true, creates a pending Deferred for wait steps
+	 * @returns The created Hook
 	 */
-	registerHook(step: Step): void;
+	registerHook(step: Step, withPending?: boolean): Promise<Hook>;
 
 	/**
 	 * Phase 2: Execute a step.

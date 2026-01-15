@@ -63,13 +63,12 @@ export async function executeSteps(
 
 	try {
 		// =========================================================================
-		// PHASE 1: Register all hooks BEFORE any step execution
+		// PHASE 1: Register all hooks BEFORE any step execution (parallel)
 		// =========================================================================
-		for (const step of steps) {
-			if (step.mode === "hook" || step.mode === "wait") {
-				step.component.registerHook(step);
-			}
-		}
+		const hookRegistrations = steps
+			.filter((step) => step.mode === "hook" || step.mode === "wait")
+			.map((step) => step.component.registerHook(step));
+		await Promise.all(hookRegistrations);
 
 		// =========================================================================
 		// PHASE 2: Execute steps in order

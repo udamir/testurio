@@ -25,10 +25,10 @@ interface MessageEnvelope {
  * Wraps ioredis SUBSCRIBE/PSUBSCRIBE to implement the IMQSubscriberAdapter interface.
  * Topics are subscribed dynamically via subscribe()/unsubscribe().
  */
-export class RedisPubSubSubscriberAdapter implements IMQSubscriberAdapter {
+export class RedisPubSubSubscriberAdapter implements IMQSubscriberAdapter<QueueMessage> {
 	readonly id: string;
 	private _isConnected = false;
-	private messageHandler?: (message: QueueMessage) => void;
+	private messageHandler?: (topic: string, message: QueueMessage) => void;
 	private errorHandler?: (error: Error) => void;
 	private disconnectHandler?: () => void;
 	private subscribedTopics: Set<string> = new Set();
@@ -153,13 +153,14 @@ export class RedisPubSubSubscriberAdapter implements IMQSubscriberAdapter {
 				metadata,
 			};
 
-			this.messageHandler(queueMessage);
+			// Pass topic separately as per IMQSubscriberAdapter interface
+			this.messageHandler(channel, queueMessage);
 		} catch (error) {
 			this.errorHandler?.(error instanceof Error ? error : new Error(String(error)));
 		}
 	}
 
-	onMessage(handler: (message: QueueMessage) => void): void {
+	onMessage(handler: (topic: string, message: QueueMessage) => void): void {
 		this.messageHandler = handler;
 	}
 

@@ -5,6 +5,7 @@
  * Hooks are pure data - component manages all execution state.
  */
 
+import type { Deferred } from "../../utils";
 import type { Step } from "./step.types";
 
 // =============================================================================
@@ -50,4 +51,17 @@ export interface Hook<TMessage = unknown> {
 	 * True for init hooks (testCaseId === undefined).
 	 */
 	persistent: boolean;
+
+	/**
+	 * Pending deferred for wait steps.
+	 * Created during registerHook for steps that need to wait for a value.
+	 * Resolved when matching message/response arrives.
+	 */
+	pending?: Deferred<TMessage>;
+
+	/**
+	 * Whether the hook's pending has been resolved.
+	 * Used to skip already-resolved hooks in message matching.
+	 */
+	resolved?: boolean;
 }

@@ -91,8 +91,6 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber<DefaultTopics, FakeMessage>("test-sub", { adapter });
 
-			// Mark topic for subscription before start
-			subscriber.ensureSubscribed("orders");
 			await subscriber.start();
 
 			// First register the hook for the step
@@ -107,7 +105,7 @@ describe("Subscriber", () => {
 				},
 				handlers: [],
 			};
-			subscriber.registerHook(step);
+			await subscriber.registerHook(step);
 
 			// Publish after small delay
 			setTimeout(() => {
@@ -128,7 +126,6 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber<DefaultTopics, FakeMessage>("test-sub", { adapter });
 
-			subscriber.ensureSubscribed("orders");
 			await subscriber.start();
 
 			const step: Step = {
@@ -142,7 +139,7 @@ describe("Subscriber", () => {
 				},
 				handlers: [],
 			};
-			subscriber.registerHook(step);
+			await subscriber.registerHook(step);
 
 			await expect(subscriber.executeStep(step)).rejects.toThrow(/Timeout/);
 
@@ -153,20 +150,9 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber<DefaultTopics, FakeMessage>("test-sub", { adapter });
 
-			subscriber.ensureSubscribed("orders");
 			await subscriber.start();
 
-			// Message arrives first (no hook registered yet, goes to buffer)
-			broker.publish("orders", {
-				topic: "orders",
-				payload: { orderId: "pre-existing" },
-				timestamp: Date.now(),
-			});
-
-			// Wait for message to be buffered
-			await new Promise((resolve) => setTimeout(resolve, 10));
-
-			// Now register step and execute - should get buffered message
+			// Register hook first to subscribe to topic
 			const step: Step = {
 				id: "wait-step-3",
 				type: "waitMessage",
@@ -178,7 +164,20 @@ describe("Subscriber", () => {
 				},
 				handlers: [],
 			};
-			subscriber.registerHook(step);
+			await subscriber.registerHook(step);
+
+			// Wait for subscription to complete
+			await new Promise((resolve) => setTimeout(resolve, 10));
+
+			// Message arrives after subscription but before step execution (goes to buffer)
+			broker.publish("orders", {
+				topic: "orders",
+				payload: { orderId: "pre-existing" },
+				timestamp: Date.now(),
+			});
+
+			// Wait for message to be buffered
+			await new Promise((resolve) => setTimeout(resolve, 10));
 
 			// Should resolve immediately from buffer
 			await subscriber.executeStep(step);
@@ -190,7 +189,6 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber<DefaultTopics, FakeMessage>("test-sub", { adapter });
 
-			subscriber.ensureSubscribed("orders");
 			await subscriber.start();
 
 			const step: Step = {
@@ -205,7 +203,7 @@ describe("Subscriber", () => {
 				},
 				handlers: [],
 			};
-			subscriber.registerHook(step);
+			await subscriber.registerHook(step);
 
 			// First message doesn't match
 			setTimeout(() => {
@@ -236,7 +234,6 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber<DefaultTopics, FakeMessage>("test-sub", { adapter });
 
-			subscriber.ensureSubscribed("orders");
 			await subscriber.start();
 
 			const step: Step = {
@@ -249,7 +246,7 @@ describe("Subscriber", () => {
 				},
 				handlers: [],
 			};
-			subscriber.registerHook(step);
+			await subscriber.registerHook(step);
 
 			// onMessage step is a no-op (hook mode)
 			await subscriber.executeStep(step);
@@ -263,7 +260,6 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber<DefaultTopics, FakeMessage>("test-sub", { adapter });
 
-			subscriber.ensureSubscribed("orders");
 			await subscriber.start();
 
 			let assertCalled = false;
@@ -287,7 +283,7 @@ describe("Subscriber", () => {
 				},
 				handlers: [assertHandler],
 			};
-			subscriber.registerHook(step);
+			await subscriber.registerHook(step);
 
 			broker.publish("orders", {
 				topic: "orders",
@@ -306,7 +302,6 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber<DefaultTopics, FakeMessage>("test-sub", { adapter });
 
-			subscriber.ensureSubscribed("orders");
 			await subscriber.start();
 
 			const assertHandler: Handler = {
@@ -329,7 +324,7 @@ describe("Subscriber", () => {
 				},
 				handlers: [assertHandler],
 			};
-			subscriber.registerHook(step);
+			await subscriber.registerHook(step);
 
 			// Publish message without orderId
 			broker.publish("orders", {
@@ -351,7 +346,6 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber<DefaultTopics, FakeMessage>("test-sub", { adapter });
 
-			subscriber.ensureSubscribed("orders");
 			await subscriber.start();
 
 			let transformCalled = false;
@@ -376,7 +370,7 @@ describe("Subscriber", () => {
 				},
 				handlers: [dropHandler, transformHandler],
 			};
-			subscriber.registerHook(step);
+			await subscriber.registerHook(step);
 
 			broker.publish("orders", {
 				topic: "orders",
@@ -398,7 +392,6 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber<DefaultTopics, FakeMessage>("test-sub", { adapter });
 
-			subscriber.ensureSubscribed("orders");
 			await subscriber.start();
 
 			let transformedMessage: unknown;
@@ -427,7 +420,7 @@ describe("Subscriber", () => {
 				},
 				handlers: [transformHandler],
 			};
-			subscriber.registerHook(step);
+			await subscriber.registerHook(step);
 
 			setTimeout(() => {
 				broker.publish("orders", {
@@ -451,8 +444,6 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber<DefaultTopics, FakeMessage>("test-sub", { adapter });
 
-			subscriber.ensureSubscribed("orders");
-			subscriber.ensureSubscribed("events");
 			await subscriber.start();
 
 			const step: Step = {
@@ -466,7 +457,7 @@ describe("Subscriber", () => {
 				},
 				handlers: [],
 			};
-			subscriber.registerHook(step);
+			await subscriber.registerHook(step);
 
 			setTimeout(() => {
 				broker.publish("events", {
@@ -487,7 +478,6 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber<DefaultTopics, FakeMessage>("test-sub", { adapter });
 
-			subscriber.ensureSubscribed("orders");
 			await subscriber.start();
 
 			const step: Step = {
@@ -500,13 +490,12 @@ describe("Subscriber", () => {
 				},
 				handlers: [],
 			};
-			subscriber.registerHook(step);
+			await subscriber.registerHook(step);
 
 			await subscriber.stop();
 
 			// After stop, hooks should be cleared
 			// Start again and verify no hooks
-			subscriber.ensureSubscribed("orders");
 			await subscriber.start();
 
 			// No errors should occur even with messages (no hooks registered)
@@ -527,7 +516,6 @@ describe("Subscriber", () => {
 			const adapter = createFakeMQAdapter(broker);
 			const subscriber = new Subscriber<DefaultTopics, FakeMessage>("test-sub", { adapter });
 
-			subscriber.ensureSubscribed("orders");
 			await subscriber.start();
 
 			const step: Step = {
@@ -541,7 +529,7 @@ describe("Subscriber", () => {
 				},
 				handlers: [],
 			};
-			subscriber.registerHook(step);
+			await subscriber.registerHook(step);
 
 			setTimeout(() => {
 				broker.publish("orders", {
@@ -615,8 +603,6 @@ describe("Subscriber Type Safety", () => {
 		const adapter = createFakeMQAdapter(broker);
 		const subscriber = new Subscriber<DefaultTopics, FakeMessage>("test-sub", { adapter });
 
-		subscriber.ensureSubscribed("any-topic");
-		subscriber.ensureSubscribed("another-topic");
 		await subscriber.start();
 
 		// In loose mode, any topic string is valid
@@ -637,8 +623,8 @@ describe("Subscriber Type Safety", () => {
 			handlers: [],
 		};
 
-		subscriber.registerHook(step1);
-		subscriber.registerHook(step2);
+		await subscriber.registerHook(step1);
+		await subscriber.registerHook(step2);
 
 		await subscriber.stop();
 	});
@@ -653,8 +639,6 @@ describe("Subscriber Type Safety", () => {
 		const adapter = createFakeMQAdapter(broker);
 		const subscriber = new Subscriber<OrderTopics, FakeMessage>("test-sub", { adapter });
 
-		subscriber.ensureSubscribed("order-created");
-		subscriber.ensureSubscribed("order-updated");
 		await subscriber.start();
 
 		// Type-safe steps
@@ -675,8 +659,8 @@ describe("Subscriber Type Safety", () => {
 			handlers: [],
 		};
 
-		subscriber.registerHook(step1);
-		subscriber.registerHook(step2);
+		await subscriber.registerHook(step1);
+		await subscriber.registerHook(step2);
 
 		await subscriber.stop();
 	});

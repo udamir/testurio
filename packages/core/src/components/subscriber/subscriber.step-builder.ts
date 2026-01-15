@@ -8,7 +8,6 @@
 import { BaseStepBuilder } from "../base/step-builder";
 import type { Topics, Topic, DefaultTopics } from "../mq.base";
 import { SubscriberHookBuilder } from "./subscriber.hook-builder";
-import type { Subscriber } from "./subscriber.component";
 
 /**
  * Subscriber Step Builder
@@ -39,10 +38,7 @@ export class SubscriberStepBuilder<
 		topic: K,
 		options?: { matcher?: (message: TMessage) => boolean }
 	): SubscriberHookBuilder<TMessage> {
-		// Ensure subscription
-		const subscriber = this.component as Subscriber<T, TMessage>;
-		subscriber.ensureSubscribed(topic);
-
+		// Subscription happens in registerHook() at runtime
 		return this.registerStep(
 			{
 				type: "onMessage",
@@ -74,10 +70,7 @@ export class SubscriberStepBuilder<
 			timeout?: number;
 		}
 	): SubscriberHookBuilder<TMessage> {
-		// Ensure subscription
-		const subscriber = this.component as Subscriber<T, TMessage>;
-		subscriber.ensureSubscribed(topic);
-
+		// Subscription happens in registerHook() at runtime
 		return this.registerStep(
 			{
 				type: "waitMessage",
@@ -108,12 +101,7 @@ export class SubscriberStepBuilder<
 			timeout?: number;
 		}
 	): SubscriberHookBuilder<TMessage> {
-		// Ensure subscription to all topics
-		const subscriber = this.component as Subscriber<T, TMessage>;
-		for (const topic of topics) {
-			subscriber.ensureSubscribed(topic);
-		}
-
+		// Subscription happens in registerHook() at runtime
 		return this.registerStep(
 			{
 				type: "waitMessage",

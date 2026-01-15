@@ -10,7 +10,7 @@
 import type { ITestCaseContext, ComponentState, Component } from "./base.types";
 import type { Step, Handler } from "./step.types";
 import type { Hook } from "./hook.types";
-import { generateId } from "../../utils";
+import { generateId, createDeferred } from "../../utils";
 
 export abstract class BaseComponent<TStepBuilder = unknown> implements Component<TStepBuilder> {
 	readonly name: string;
@@ -115,7 +115,12 @@ export abstract class BaseComponent<TStepBuilder = unknown> implements Component
 	// Phase 1: Hook Registration
 	// =========================================================================
 
-	registerHook(step: Step): void {
+	/**
+	 * Register a hook for a step.
+	 * @param step - The step to create a hook for
+	 * @param withPending - If true, creates a pending Deferred for wait steps
+	 */
+	async registerHook(step: Step, withPending?: boolean): Promise<Hook> {
 		const hook: Hook = {
 			id: generateId("hook_"),
 			stepId: step.id,
@@ -123,8 +128,10 @@ export abstract class BaseComponent<TStepBuilder = unknown> implements Component
 			isMatch: this.createHookMatcher(step),
 			step: step,
 			persistent: step.testCaseId === undefined,
+			pending: withPending ? createDeferred() : undefined,
 		};
 		this.hooks.push(hook);
+		return hook;
 	}
 
 	// =========================================================================
@@ -205,6 +212,61 @@ export abstract class BaseComponent<TStepBuilder = unknown> implements Component
 
 	protected removeHook(hookId: string): void {
 		this.hooks = this.hooks.filter((h) => h.id !== hookId);
+	}
+
+	// =========================================================================
+	// Unified Wait Pattern
+	// =========================================================================
+
+	/**
+	 * Resolve a hook's pending with a value.
+	 * Marks the hook as resolved so it's skipped in future matching.
+	 * Note: Does NOT remove the hook - cleanup happens after step execution.
+	 */
+	protected resolveHook<T>(hook: Hook<T>, value: T): void {
+		if (hook.pending) {
+			hook.pending.resolve(value);
+			hook.resolved = true;
+		}
+	}
+
+	/**
+	 * Reject a hook's pending with an error.
+	 * Removes non-persistent hooks automatically.
+	 */
+	protected rejectHook<T>(hook: Hook<T>, error: Error): void {
+		if (hook.pending) {
+			hook.pending.reject(error);
+		}
+		if (!hook.persistent) {
+			this.removeHook(hook.id);
+		}
+	}
+
+	/**
+	 * Await a hook's pending with timeout.
+	 * Returns the resolved value or throws on timeout.
+	 */
+	protected async awaitHook<T>(hook: Hook<T>, timeout: number): Promise<T> {
+		if (!hook.pending) {
+			throw new Error(`Hook ${hook.id} has no pending`);
+		}
+
+		return Promise.race([
+			hook.pending.promise,
+			new Promise<never>((_, reject) => {
+				setTimeout(() => {
+					reject(new Error(`Timeout waiting for hook ${hook.id} (${timeout}ms)`));
+				}, timeout);
+			}),
+		]);
+	}
+
+	/**
+	 * Find hook by step ID.
+	 */
+	protected findHookByStepId(stepId: string): Hook | undefined {
+		return this.hooks.find((h) => h.step?.id === stepId);
 	}
 
 	// =========================================================================

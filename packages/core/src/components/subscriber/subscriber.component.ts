@@ -4,9 +4,8 @@
  * Subscribes to messages from message queues.
  * Extends BaseComponent directly (no protocol required).
  *
- * Message handling modes:
- * - onMessage (non-strict): Works regardless of timing
- * - waitMessage (strict): Error if message arrives before step starts
+ * Uses unified Hook pattern with pending for wait steps.
+ * Messages are captured directly by Hook.pending - no buffer needed.
  */
 
 import { BaseComponent } from "../base/base.component";
@@ -15,23 +14,6 @@ import type { Step, Handler } from "../base/step.types";
 import type { Hook } from "../base/hook.types";
 import type { IMQAdapter, IMQSubscriberAdapter, Topics, DefaultTopics } from "../mq.base";
 import { SubscriberStepBuilder } from "./subscriber.step-builder";
-import { createDeferred, type Deferred } from "../../utils";
-
-/**
- * Pending request state for wait steps.
- */
-interface PendingRequest extends Deferred<unknown> {
-	isWaiting: boolean;
-}
-
-/**
- * Buffered message for race condition handling.
- */
-interface BufferedMessage<TMessage> {
-	topic: string;
-	message: TMessage;
-	timestamp: number;
-}
 
 /**
  * Drop message error - thrown by drop handler.
@@ -67,15 +49,6 @@ export class Subscriber<
 	private readonly _adapter: IMQAdapter<TMessage>;
 	private _subscriberAdapter?: IMQSubscriberAdapter<TMessage>;
 
-	// Pending request management (from ServiceComponent pattern)
-	private _pendingRequests: Map<string, PendingRequest> = new Map();
-
-	// Message buffer for race condition handling
-	private _messageBuffer: BufferedMessage<TMessage>[] = [];
-
-	// Topics to subscribe (collected during step registration)
-	private _topicsToSubscribe: Set<string> = new Set();
-
 	constructor(name: string, options: SubscriberOptions<TMessage>) {
 		super(name);
 		this._adapter = options.adapter;
@@ -85,46 +58,48 @@ export class Subscriber<
 		return new SubscriberStepBuilder<T, TMessage>(context, this);
 	}
 
+	// =========================================================================
+	// Hook Registration
+	// =========================================================================
+
 	/**
-	 * Mark topic for subscription.
-	 * Called by step builder during step registration.
+	 * Register hook and subscribe to topics.
+	 * Awaits subscriptions to ensure they're ready before returning.
 	 */
-	ensureSubscribed(topic: string): void {
-		this._topicsToSubscribe.add(topic);
+	async registerHook(step: Step): Promise<Hook> {
+		// Use withPending=true for wait steps to capture messages
+		const withPending = step.type === "waitMessage";
+		const hook = await super.registerHook(step, withPending);
+
+		// Subscribe and await completion
+		await this.subscribeToTopics(step);
+
+		return hook;
 	}
 
-	// =========================================================================
-	// Pending Request Management
-	// =========================================================================
-
-	private createPending(stepId: string, isWaiting: boolean): PendingRequest {
-		const deferred = createDeferred<unknown>();
-		const pending = { ...deferred, isWaiting };
-		this._pendingRequests.set(stepId, pending);
-		return pending;
-	}
-
-	private getPending(stepId: string): PendingRequest | undefined {
-		return this._pendingRequests.get(stepId);
-	}
-
-	private setWaiting(stepId: string): void {
-		const pending = this._pendingRequests.get(stepId);
-		if (pending) {
-			pending.isWaiting = true;
+	private async subscribeToTopics(step: Step): Promise<void> {
+		if (step.type !== "waitMessage" && step.type !== "onMessage") {
+			return;
 		}
-	}
 
-	private cleanupPending(stepId: string): void {
-		this._pendingRequests.delete(stepId);
-		const hook = this.findHookByStepId(stepId);
-		if (hook && !hook.persistent) {
-			this.removeHook(hook.id);
+		const params = step.params as { topics?: string[] };
+		if (params.topics && this._subscriberAdapter) {
+			const subscriptionPromises: Promise<void>[] = [];
+
+			for (const topic of params.topics) {
+				if (!this._subscriberAdapter.getSubscribedTopics().includes(topic)) {
+					subscriptionPromises.push(
+						this._subscriberAdapter.subscribe(topic).catch((err) => {
+							this.trackUnhandledError(err instanceof Error ? err : new Error(String(err)));
+						})
+					);
+				}
+			}
+
+			if (subscriptionPromises.length > 0) {
+				await Promise.all(subscriptionPromises);
+			}
 		}
-	}
-
-	private findHookByStepId(stepId: string): Hook<unknown> | undefined {
-		return this.hooks.find((h) => h.step?.id === stepId);
 	}
 
 	// =========================================================================
@@ -151,57 +126,24 @@ export class Subscriber<
 		};
 		const timeout = params.timeout ?? 5000;
 
-		// Check message buffer first
-		const bufferedIndex = this.findInBuffer(params.topics, params.matcher);
-		if (bufferedIndex >= 0) {
-			const buffered = this._messageBuffer.splice(bufferedIndex, 1)[0];
-			await this.executeHandlers(step, buffered.message);
-			return;
-		}
-
-		// Get existing pending (if message arrived first) or create new one
-		let pending = this.getPending(step.id);
-		if (pending) {
-			this.setWaiting(step.id);
-		} else {
-			pending = this.createPending(step.id, true);
+		// Find the hook registered in Phase 1
+		const hook = this.findHookByStepId(step.id) as Hook<TMessage>;
+		if (!hook) {
+			throw new Error(`No hook found for step ${step.id}`);
 		}
 
 		try {
-			// Wait for handleIncomingMessage to resolve
-			const message = await Promise.race([
-				pending.promise,
-				new Promise<never>((_, reject) => {
-					setTimeout(() => {
-						reject(new Error(`Timeout waiting for message from [${params.topics.join(", ")}] (${timeout}ms)`));
-					}, timeout);
-				}),
-			]);
+			// Await the hook (may already be resolved if message arrived)
+			const message = await this.awaitHook(hook, timeout);
 
 			// Execute handlers with the message
 			await this.executeHandlers(step, message);
 		} finally {
-			this.cleanupPending(step.id);
+			// Clean up non-persistent hook after step completes
+			if (!hook.persistent) {
+				this.removeHook(hook.id);
+			}
 		}
-	}
-
-	private findInBuffer(
-		topics: string[],
-		matcher?: (message: TMessage) => boolean
-	): number {
-		return this._messageBuffer.findIndex((buffered) => {
-			if (!topics.includes(buffered.topic)) {
-				return false;
-			}
-			if (matcher) {
-				try {
-					return matcher(buffered.message);
-				} catch {
-					return false;
-				}
-			}
-			return true;
-		});
 	}
 
 	// =========================================================================
@@ -214,49 +156,16 @@ export class Subscriber<
 	 */
 	private handleIncomingMessage(topic: string, message: TMessage): void {
 		const hook = this.findMatchingHookForMessage(topic, message);
-		if (!hook) {
-			// No hook registered - add to buffer for potential future waitMessage
-			this._messageBuffer.push({
-				topic,
-				message,
-				timestamp: Date.now(),
-			});
-			return;
+		if (!hook?.step) {
+			return; // No matching hook - ignore
 		}
 
-		const step = hook.step;
-		if (!step) {
-			return;
-		}
-
-		const isWaitStep = step.type === "waitMessage";
-
-		// For wait steps, check strict ordering
-		if (isWaitStep) {
-			let pending = this.getPending(step.id);
-			if (!pending) {
-				// Message arrived before step started - buffer it
-				this._messageBuffer.push({
-					topic,
-					message,
-					timestamp: Date.now(),
-				});
-				return;
-			}
-			if (!pending.isWaiting) {
-				// Step not yet waiting - buffer the message
-				this._messageBuffer.push({
-					topic,
-					message,
-					timestamp: Date.now(),
-				});
-				return;
-			}
-			// Resolve with message - handlers will be executed in executeWaitMessage
-			pending.resolve(message);
-		} else {
-			// onMessage (non-strict) - execute handlers immediately
-			this.executeHandlers(step, message).catch((error) => {
+		if (hook.step.type === "waitMessage") {
+			// Resolve the hook's pending - step will receive message
+			this.resolveHook(hook as Hook<TMessage>, message);
+		} else if (hook.step.type === "onMessage") {
+			// Execute handlers immediately for hook mode
+			this.executeHandlers(hook.step, message).catch((error) => {
 				if (!(error instanceof DropMessageError)) {
 					this.trackUnhandledError(error instanceof Error ? error : new Error(String(error)));
 				}
@@ -266,8 +175,11 @@ export class Subscriber<
 
 	private findMatchingHookForMessage(topic: string, message: TMessage): Hook<TMessage> | null {
 		for (const hook of this.hooks) {
+			// Skip already-resolved hooks (for multiple messages on same topic)
+			if (hook.resolved) {
+				continue;
+			}
 			try {
-				// Create a wrapper object for matching
 				const matchData = { topic, message };
 				if (hook.isMatch(matchData)) {
 					return hook as Hook<TMessage>;
@@ -359,7 +271,7 @@ export class Subscriber<
 	protected async doStart(): Promise<void> {
 		this._subscriberAdapter = await this._adapter.createSubscriber();
 
-		// Set up message handler (topic delivered separately)
+		// Set up message handler
 		this._subscriberAdapter.onMessage((topic, message) => {
 			this.handleIncomingMessage(topic, message);
 		});
@@ -369,38 +281,29 @@ export class Subscriber<
 			this.trackUnhandledError(error);
 		});
 
-		// Set up disconnect handler
+		// Set up disconnect handler - reject all pending hooks
 		this._subscriberAdapter.onDisconnect(() => {
-			// Reject all pending waits
-			for (const [stepId, pending] of this._pendingRequests.entries()) {
-				pending.reject(new Error(`Disconnected while waiting for message (step: ${stepId})`));
+			for (const hook of this.hooks) {
+				if (hook.pending) {
+					this.rejectHook(hook, new Error("Disconnected"));
+				}
 			}
 		});
-
-		// Subscribe to all topics collected during step registration
-		for (const topic of this._topicsToSubscribe) {
-			await this._subscriberAdapter.subscribe(topic);
-		}
 	}
 
 	protected async doStop(): Promise<void> {
-		// Reject pending requests
-		for (const [, pending] of this._pendingRequests.entries()) {
-			pending.reject(new Error("Subscriber stopped"));
+		// Reject pending hooks
+		for (const hook of this.hooks) {
+			if (hook.pending) {
+				this.rejectHook(hook, new Error("Subscriber stopped"));
+			}
 		}
-		this._pendingRequests.clear();
-
-		// Clear message buffer
-		this._messageBuffer = [];
 
 		// Close adapter
 		if (this._subscriberAdapter) {
 			await this._subscriberAdapter.close();
 			this._subscriberAdapter = undefined;
 		}
-
-		// Clear topics
-		this._topicsToSubscribe.clear();
 
 		this.clearHooks();
 	}
