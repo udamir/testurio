@@ -5,9 +5,9 @@
 import type { IBaseProtocol } from "../../protocols/base";
 import { BaseComponent } from "./base.component";
 import type { PayloadMatcher } from "./base.types";
-import type { Step } from "./step.types";
-import type { Hook } from "./hook.types";
 import { createMessageMatcher } from "./base.utils";
+import type { Hook } from "./hook.types";
+import type { Step } from "./step.types";
 
 export abstract class ServiceComponent<
 	P extends IBaseProtocol = IBaseProtocol,

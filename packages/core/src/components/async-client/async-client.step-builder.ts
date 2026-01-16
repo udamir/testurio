@@ -14,10 +14,10 @@
  * - All execution logic is in the Component
  */
 
-import type { IAsyncProtocol, AsyncClientMessageType, AsyncServerMessageType } from "../../protocols/base";
+import type { AsyncClientMessageType, AsyncServerMessageType, IAsyncProtocol } from "../../protocols/base";
 import { BaseStepBuilder } from "../base/step-builder";
 import { AsyncClientHookBuilder } from "./async-client.hook-builder";
-import type { ExtractMessagePayload, ExtractEventPayload } from "./async-client.types";
+import type { ExtractEventPayload, ExtractMessagePayload } from "./async-client.types";
 
 /**
  * Async Client Step Builder

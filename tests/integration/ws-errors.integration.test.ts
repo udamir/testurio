@@ -118,7 +118,10 @@ describe("WebSocket Error Scenarios Integration Tests", () => {
 				const api = test.use(client);
 
 				api.sendMessage("ping", { seq: 1 });
-				api.waitEvent("pong").timeout(2000).assert((msg) => msg.seq === 1);
+				api
+					.waitEvent("pong")
+					.timeout(2000)
+					.assert((msg) => msg.seq === 1);
 			});
 
 			const result = await scenario.run(tc);
@@ -145,7 +148,10 @@ describe("WebSocket Error Scenarios Integration Tests", () => {
 			const tc = testCase("Message wait times out", (test) => {
 				const backend = test.use(server);
 				// Wait for a message that will never arrive
-				backend.waitMessage("ping").timeout(200).assert(() => true);
+				backend
+					.waitMessage("ping")
+					.timeout(200)
+					.assert(() => true);
 			});
 
 			const result = await scenario.run(tc);
@@ -177,7 +183,10 @@ describe("WebSocket Error Scenarios Integration Tests", () => {
 				const backend = test.use(server);
 
 				api.sendMessage("ping", { seq: 42 });
-				backend.waitMessage("ping").timeout(2000).assert((msg) => msg.seq === 42);
+				backend
+					.waitMessage("ping")
+					.timeout(2000)
+					.assert((msg) => msg.seq === 42);
 			});
 
 			const result = await scenario.run(tc);
@@ -206,7 +215,10 @@ describe("WebSocket Error Scenarios Integration Tests", () => {
 				const backend = test.use(server);
 
 				api.sendMessage("message", { text: "hello" });
-				backend.waitMessage("message").timeout(2000).assert((msg) => msg.text === "hello");
+				backend
+					.waitMessage("message")
+					.timeout(2000)
+					.assert((msg) => msg.text === "hello");
 				api.disconnect();
 			});
 
@@ -304,7 +316,10 @@ describe("WebSocket Error Scenarios Integration Tests", () => {
 				const api = test.use(client);
 
 				api.sendMessage("subscribe", { channel: "private" });
-				api.waitEvent("error").timeout(2000).assert((msg) => msg.code === 403);
+				api
+					.waitEvent("error")
+					.timeout(2000)
+					.assert((msg) => msg.code === 403);
 			});
 
 			const result = await scenario.run(tc);

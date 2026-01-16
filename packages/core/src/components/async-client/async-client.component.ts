@@ -11,12 +11,12 @@
  */
 
 import type { Address, IAsyncClientAdapter, IAsyncProtocol, Message, TlsConfig } from "../../protocols/base";
+import { generateId } from "../../utils";
 import type { ITestCaseContext } from "../base/base.types";
-import type { Step, Handler } from "../base/step.types";
 import type { Hook } from "../base/hook.types";
 import { ServiceComponent } from "../base/service.component";
+import type { Handler, Step } from "../base/step.types";
 import { AsyncClientStepBuilder } from "./async-client.step-builder";
-import { generateId } from "../../utils";
 
 interface EventMessage {
 	type: string;
@@ -29,7 +29,10 @@ export interface AsyncClientOptions<P extends IAsyncProtocol = IAsyncProtocol> {
 	tls?: TlsConfig;
 }
 
-export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends ServiceComponent<P, AsyncClientStepBuilder<P>> {
+export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends ServiceComponent<
+	P,
+	AsyncClientStepBuilder<P>
+> {
 	private readonly _targetAddress: Address;
 	private readonly _tls?: TlsConfig;
 	private _connection?: IAsyncClientAdapter;
@@ -265,9 +268,7 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 				const predicate = params.predicate as (p: unknown) => boolean | Promise<boolean>;
 				const result = await predicate(payload);
 				if (!result) {
-					const errorMsg = handler.description
-						? `Assertion failed: ${handler.description}`
-						: "Assertion failed";
+					const errorMsg = handler.description ? `Assertion failed: ${handler.description}` : "Assertion failed";
 					throw new Error(errorMsg);
 				}
 				return undefined;

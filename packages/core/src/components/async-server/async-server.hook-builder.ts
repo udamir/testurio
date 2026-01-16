@@ -55,9 +55,7 @@ export class AsyncServerHookBuilder<TPayload = unknown> extends BaseHookBuilder 
 		handler?: (payload: TPayload) => TResult | Promise<TResult>
 	): AsyncServerHookBuilder<TResult> {
 		const [description, fn] =
-			typeof descriptionOrHandler === "string"
-				? [descriptionOrHandler, handler]
-				: [undefined, descriptionOrHandler];
+			typeof descriptionOrHandler === "string" ? [descriptionOrHandler, handler] : [undefined, descriptionOrHandler];
 
 		return this.addHandler<AsyncServerHookBuilder<TResult>>({
 			type: "transform",
@@ -81,9 +79,7 @@ export class AsyncServerHookBuilder<TPayload = unknown> extends BaseHookBuilder 
 		handler?: (payload: TPayload) => TEvent | Promise<TEvent>
 	): this {
 		const [description, fn] =
-			typeof descriptionOrHandler === "string"
-				? [descriptionOrHandler, handler]
-				: [undefined, descriptionOrHandler];
+			typeof descriptionOrHandler === "string" ? [descriptionOrHandler, handler] : [undefined, descriptionOrHandler];
 
 		return this.addHandler({
 			type: "mockEvent",

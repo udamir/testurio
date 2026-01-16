@@ -8,10 +8,10 @@
  * if Docker is not available.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { Publisher, Subscriber, TestScenario, testCase } from "testurio";
 import { KafkaAdapter } from "@testurio/adapter-kafka";
-import { startKafkaContainer, stopKafkaContainer, isDockerAvailable, type KafkaTestContext } from "../containers";
+import { Publisher, Subscriber, TestScenario, testCase } from "testurio";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { isDockerAvailable, type KafkaTestContext, startKafkaContainer, stopKafkaContainer } from "../containers";
 
 describe.skipIf(!isDockerAvailable())("Kafka Pub/Sub Integration", () => {
 	let kafka: KafkaTestContext;
@@ -242,7 +242,11 @@ describe.skipIf(!isDockerAvailable())("Kafka Pub/Sub Integration", () => {
 			const pub = test.use(publisher);
 			const sub = test.use(subscriber);
 
-			pub.publish("headers-topic", { data: "test" }, { headers: { "x-correlation-id": "abc-123", "x-source": "test" } });
+			pub.publish(
+				"headers-topic",
+				{ data: "test" },
+				{ headers: { "x-correlation-id": "abc-123", "x-source": "test" } }
+			);
 
 			sub.waitMessage("headers-topic").assert((msg) => {
 				expect(msg.headers).toBeDefined();

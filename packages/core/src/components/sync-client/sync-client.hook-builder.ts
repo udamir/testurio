@@ -55,9 +55,7 @@ export class SyncClientHookBuilder<TResponse = unknown> extends BaseHookBuilder 
 		handler?: (response: TResponse) => TResult | Promise<TResult>
 	): SyncClientHookBuilder<TResult> {
 		const [description, fn] =
-			typeof descriptionOrHandler === "string"
-				? [descriptionOrHandler, handler]
-				: [undefined, descriptionOrHandler];
+			typeof descriptionOrHandler === "string" ? [descriptionOrHandler, handler] : [undefined, descriptionOrHandler];
 
 		// Return with new type
 		return this.addHandler<SyncClientHookBuilder<TResult>>({

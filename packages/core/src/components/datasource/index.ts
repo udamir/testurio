@@ -6,8 +6,8 @@
  */
 
 export { DataSource } from "./datasource.component";
-export { DataSourceStepBuilder } from "./datasource.step-builder";
 export { DataSourceHookBuilder } from "./datasource.hook-builder";
+export { DataSourceStepBuilder } from "./datasource.step-builder";
 export type {
 	DataSourceAdapter,
 	DataSourceAdapterEvents,

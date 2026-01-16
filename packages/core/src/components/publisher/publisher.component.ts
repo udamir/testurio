@@ -7,14 +7,11 @@
 
 import { BaseComponent } from "../base/base.component";
 import type { ITestCaseContext } from "../base/base.types";
-import type { Step, Handler } from "../base/step.types";
-import type { IMQAdapter, IMQPublisherAdapter, Topics, DefaultTopics } from "../mq.base";
+import type { Handler, Step } from "../base/step.types";
+import type { DefaultTopics, IMQAdapter, IMQPublisherAdapter, Topics } from "../mq.base";
 import { PublisherStepBuilder } from "./publisher.step-builder";
 
-export interface PublisherOptions<
-	TOptions = unknown,
-	TBatchMessage = unknown,
-> {
+export interface PublisherOptions<TOptions = unknown, TBatchMessage = unknown> {
 	adapter: IMQAdapter<unknown, TOptions, TBatchMessage>;
 }
 

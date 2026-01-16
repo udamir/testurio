@@ -8,10 +8,10 @@
  * if Docker is not available.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { Publisher, Subscriber, TestScenario, testCase } from "testurio";
 import { RedisPubSubAdapter } from "@testurio/adapter-redis";
-import { startRedisContainer, stopRedisContainer, isDockerAvailable, type RedisTestContext } from "../containers";
+import { Publisher, Subscriber, TestScenario, testCase } from "testurio";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { isDockerAvailable, type RedisTestContext, startRedisContainer, stopRedisContainer } from "../containers";
 
 describe.skipIf(!isDockerAvailable())("Redis Pub/Sub Integration", () => {
 	let redis: RedisTestContext;

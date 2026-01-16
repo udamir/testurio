@@ -120,7 +120,10 @@ describe("Connection Linking", () => {
 				srv.onMessage("Ping").mockEvent("Pong", (p) => ({ seq: p.seq }));
 
 				// Wait for response
-				cli.waitEvent("Pong").timeout(2000).assert((p) => p.seq === 1);
+				cli
+					.waitEvent("Pong")
+					.timeout(2000)
+					.assert((p) => p.seq === 1);
 			});
 
 			const result = await scenario.run(tc);
@@ -199,7 +202,10 @@ describe("Connection Linking", () => {
 
 				// Client logs in as alice
 				cli.sendMessage("Login", { username: "alice" });
-				cli.waitEvent("LoginResponse").timeout(2000).assert((p) => p.status === "ok");
+				cli
+					.waitEvent("LoginResponse")
+					.timeout(2000)
+					.assert((p) => p.status === "ok");
 
 				// After login, filter messages by linkId
 				srv.onMessage("Data", { linkId: "alice" }).mockEvent("DataResponse", (p) => ({
@@ -209,7 +215,10 @@ describe("Connection Linking", () => {
 				}));
 
 				cli.sendMessage("Data", { clientId: "alice", data: "test-data" });
-				cli.waitEvent("DataResponse").timeout(2000).assert((p) => p.processed === true);
+				cli
+					.waitEvent("DataResponse")
+					.timeout(2000)
+					.assert((p) => p.processed === true);
 			});
 
 			const result = await scenario.run(tc);
@@ -380,7 +389,9 @@ describe("Connection Linking", () => {
 				srv.sendEvent("alice", "Notification", { message: "hello alice" });
 
 				// Alice receives it
-				c1.waitEvent("Notification").timeout(2000).assert((p) => p.message === "hello alice");
+				c1.waitEvent("Notification")
+					.timeout(2000)
+					.assert((p) => p.message === "hello alice");
 
 				// Bob should NOT receive it (we don't wait for it)
 			});

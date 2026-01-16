@@ -15,7 +15,7 @@
 
 import { BaseComponent } from "../base/base.component";
 import type { ITestCaseContext } from "../base/base.types";
-import type { Step, Handler } from "../base/step.types";
+import type { Handler, Step } from "../base/step.types";
 import { DataSourceStepBuilder } from "./datasource.step-builder";
 import type { DataSourceAdapter, DataSourceOptions } from "./datasource.types";
 
@@ -38,10 +38,9 @@ import type { DataSourceAdapter, DataSourceOptions } from "./datasource.types";
  * });
  * ```
  */
-export class DataSource<
-	TClient,
-	A extends DataSourceAdapter<TClient, unknown>,
-> extends BaseComponent<DataSourceStepBuilder<TClient>> {
+export class DataSource<TClient, A extends DataSourceAdapter<TClient, unknown>> extends BaseComponent<
+	DataSourceStepBuilder<TClient>
+> {
 	/** Adapter instance */
 	readonly adapter: A;
 
@@ -154,9 +153,7 @@ export class DataSource<
 				const predicate = params.predicate as (p: unknown) => boolean | Promise<boolean>;
 				const result = await predicate(payload);
 				if (!result) {
-					const errorMsg = handler.description
-						? `Assertion failed: ${handler.description}`
-						: "Assertion failed";
+					const errorMsg = handler.description ? `Assertion failed: ${handler.description}` : "Assertion failed";
 					throw new Error(errorMsg);
 				}
 				return undefined;

@@ -6,7 +6,7 @@
  */
 
 import { BaseStepBuilder } from "../base/step-builder";
-import type { Topics, Topic, Payload, DefaultTopics } from "../mq.base";
+import type { DefaultTopics, Payload, Topic, Topics } from "../mq.base";
 
 /**
  * Publisher Step Builder

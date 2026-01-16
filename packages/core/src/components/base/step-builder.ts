@@ -8,14 +8,14 @@
 
 import { generateId } from "../../utils";
 import type { Component, ITestCaseContext } from "./base.types";
-import type { Step } from "./step.types";
 import type { BaseHookBuilder } from "./hook-builder";
+import type { Step } from "./step.types";
 
 // =============================================================================
 // BaseStepBuilder
 // =============================================================================
 
-export type StepData = Omit<Step, "id" | "testCaseId" | "component">
+export type StepData = Omit<Step, "id" | "testCaseId" | "component">;
 
 /**
  * Base Step Builder
@@ -82,10 +82,7 @@ export abstract class BaseStepBuilder {
 	 * @param HookBuilderClass - Optional hook builder class to instantiate
 	 * @returns Hook builder instance if HookBuilderClass provided, void otherwise
 	 */
-	protected registerStep<T extends BaseHookBuilder>(
-		stepData: StepData,
-		HookBuilderClass: new (step: Step) => T
-	): T;
+	protected registerStep<T extends BaseHookBuilder>(stepData: StepData, HookBuilderClass: new (step: Step) => T): T;
 	protected registerStep(stepData: StepData): void;
 	protected registerStep<T extends BaseHookBuilder>(
 		stepData: StepData,

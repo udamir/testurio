@@ -7,8 +7,8 @@
 import type { Component } from "testurio";
 import { DataSource, TestCaseBuilder } from "testurio";
 import { beforeEach, describe, expect, it } from "vitest";
-import type { InMemoryClient } from "../mocks/fakeAdapter";
-import { createFakeAdapter, createInMemoryClient } from "../mocks/fakeAdapter";
+import type { InMemoryClient } from "../mocks/fakeDSAdapter";
+import { createFakeAdapter, createInMemoryClient } from "../mocks/fakeDSAdapter";
 
 describe("DataSource", () => {
 	describe("lifecycle", () => {

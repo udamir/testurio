@@ -90,7 +90,8 @@ const basicPubSubTest = testCase("Basic publish and subscribe", (test) => {
 	});
 
 	// Step 2: Wait for and validate the message
-	sub.waitMessage("order-created")
+	sub
+		.waitMessage("order-created")
 		.assert("orderId should match", (msg) => msg.payload.orderId === "ORD-001")
 		.assert("customerId should match", (msg) => msg.payload.customerId === "CUST-123")
 		.assert("total should be correct", (msg) => msg.payload.total === 99.99);
@@ -118,7 +119,8 @@ const sequentialMessagesTest = testCase("Sequential message flow", (test) => {
 	});
 
 	// Step 4: Wait for order shipped
-	sub.waitMessage("order-shipped")
+	sub
+		.waitMessage("order-shipped")
 		.assert("orderId should match", (msg) => msg.payload.orderId === "ORD-002")
 		.assert("tracking number should be set", (msg) => msg.payload.trackingNumber === "TRACK-789");
 });
@@ -148,7 +150,8 @@ const multiTopicTest = testCase("Multi-topic pub/sub", (test) => {
 	});
 
 	// Step 4: Verify notification received
-	notifSub.waitMessage("email-sent")
+	notifSub
+		.waitMessage("email-sent")
 		.assert("email to correct recipient", (msg) => msg.payload.to === "customer@example.com")
 		.assert("email sent successfully", (msg) => msg.payload.status === "sent");
 });
@@ -175,7 +178,8 @@ const cancellationFlowTest = testCase("Order cancellation flow", (test) => {
 	});
 
 	// Step 4: Verify cancellation
-	sub.waitMessage("order-cancelled")
+	sub
+		.waitMessage("order-cancelled")
 		.assert("correct order cancelled", (msg) => msg.payload.orderId === "ORD-004")
 		.assert("reason provided", (msg) => msg.payload.reason === "Customer request");
 });
@@ -199,9 +203,11 @@ const matcherTest = testCase("Message with custom matcher", (test) => {
 	});
 
 	// Wait for specific message using matcher
-	sub.waitMessage("order-created", {
-		matcher: (msg) => msg.payload.total > 100,
-	}).assert("high-value order matched", (msg) => msg.payload.orderId === "ORD-200");
+	sub
+		.waitMessage("order-created", {
+			matcher: (msg) => msg.payload.total > 100,
+		})
+		.assert("high-value order matched", (msg) => msg.payload.orderId === "ORD-200");
 });
 
 // =============================================================================
@@ -233,8 +239,7 @@ async function main() {
 		console.log(`Custom matcher: ${result5.passed ? "PASSED" : "FAILED"}`);
 
 		// Summary
-		const allPassed =
-			result1.passed && result2.passed && result3.passed && result4.passed && result5.passed;
+		const allPassed = result1.passed && result2.passed && result3.passed && result4.passed && result5.passed;
 		console.log(`\n${allPassed ? "All tests passed!" : "Some tests failed."}`);
 		process.exit(allPassed ? 0 : 1);
 	} catch (error) {

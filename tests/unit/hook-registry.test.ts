@@ -4,9 +4,8 @@
  * Tests for hook functionality in BaseComponent
  */
 
-import type { Step, Handler } from "testurio";
+import type { Handler, ITestCaseContext, Step } from "testurio";
 import { BaseComponent } from "testurio";
-import type { ITestCaseContext } from "testurio";
 import { beforeEach, describe, expect, it } from "vitest";
 
 /**

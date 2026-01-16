@@ -60,9 +60,7 @@ export function createMessageMatcher<T = unknown>(
 	return (message: Message<T>): boolean => {
 		// Match message type
 		const typeMatches =
-			typeof messageType === "function"
-				? messageType(message.type, message.payload)
-				: messageType === message.type;
+			typeof messageType === "function" ? messageType(message.type, message.payload) : messageType === message.type;
 
 		if (!typeMatches) return false;
 		if (!payloadMatcher) return true;

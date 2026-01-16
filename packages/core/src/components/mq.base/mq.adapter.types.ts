@@ -13,11 +13,7 @@
  * @template TOptions - Adapter-specific publish options
  * @template TBatchMessage - Adapter-specific batch message type
  */
-export interface IMQAdapter<
-	TMessage = unknown,
-	TOptions = unknown,
-	TBatchMessage = unknown,
-> {
+export interface IMQAdapter<TMessage = unknown, TOptions = unknown, TBatchMessage = unknown> {
 	/**
 	 * Adapter type identifier (e.g., "kafka", "rabbitmq", "nats")
 	 */

@@ -575,13 +575,6 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 				// Link connection when it arrives
 				server.onConnection("client");
 
-				// Register non-strict hook - should work even if event arrives "after"
-				// onEvent is flexible with timing
-				c1.onEvent("Heartbeat").assert((e) => {
-					eventReceived = true;
-					return e.timestamp > 0;
-				});
-
 				// Client sends a ping to establish connection
 				c1.sendMessage("Ping", { timestamp: 1 });
 				server.waitMessage("Ping").timeout(1000);
@@ -589,13 +582,14 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 				// Server sends heartbeat event via sendEvent
 				server.sendEvent("client", "Heartbeat", { timestamp: Date.now() });
 
-				// Send a second event (Pong) that we'll wait for to ensure
-				// the test doesn't end before Heartbeat is processed
-				server.sendEvent("client", "Pong", { timestamp: 1 });
-
-				// Wait for Pong to ensure Heartbeat has been processed
-				// (onEvent is non-blocking, so we need something to block on)
-				c1.waitEvent("Pong").timeout(2000);
+				// Wait for Heartbeat to verify it was received
+				// Use waitEvent to ensure handler completes before test ends
+				c1.waitEvent("Heartbeat")
+					.timeout(2000)
+					.assert((e) => {
+						eventReceived = true;
+						return e.timestamp > 0;
+					});
 			});
 
 			const result = await scenario.run(tc);
@@ -720,12 +714,14 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 				client.sendMessage("AdminAction", { userId: "guest", action: "delete" });
 
 				// Proxy intercepts and drops non-admin requests
-				prx.onMessage("AdminAction")
+				prx
+					.onMessage("AdminAction")
 					.assert((msg) => msg.userId !== "admin")
 					.drop();
 
 				// Backend should NOT receive the message (use waitMessage with short timeout to verify)
-				back.waitMessage("AdminAction")
+				back
+					.waitMessage("AdminAction")
 					.timeout(500)
 					.assert(() => {
 						backendReceived = true;
@@ -800,15 +796,9 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 				client.sendMessage("TypeC", { id: "3" });
 
 				// Expect responses matched by message type
-				client
-					.onEvent("TypeBResponse")
-					.assert((e) => e.type === "B");
-				client
-					.onEvent("TypeAResponse")
-					.assert((e) => e.type === "A");
-				client
-					.onEvent("TypeCResponse")
-					.assert((e) => e.type === "C");
+				client.onEvent("TypeBResponse").assert((e) => e.type === "B");
+				client.onEvent("TypeAResponse").assert((e) => e.type === "A");
+				client.onEvent("TypeCResponse").assert((e) => e.type === "C");
 			});
 
 			const result = await scenario.run(tc);
@@ -1289,10 +1279,13 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 					c1.disconnect();
 
 					// Server waits for the disconnect
-					server.waitDisconnect("client").timeout(2000).assert(() => {
-						disconnectDetected = true;
-						return true;
-					});
+					server
+						.waitDisconnect("client")
+						.timeout(2000)
+						.assert(() => {
+							disconnectDetected = true;
+							return true;
+						});
 				});
 
 				const result = await scenario.run(tc);
@@ -1355,10 +1348,12 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 					server.disconnect("client");
 
 					// Client waits for the disconnect
-					c1.waitDisconnect().timeout(2000).assert(() => {
-						clientDetectedDisconnect = true;
-						return true;
-					});
+					c1.waitDisconnect()
+						.timeout(2000)
+						.assert(() => {
+							clientDetectedDisconnect = true;
+							return true;
+						});
 				});
 
 				const result = await scenario.run(tc);

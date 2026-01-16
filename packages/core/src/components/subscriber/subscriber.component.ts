@@ -10,9 +10,9 @@
 
 import { BaseComponent } from "../base/base.component";
 import type { ITestCaseContext } from "../base/base.types";
-import type { Step, Handler } from "../base/step.types";
 import type { Hook } from "../base/hook.types";
-import type { IMQAdapter, IMQSubscriberAdapter, Topics, DefaultTopics } from "../mq.base";
+import type { Handler, Step } from "../base/step.types";
+import type { DefaultTopics, IMQAdapter, IMQSubscriberAdapter, Topics } from "../mq.base";
 import { SubscriberStepBuilder } from "./subscriber.step-builder";
 
 /**
@@ -42,10 +42,9 @@ export interface SubscriberOptions<TMessage = unknown> {
  * @template T - Topics type for topic validation
  * @template TMessage - Adapter-specific message type
  */
-export class Subscriber<
-	T extends Topics<T> = DefaultTopics,
-	TMessage = unknown,
-> extends BaseComponent<SubscriberStepBuilder<T, TMessage>> {
+export class Subscriber<T extends Topics<T> = DefaultTopics, TMessage = unknown> extends BaseComponent<
+	SubscriberStepBuilder<T, TMessage>
+> {
 	private readonly _adapter: IMQAdapter<TMessage>;
 	private _subscriberAdapter?: IMQSubscriberAdapter<TMessage>;
 
@@ -247,9 +246,7 @@ export class Subscriber<
 				const predicate = params.predicate as (m: unknown) => boolean | Promise<boolean>;
 				const result = await predicate(payload);
 				if (!result) {
-					const errorMsg = handler.description
-						? `Assertion failed: ${handler.description}`
-						: "Assertion failed";
+					const errorMsg = handler.description ? `Assertion failed: ${handler.description}` : "Assertion failed";
 					throw new Error(errorMsg);
 				}
 				return undefined;

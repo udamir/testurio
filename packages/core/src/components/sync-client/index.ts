@@ -5,6 +5,6 @@
  */
 
 export * from "./sync-client.component";
-export * from "./sync-client.step-builder";
 export * from "./sync-client.hook-builder";
+export * from "./sync-client.step-builder";
 export * from "./sync-client.types";

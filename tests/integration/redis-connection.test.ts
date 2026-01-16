@@ -4,9 +4,9 @@
  * Debug test to verify Redis container connectivity.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import Redis from "ioredis";
-import { startRedisContainer, stopRedisContainer, isDockerAvailable, type RedisTestContext } from "../containers";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { isDockerAvailable, type RedisTestContext, startRedisContainer, stopRedisContainer } from "../containers";
 
 describe.skipIf(!isDockerAvailable())("Redis Connection Debug", () => {
 	let redis: RedisTestContext;

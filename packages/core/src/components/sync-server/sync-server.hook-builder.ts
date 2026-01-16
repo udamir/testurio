@@ -55,9 +55,7 @@ export class SyncServerHookBuilder<TPayload = unknown, TResponse = unknown> exte
 		handler?: (payload: TPayload) => TResult | Promise<TResult>
 	): SyncServerHookBuilder<TResult, TResponse> {
 		const [description, fn] =
-			typeof descriptionOrHandler === "string"
-				? [descriptionOrHandler, handler]
-				: [undefined, descriptionOrHandler];
+			typeof descriptionOrHandler === "string" ? [descriptionOrHandler, handler] : [undefined, descriptionOrHandler];
 
 		return this.addHandler<SyncServerHookBuilder<TResult, TResponse>>({
 			type: "transform",
@@ -106,9 +104,7 @@ export class SyncServerHookBuilder<TPayload = unknown, TResponse = unknown> exte
 		handler?: (payload: TPayload) => TResponse | Promise<TResponse>
 	): this {
 		const [description, fn] =
-			typeof descriptionOrHandler === "string"
-				? [descriptionOrHandler, handler]
-				: [undefined, descriptionOrHandler];
+			typeof descriptionOrHandler === "string" ? [descriptionOrHandler, handler] : [undefined, descriptionOrHandler];
 
 		return this.addHandler({
 			type: "mockResponse",

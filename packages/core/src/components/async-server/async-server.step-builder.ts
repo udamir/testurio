@@ -20,11 +20,11 @@
  * - All execution logic is in the Component
  */
 
-import type { IAsyncProtocol, AsyncClientMessageType, AsyncServerMessageType } from "../../protocols/base";
+import type { AsyncClientMessageType, AsyncServerMessageType, IAsyncProtocol } from "../../protocols/base";
 import { BaseStepBuilder } from "../base/step-builder";
-import { AsyncServerHookBuilder } from "./async-server.hook-builder";
-import type { ExtractMessagePayload, ExtractEventPayload } from "./async-server.types";
 import type { AsyncServer } from "./async-server.component";
+import { AsyncServerHookBuilder } from "./async-server.hook-builder";
+import type { ExtractEventPayload, ExtractMessagePayload } from "./async-server.types";
 
 /**
  * Async Server Step Builder
@@ -50,9 +50,12 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> e
 	 * srv.onConnection("local", { matcher: (ctx) => ctx.remoteAddress?.includes("127.0.0.1") });
 	 * ```
 	 */
-	onConnection(linkId: string, options?: {
-		matcher?: (protocolContext: unknown) => boolean;
-	}): void {
+	onConnection(
+		linkId: string,
+		options?: {
+			matcher?: (protocolContext: unknown) => boolean;
+		}
+	): void {
 		this.registerStep({
 			type: "onConnection",
 			description: `Link connection to ${linkId}`,
@@ -83,9 +86,12 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> e
 	 * srv.waitConnection("admin", { matcher: (ctx) => ctx.path === "/admin" }).timeout(2000);
 	 * ```
 	 */
-	waitConnection(linkId: string, options?: {
-		matcher?: (protocolContext: unknown) => boolean;
-	}): AsyncServerHookBuilder<unknown> {
+	waitConnection(
+		linkId: string,
+		options?: {
+			matcher?: (protocolContext: unknown) => boolean;
+		}
+	): AsyncServerHookBuilder<unknown> {
 		return this.registerStep(
 			{
 				type: "waitConnection",

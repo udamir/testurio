@@ -101,4 +101,3 @@ export interface ExecOptions {
 	/** Timeout in milliseconds. Operation fails if exceeded. */
 	timeout?: number;
 }
-

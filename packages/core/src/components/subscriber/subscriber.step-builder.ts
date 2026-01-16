@@ -6,7 +6,7 @@
  */
 
 import { BaseStepBuilder } from "../base/step-builder";
-import type { Topics, Topic, DefaultTopics } from "../mq.base";
+import type { DefaultTopics, Topic, Topics } from "../mq.base";
 import { SubscriberHookBuilder } from "./subscriber.hook-builder";
 
 /**
@@ -22,10 +22,7 @@ import { SubscriberHookBuilder } from "./subscriber.hook-builder";
  * @template T - Topics type for topic validation
  * @template TMessage - Adapter-specific message type
  */
-export class SubscriberStepBuilder<
-	T extends Topics<T> = DefaultTopics,
-	TMessage = unknown,
-> extends BaseStepBuilder {
+export class SubscriberStepBuilder<T extends Topics<T> = DefaultTopics, TMessage = unknown> extends BaseStepBuilder {
 	/**
 	 * Handle incoming message (non-strict hook).
 	 *

@@ -459,7 +459,10 @@ describe("HTTP Protocol Integration Tests", () => {
 					method: "GET",
 					path: "/resource/slow",
 				});
-				api.onResponse("getResource").timeout(500).assert((res) => res.code === 200);
+				api
+					.onResponse("getResource")
+					.timeout(500)
+					.assert((res) => res.code === 200);
 			});
 
 			const result = await scenario.run(tc);

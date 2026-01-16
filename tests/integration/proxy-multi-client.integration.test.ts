@@ -1087,11 +1087,7 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 
 			const tc = testCase("Proxy delays messages under load", (test) => {
 				// Proxy adds delay to each message
-				test
-					.use(proxy)
-					.onMessage("Ping")
-					.delay(DELAY_MS)
-					.proxy();
+				test.use(proxy).onMessage("Ping").delay(DELAY_MS).proxy();
 
 				// Backend responds and records time
 				test

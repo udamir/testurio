@@ -6,7 +6,7 @@
 
 import { Client, DataSource, HttpProtocol, Server, TestScenario, testCase } from "testurio";
 import { describe, expect, it } from "vitest";
-import { createFakeAdapter, createInMemoryClient, type InMemoryClient } from "../mocks/fakeAdapter";
+import { createFakeAdapter, createInMemoryClient, type InMemoryClient } from "../mocks/fakeDSAdapter";
 
 // Service definition for typed HTTP requests
 interface TestServiceDef {

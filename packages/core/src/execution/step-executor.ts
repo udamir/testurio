@@ -7,8 +7,8 @@
  * - Phase 3: Cleanup (call component.clearHooks for each component)
  */
 
-import type { Step } from "../components/base/step.types";
 import type { Component } from "../components/base/base.types";
+import type { Step } from "../components/base/step.types";
 import type { StepExecutionResult, StepInfo, TestStepResult } from "./execution.types";
 
 // =============================================================================

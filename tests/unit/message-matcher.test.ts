@@ -4,9 +4,8 @@
  * Tests hook matching via BaseComponent.findMatchingHook using isMatch function
  */
 
-import type { Step, Handler } from "testurio";
+import type { Handler, ITestCaseContext, Step } from "testurio";
 import { BaseComponent } from "testurio";
-import type { ITestCaseContext } from "testurio";
 import { describe, expect, it } from "vitest";
 
 // Minimal test component with exposed findMatchingHook

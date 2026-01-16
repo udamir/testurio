@@ -6,11 +6,7 @@
  * Supports dynamic topic subscription via subscribe()/unsubscribe().
  */
 
-import type {
-	IMQAdapter,
-	IMQPublisherAdapter,
-	IMQSubscriberAdapter,
-} from "../../packages/core/src/components/mq.base";
+import type { IMQAdapter, IMQPublisherAdapter, IMQSubscriberAdapter } from "../../packages/core/src/components/mq.base";
 
 /**
  * Fake message type for testing.

@@ -7,10 +7,10 @@
  * 3. clearHooks() - Cleanup after execution
  */
 
-import type { ITestCaseContext, ComponentState, Component } from "./base.types";
-import type { Step, Handler } from "./step.types";
+import { createDeferred, generateId } from "../../utils";
+import type { Component, ComponentState, ITestCaseContext } from "./base.types";
 import type { Hook } from "./hook.types";
-import { generateId, createDeferred } from "../../utils";
+import type { Handler, Step } from "./step.types";
 
 export abstract class BaseComponent<TStepBuilder = unknown> implements Component<TStepBuilder> {
 	readonly name: string;

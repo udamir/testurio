@@ -167,9 +167,12 @@ describe("Error Scenarios Integration Tests", () => {
 
 				api.sendMessage("TestRequest", { value: 10 });
 
-				backend.waitMessage("TestRequest").timeout(1000).assert((payload) => {
-					return payload.value === 999; // Will fail - value is 10
-				});
+				backend
+					.waitMessage("TestRequest")
+					.timeout(1000)
+					.assert((payload) => {
+						return payload.value === 999; // Will fail - value is 10
+					});
 			});
 
 			const result = await scenario.run(tc);
@@ -351,7 +354,10 @@ describe("Error Scenarios Integration Tests", () => {
 
 			const tc = testCase("Wait for message that never arrives", (test) => {
 				const backend = test.use(backendServer);
-				backend.waitMessage("NeverSent").timeout(100).assert(() => true);
+				backend
+					.waitMessage("NeverSent")
+					.timeout(100)
+					.assert(() => true);
 			});
 
 			const result = await scenario.run(tc);
@@ -384,7 +390,10 @@ describe("Error Scenarios Integration Tests", () => {
 					.assert((payload) => payload.value === 1)
 					.mockEvent("TestResponse", () => ({ result: "ok" }));
 				// waitEvent creates a blocking step (unlike onEvent which only registers a hook)
-			api.waitEvent("TestResponse").timeout(1000).assert((payload) => payload.result === "ok");
+				api
+					.waitEvent("TestResponse")
+					.timeout(1000)
+					.assert((payload) => payload.result === "ok");
 			});
 
 			const tc2 = testCase("Second async test - will fail", (test) => {
@@ -398,9 +407,12 @@ describe("Error Scenarios Integration Tests", () => {
 					.assert((payload) => payload.value === 2)
 					.mockEvent("TestResponse", () => ({ result: "fail" }));
 				// waitEvent creates a blocking step - assertion will fail because result is "fail" not "impossible"
-				api.waitEvent("TestResponse").timeout(1000).assert((payload) => {
-					return payload.result === "impossible"; // Will fail - result is "fail"
-				});
+				api
+					.waitEvent("TestResponse")
+					.timeout(1000)
+					.assert((payload) => {
+						return payload.result === "impossible"; // Will fail - result is "fail"
+					});
 			});
 
 			const tc3 = testCase("Third async test - will pass", (test) => {
@@ -414,7 +426,10 @@ describe("Error Scenarios Integration Tests", () => {
 					.assert((payload) => payload.value === 3)
 					.mockEvent("TestResponse", () => ({ result: "success" }));
 				// waitEvent creates a blocking step (unlike onEvent which only registers a hook)
-				api.waitEvent("TestResponse").timeout(1000).assert((payload) => payload.result === "success");
+				api
+					.waitEvent("TestResponse")
+					.timeout(1000)
+					.assert((payload) => payload.result === "success");
 			});
 
 			// Run sequentially using array syntax to test hook isolation

@@ -6,10 +6,7 @@
  * the message definition via clientMessages/serverMessages.
  */
 
-import type {
-	ExtractClientPayload,
-	ExtractServerPayload,
-} from "../../protocols/base";
+import type { ExtractClientPayload, ExtractServerPayload } from "../../protocols/base";
 
 /**
  * Extract payload type for an incoming message (client → server).

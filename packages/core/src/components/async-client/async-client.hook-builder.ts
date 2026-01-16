@@ -55,9 +55,7 @@ export class AsyncClientHookBuilder<TPayload = unknown> extends BaseHookBuilder 
 		handler?: (payload: TPayload) => TResult | Promise<TResult>
 	): AsyncClientHookBuilder<TResult> {
 		const [description, fn] =
-			typeof descriptionOrHandler === "string"
-				? [descriptionOrHandler, handler]
-				: [undefined, descriptionOrHandler];
+			typeof descriptionOrHandler === "string" ? [descriptionOrHandler, handler] : [undefined, descriptionOrHandler];
 
 		return this.addHandler<AsyncClientHookBuilder<TResult>>({
 			type: "transform",

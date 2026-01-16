@@ -4,18 +4,17 @@
  * Provides container helpers for integration testing with real services.
  */
 
-export {
-	startRedisContainer,
-	stopRedisContainer,
-	type RedisTestContext,
-	type RedisContainerOptions,
-} from "./redis.container";
+export { isDockerAvailable } from "./docker-check";
 
 export {
+	type KafkaContainerOptions,
+	type KafkaTestContext,
 	startKafkaContainer,
 	stopKafkaContainer,
-	type KafkaTestContext,
-	type KafkaContainerOptions,
 } from "./kafka.container";
-
-export { isDockerAvailable } from "./docker-check";
+export {
+	type RedisContainerOptions,
+	type RedisTestContext,
+	startRedisContainer,
+	stopRedisContainer,
+} from "./redis.container";

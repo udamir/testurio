@@ -8,9 +8,9 @@
 
 import type { Address, ISyncClientAdapter, ISyncProtocol, TlsConfig } from "../../protocols/base";
 import type { ITestCaseContext } from "../base/base.types";
-import type { Step, Handler } from "../base/step.types";
 import type { Hook } from "../base/hook.types";
 import { ServiceComponent } from "../base/service.component";
+import type { Handler, Step } from "../base/step.types";
 import { SyncClientStepBuilder } from "./sync-client.step-builder";
 
 interface ResponseMessage {
@@ -168,9 +168,7 @@ export class Client<P extends ISyncProtocol = ISyncProtocol> extends ServiceComp
 				const predicate = params.predicate as (p: unknown) => boolean | Promise<boolean>;
 				const result = await predicate(payload);
 				if (!result) {
-					const errorMsg = handler.description
-						? `Assertion failed: ${handler.description}`
-						: "Assertion failed";
+					const errorMsg = handler.description ? `Assertion failed: ${handler.description}` : "Assertion failed";
 					throw new Error(errorMsg);
 				}
 				return undefined;

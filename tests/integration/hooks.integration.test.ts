@@ -183,10 +183,13 @@ describe("Suite 3: Hook System Integration", () => {
 				const backend = test.use(backendServer);
 
 				api.sendMessage("LogEvent", { event: "user_login", userId: 123 });
-				backend.waitMessage("LogEvent").timeout(1000).assert((payload) => {
-					receivedPayload = payload;
-					return true;
-				});
+				backend
+					.waitMessage("LogEvent")
+					.timeout(1000)
+					.assert((payload) => {
+						receivedPayload = payload;
+						return true;
+					});
 			});
 
 			const result = await scenario.run(tc);
@@ -258,10 +261,13 @@ describe("Suite 3: Hook System Integration", () => {
 					message: "handled",
 				}));
 
-				api.waitEvent("HandlerRequestResponse").timeout(1000).assert((payload) => {
-					handlerCalled = true;
-					return payload.success === true && payload.message === "handled";
-				});
+				api
+					.waitEvent("HandlerRequestResponse")
+					.timeout(1000)
+					.assert((payload) => {
+						handlerCalled = true;
+						return payload.success === true && payload.message === "handled";
+					});
 			});
 
 			const result = await scenario.run(tc);

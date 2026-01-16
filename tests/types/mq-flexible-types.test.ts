@@ -11,13 +11,7 @@
  * This file only tests Topic/Payload type helpers.
  */
 
-import type {
-	DefaultTopics,
-	IsLooseMode,
-	Payload,
-	Topic,
-	Topics,
-} from "../../packages/core/src/components/mq.base";
+import type { DefaultTopics, IsLooseMode, Payload, Topic, Topics } from "../../packages/core/src/components/mq.base";
 
 // =============================================================================
 // Test 1: IsLooseMode detection

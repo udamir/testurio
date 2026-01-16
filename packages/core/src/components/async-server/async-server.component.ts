@@ -24,14 +24,14 @@ import type {
 	Message,
 	TlsConfig,
 } from "../../protocols/base";
+import { createDeferred, type Deferred } from "../../utils";
 import type { ITestCaseContext } from "../base/base.types";
-import type { Step, Handler } from "../base/step.types";
+import { DropMessageError, sleep } from "../base/base.utils";
 import type { Hook } from "../base/hook.types";
 import { ServiceComponent } from "../base/service.component";
-import { DropMessageError, sleep } from "../base/base.utils";
+import type { Handler, Step } from "../base/step.types";
 import { AsyncServerStepBuilder } from "./async-server.step-builder";
 import type { ServerHandlerContext } from "./async-server.types";
-import { createDeferred, type Deferred } from "../../utils";
 
 interface IncomingMessage {
 	type: string;
@@ -106,10 +106,7 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 	// =========================================================================
 
 	async registerHook(step: Step): Promise<Hook> {
-		const withPending =
-			step.type === "waitMessage" ||
-			step.type === "waitConnection" ||
-			step.type === "waitDisconnect";
+		const withPending = step.type === "waitMessage" || step.type === "waitConnection" || step.type === "waitDisconnect";
 		return super.registerHook(step, withPending);
 	}
 
@@ -389,10 +386,7 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 
 			// In proxy mode, forward to backend if proxy() handler was used
 			if (this.isProxy && this.hasProxyHandler(step)) {
-				await this.forwardMessageToBackend(
-					{ type: result.type, payload: result.payload },
-					connection.id
-				);
+				await this.forwardMessageToBackend({ type: result.type, payload: result.payload }, connection.id);
 			}
 		} catch (error) {
 			// Notify wait step of error
@@ -501,7 +495,7 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 		context: ServerHandlerContext
 	): Promise<IncomingMessage | null> {
 		let payload = message.payload;
-		let resultType = message.type;
+		const resultType = message.type;
 
 		for (const handler of step.handlers) {
 			const result = await this.executeHandler(handler, payload, context);
@@ -526,7 +520,10 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 	 * Find matching hook with linkId filtering.
 	 * If a hook specifies linkId, only messages from that linked connection will match.
 	 */
-	private findMatchingHookWithConnection(message: unknown, connectionId: string): ReturnType<typeof this.findMatchingHook> {
+	private findMatchingHookWithConnection(
+		message: unknown,
+		connectionId: string
+	): ReturnType<typeof this.findMatchingHook> {
 		for (const hook of this.hooks) {
 			// Check linkId filter if specified in step params
 			const params = hook.step?.params as { linkId?: string } | undefined;
@@ -572,7 +569,11 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 	 * @param connectionId - Internal connection ID (for linking)
 	 * @param protocolContext - Protocol-specific context (passed to matchers/handlers)
 	 */
-	private async executeConnectionHooks(stepType: string, connectionId: string, protocolContext: unknown): Promise<void> {
+	private async executeConnectionHooks(
+		stepType: string,
+		connectionId: string,
+		protocolContext: unknown
+	): Promise<void> {
 		const hooks = this.findHooksByType(stepType);
 
 		for (const hook of hooks) {
@@ -729,9 +730,7 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 				const predicate = params.predicate as (p: unknown) => boolean | Promise<boolean>;
 				const result = await predicate(payload);
 				if (!result) {
-					const errorMsg = handler.description
-						? `Assertion failed: ${handler.description}`
-						: "Assertion failed";
+					const errorMsg = handler.description ? `Assertion failed: ${handler.description}` : "Assertion failed";
 					throw new Error(errorMsg);
 				}
 				return undefined;

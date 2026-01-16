@@ -6,15 +6,15 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { Step } from "../../packages/core/src/components/base/step.types";
 import type { DefaultTopics } from "../../packages/core/src/components/mq.base";
 import { Publisher } from "../../packages/core/src/components/publisher";
-import type { Step } from "../../packages/core/src/components/base/step.types";
 import {
 	createFakeMQAdapter,
 	createInMemoryBroker,
-	type InMemoryBroker,
-	type FakePublishOptions,
 	type FakeBatchMessage,
+	type FakePublishOptions,
+	type InMemoryBroker,
 } from "../mocks/fakeMQAdapter";
 
 describe("Publisher", () => {

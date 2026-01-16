@@ -5,11 +5,11 @@
  * Supports metadata for integration with test reporters (e.g., Allure).
  */
 
-import type { Severity, TestCaseMetadata, TestCaseResult, TestStepResult } from "./execution.types";
 import type { Step } from "../components/base/step.types";
+import { generateId } from "../utils";
+import type { Severity, TestCaseMetadata, TestCaseResult, TestStepResult } from "./execution.types";
 import { executeSteps, summarizeStepResults } from "./step-executor";
 import type { TestCaseBuilder } from "./test-case-builder";
-import { generateId } from "../utils";
 
 /**
  * TestCase - represents a single test case

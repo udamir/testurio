@@ -6,14 +6,14 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { Handler, Step } from "../../packages/core/src/components/base/step.types";
 import type { DefaultTopics } from "../../packages/core/src/components/mq.base";
 import { Subscriber } from "../../packages/core/src/components/subscriber";
-import type { Step, Handler } from "../../packages/core/src/components/base/step.types";
 import {
 	createFakeMQAdapter,
 	createInMemoryBroker,
-	type InMemoryBroker,
 	type FakeMessage,
+	type InMemoryBroker,
 } from "../mocks/fakeMQAdapter";
 
 describe("Subscriber", () => {
@@ -433,7 +433,9 @@ describe("Subscriber", () => {
 			await subscriber.executeStep(step);
 
 			expect(transformedMessage).toBeDefined();
-			expect((transformedMessage as FakeMessage & { payload: { transformed?: boolean } }).payload.transformed).toBe(true);
+			expect((transformedMessage as FakeMessage & { payload: { transformed?: boolean } }).payload.transformed).toBe(
+				true
+			);
 
 			await subscriber.stop();
 		});

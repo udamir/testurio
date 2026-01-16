@@ -10,12 +10,19 @@
  * - waitRequest (strict): Error if request arrives before step starts
  */
 
-import type { Address, ISyncClientAdapter, ISyncProtocol, ISyncServerAdapter, MessageMatcher, TlsConfig } from "../../protocols/base";
+import type {
+	Address,
+	ISyncClientAdapter,
+	ISyncProtocol,
+	ISyncServerAdapter,
+	MessageMatcher,
+	TlsConfig,
+} from "../../protocols/base";
 import type { ITestCaseContext } from "../base/base.types";
-import type { Step, Handler } from "../base/step.types";
+import { DropMessageError, sleep } from "../base/base.utils";
 import type { Hook } from "../base/hook.types";
 import { ServiceComponent } from "../base/service.component";
-import { DropMessageError, sleep } from "../base/base.utils";
+import type { Handler, Step } from "../base/step.types";
 import { SyncServerStepBuilder } from "./sync-server.step-builder";
 
 export interface ServerOptions<P extends ISyncProtocol = ISyncProtocol> {
@@ -215,9 +222,7 @@ export class Server<P extends ISyncProtocol = ISyncProtocol> extends ServiceComp
 				const predicate = params.predicate as (p: unknown) => boolean | Promise<boolean>;
 				const result = await predicate(payload);
 				if (!result) {
-					const errorMsg = handler.description
-						? `Assertion failed: ${handler.description}`
-						: "Assertion failed";
+					const errorMsg = handler.description ? `Assertion failed: ${handler.description}` : "Assertion failed";
 					throw new Error(errorMsg);
 				}
 				return undefined;
@@ -275,10 +280,12 @@ export class Server<P extends ISyncProtocol = ISyncProtocol> extends ServiceComp
 
 		// Use protocol-specific matcher if available (e.g., HTTP method+path matching)
 		if ("createMessageTypeMatcher" in this.protocol && typeof this.protocol.createMessageTypeMatcher === "function") {
-			const protocolMatcher = (this.protocol.createMessageTypeMatcher as (
-				messageType: string,
-				options: unknown
-			) => MessageMatcher<unknown> | string).bind(this.protocol);
+			const protocolMatcher = (
+				this.protocol.createMessageTypeMatcher as (
+					messageType: string,
+					options: unknown
+				) => MessageMatcher<unknown> | string
+			).bind(this.protocol);
 
 			const matcher = protocolMatcher(messageType, params.options);
 

@@ -5,8 +5,8 @@
  * TestScenario and TestCaseBuilder to work with any component type.
  */
 
-import type { Step } from "./step.types";
 import type { Hook } from "./hook.types";
+import type { Step } from "./step.types";
 
 // =============================================================================
 // Component Interface

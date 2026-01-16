@@ -5,7 +5,13 @@
  */
 
 import Redis from "ioredis";
-import { defaultJsonCodec, type Codec, type IMQAdapter, type IMQPublisherAdapter, type IMQSubscriberAdapter } from "testurio";
+import {
+	type Codec,
+	defaultJsonCodec,
+	type IMQAdapter,
+	type IMQPublisherAdapter,
+	type IMQSubscriberAdapter,
+} from "testurio";
 import { RedisPubSubPublisherAdapter } from "./pubsub.publisher.adapter";
 import { RedisPubSubSubscriberAdapter } from "./pubsub.subscriber.adapter";
 import type { RedisPubSubAdapterConfig } from "./pubsub.types";

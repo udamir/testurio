@@ -5,7 +5,13 @@
  */
 
 import { Kafka, logLevel as KafkaLogLevel } from "kafkajs";
-import { defaultJsonCodec, type Codec, type IMQAdapter, type IMQPublisherAdapter, type IMQSubscriberAdapter } from "testurio";
+import {
+	type Codec,
+	defaultJsonCodec,
+	type IMQAdapter,
+	type IMQPublisherAdapter,
+	type IMQSubscriberAdapter,
+} from "testurio";
 import { KafkaPublisherAdapter } from "./kafka.publisher.adapter";
 import { KafkaSubscriberAdapter } from "./kafka.subscriber.adapter";
 import type { KafkaAdapterConfig } from "./kafka.types";

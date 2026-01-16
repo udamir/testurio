@@ -4,9 +4,8 @@
  * Tests for the HTTP protocol path parameter matching functionality.
  */
 
-import type { HttpRequest, MessageMatcher, Step, Handler } from "testurio";
+import type { Handler, HttpRequest, ITestCaseContext, MessageMatcher, Step } from "testurio";
 import { BaseComponent, HttpProtocol } from "testurio";
-import type { ITestCaseContext } from "testurio";
 import { describe, expect, it } from "vitest";
 
 // Minimal test component for hook matching
