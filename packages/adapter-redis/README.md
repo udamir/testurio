@@ -40,7 +40,7 @@ const tc = testCase('should use cached data', (test) => {
 
   // Setup cache
   redis.exec('populate cache', async (client) => {
-    await client.set('user:123', JSON.stringify({ id: 123, name: 'John' }));
+    await client.set('user:123', { id: 123, name: 'John' });
   });
 
   // API request
