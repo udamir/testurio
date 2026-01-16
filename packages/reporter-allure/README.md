@@ -38,12 +38,16 @@ const getUserTest = testCase('Get user by ID', (test) => {
   const api = test.use(client);
   const mock = test.use(server);
 
+  // step 1 
+  api.request('getUser', { method: 'GET', path: '/users/1' });
+
+  // step 2
   mock.onRequest('getUser').mockResponse(() => ({
     code: 200,
     body: { id: 1, name: 'Alice' },
   }));
 
-  api.request('getUser', { method: 'GET', path: '/users/1' });
+  // step 3
   api.onResponse('getUser').assert((res) => res.body.name === 'Alice');
 })
   .id('TC-001')
