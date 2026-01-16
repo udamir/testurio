@@ -13,6 +13,12 @@ export {
 	stopKafkaContainer,
 } from "./kafka.container";
 export {
+	type PostgresContainerOptions,
+	type PostgresTestContext,
+	startPostgresContainer,
+	stopPostgresContainer,
+} from "./postgres.container";
+export {
 	type RedisContainerOptions,
 	type RedisTestContext,
 	startRedisContainer,

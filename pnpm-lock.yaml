@@ -11,6 +11,9 @@ importers:
       '@biomejs/biome':
         specifier: ^2.3.11
         version: 2.3.11
+      '@testcontainers/postgresql':
+        specifier: ^11.11.0
+        version: 11.11.0
       '@testcontainers/redis':
         specifier: ^11.11.0
         version: 11.11.0
@@ -1423,6 +1426,17 @@ packages:
 
   /@sinclair/typebox@0.27.8:
     resolution: {integrity: sha512-+Fj43pSMwJs4KRrH/938Uf+uAELIgVBmQzg/q1YG10djyfA3TnrU8N8XzqCh/okZdszqBQTZf96idMfE5lnwTA==}
+    dev: true
+
+  /@testcontainers/postgresql@11.11.0:
+    resolution: {integrity: sha512-Og64I/h5LKLVvUTkAcLeTXfFcMhh3dCHCypN3Uzd+tQMd70SpCfQ0LCP9v/U+MS7JBRzU9EmqhUFkTOm4hyZWw==}
+    dependencies:
+      testcontainers: 11.11.0
+    transitivePeerDependencies:
+      - bare-abort-controller
+      - bare-buffer
+      - react-native-b4a
+      - supports-color
     dev: true
 
   /@testcontainers/redis@11.11.0:

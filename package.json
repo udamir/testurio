@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",
+    "@testcontainers/postgresql": "^11.11.0",
     "@testcontainers/redpanda": "^11.11.0",
     "@testcontainers/redis": "^11.11.0",
     "@types/node": "^24.10.0",

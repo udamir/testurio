@@ -19,6 +19,7 @@ export default defineConfig({
       '@testurio/reporter-allure': resolve(__dirname, './packages/reporter-allure/src'),
       '@testurio/adapter-redis': resolve(__dirname, './packages/adapter-redis/src'),
       '@testurio/adapter-kafka': resolve(__dirname, './packages/adapter-kafka/src'),
+      '@testurio/adapter-pg': resolve(__dirname, './packages/adapter-pg/src'),
     },
   },
 });
