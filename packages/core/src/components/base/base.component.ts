@@ -197,11 +197,11 @@ export abstract class BaseComponent<TStepBuilder = unknown> implements Component
 	// Hook Utilities
 	// =========================================================================
 
-	protected findMatchingHook<TMessage>(message: TMessage): Hook<TMessage> | null {
+	protected findMatchingHook(message: unknown): Hook | null {
 		for (const hook of this.hooks) {
 			try {
 				if (hook.isMatch(message)) {
-					return hook as Hook<TMessage>;
+					return hook;
 				}
 			} catch {
 				// Matcher error = no match
@@ -223,7 +223,7 @@ export abstract class BaseComponent<TStepBuilder = unknown> implements Component
 	 * Marks the hook as resolved so it's skipped in future matching.
 	 * Note: Does NOT remove the hook - cleanup happens after step execution.
 	 */
-	protected resolveHook<T>(hook: Hook<T>, value: T): void {
+	protected resolveHook(hook: Hook, value: unknown): void {
 		if (hook.pending) {
 			hook.pending.resolve(value);
 			hook.resolved = true;
@@ -234,7 +234,7 @@ export abstract class BaseComponent<TStepBuilder = unknown> implements Component
 	 * Reject a hook's pending with an error.
 	 * Removes non-persistent hooks automatically.
 	 */
-	protected rejectHook<T>(hook: Hook<T>, error: Error): void {
+	protected rejectHook(hook: Hook, error: Error): void {
 		if (hook.pending) {
 			hook.pending.reject(error);
 		}
@@ -247,7 +247,7 @@ export abstract class BaseComponent<TStepBuilder = unknown> implements Component
 	 * Await a hook's pending with timeout.
 	 * Returns the resolved value or throws on timeout.
 	 */
-	protected async awaitHook<T>(hook: Hook<T>, timeout: number): Promise<T> {
+	protected async awaitHook(hook: Hook, timeout: number): Promise<unknown> {
 		if (!hook.pending) {
 			throw new Error(`Hook ${hook.id} has no pending`);
 		}

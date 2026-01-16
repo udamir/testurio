@@ -18,9 +18,11 @@ import type { Step } from "./step.types";
  * Created by component from Step during Phase 1 (Hook Registration).
  * Hook is pure data - component manages all execution state.
  *
- * @template TMessage - The message type this hook handles
+ * Note: Hook is intentionally non-generic to avoid contravariance issues.
+ * All message/payload types are `unknown` at the hook level.
+ * Type safety is enforced at the component API level (step builders, handlers).
  */
-export interface Hook<TMessage = unknown> {
+export interface Hook {
 	/** Unique identifier for cleanup/lookup */
 	id: string;
 
@@ -37,8 +39,9 @@ export interface Hook<TMessage = unknown> {
 	/**
 	 * Predicate to match incoming messages.
 	 * Created by component from Step params.
+	 * Accepts `unknown` - the matcher implementation handles type narrowing.
 	 */
-	isMatch: (message: TMessage) => boolean;
+	isMatch: (message: unknown) => boolean;
 
 	/**
 	 * Reference to Step (contains handlers, params, mode).
@@ -56,8 +59,9 @@ export interface Hook<TMessage = unknown> {
 	 * Pending deferred for wait steps.
 	 * Created during registerHook for steps that need to wait for a value.
 	 * Resolved when matching message/response arrives.
+	 * Uses `unknown` to avoid contravariance issues - callers cast as needed.
 	 */
-	pending?: Deferred<TMessage>;
+	pending?: Deferred<unknown>;
 
 	/**
 	 * Whether the hook's pending has been resolved.

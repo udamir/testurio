@@ -24,12 +24,12 @@ export abstract class ServiceComponent<
 	// Hook Utilities
 	// =========================================================================
 
-	protected findAllMatchingHooks<TMessage>(message: TMessage): Hook<TMessage>[] {
-		const matching: Hook<TMessage>[] = [];
+	protected findAllMatchingHooks(message: unknown): Hook[] {
+		const matching: Hook[] = [];
 		for (const hook of this.hooks) {
 			try {
 				if (hook.isMatch(message)) {
-					matching.push(hook as Hook<TMessage>);
+					matching.push(hook);
 				}
 			} catch {
 				// Matcher error = no match
