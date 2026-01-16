@@ -17,13 +17,14 @@ import { BaseComponent } from "../base/base.component";
 import type { ITestCaseContext } from "../base/base.types";
 import type { Handler, Step } from "../base/step.types";
 import { DataSourceStepBuilder } from "./datasource.step-builder";
-import type { DataSourceAdapter, DataSourceOptions } from "./datasource.types";
+import type { ClientOf, DataSourceAdapter, DataSourceOptions } from "./datasource.types";
 
 /**
  * DataSource Component
  *
- * @typeParam TClient - Native SDK client type (e.g., Redis, Pool, Db)
  * @typeParam A - Adapter type extending DataSourceAdapter
+ *
+ * The client type is automatically inferred from the adapter using `ClientOf<A>`.
  *
  * @example
  * ```typescript
@@ -33,13 +34,14 @@ import type { DataSourceAdapter, DataSourceOptions } from "./datasource.types";
  *
  * const tc = testCase("test", (test) => {
  *   const redis = test.use(cache);
+ *   // client is automatically typed as Redis (from ioredis)
  *   redis.exec("get user", async (client) => client.get("user:123"))
  *     .assert("user should exist", (val) => val !== null);
  * });
  * ```
  */
-export class DataSource<TClient, A extends DataSourceAdapter<TClient, unknown>> extends BaseComponent<
-	DataSourceStepBuilder<TClient>
+export class DataSource<A extends DataSourceAdapter<unknown, unknown>> extends BaseComponent<
+	DataSourceStepBuilder<ClientOf<A>>
 > {
 	/** Adapter instance */
 	readonly adapter: A;
@@ -50,7 +52,7 @@ export class DataSource<TClient, A extends DataSourceAdapter<TClient, unknown>> 
 	 * @param name - Component name (must be unique within scenario)
 	 * @param options - Component options including adapter
 	 */
-	constructor(name: string, options: DataSourceOptions<TClient, A>) {
+	constructor(name: string, options: DataSourceOptions<A>) {
 		super(name);
 		this.adapter = options.adapter;
 	}
@@ -64,8 +66,8 @@ export class DataSource<TClient, A extends DataSourceAdapter<TClient, unknown>> 
 	 *
 	 * Called by TestCaseBuilder.use()
 	 */
-	createStepBuilder(context: ITestCaseContext): DataSourceStepBuilder<TClient> {
-		return new DataSourceStepBuilder<TClient>(context, this);
+	createStepBuilder(context: ITestCaseContext): DataSourceStepBuilder<ClientOf<A>> {
+		return new DataSourceStepBuilder<ClientOf<A>>(context, this);
 	}
 
 	// =========================================================================
@@ -96,7 +98,7 @@ export class DataSource<TClient, A extends DataSourceAdapter<TClient, unknown>> 
 	 */
 	private async executeExec(step: Step): Promise<void> {
 		const params = step.params as {
-			callback: (client: TClient) => Promise<unknown>;
+			callback: (client: ClientOf<A>) => Promise<unknown>;
 			description?: string;
 			timeout?: number;
 		};
@@ -189,11 +191,11 @@ export class DataSource<TClient, A extends DataSourceAdapter<TClient, unknown>> 
 	 *
 	 * @throws Error if component is not started
 	 */
-	getClient(): TClient {
+	getClient(): ClientOf<A> {
 		if (!this.isStarted()) {
 			throw new Error(`DataSource "${this.name}" is not started. Call start() first.`);
 		}
-		return this.adapter.getClient();
+		return this.adapter.getClient() as ClientOf<A>;
 	}
 
 	/**
@@ -205,7 +207,7 @@ export class DataSource<TClient, A extends DataSourceAdapter<TClient, unknown>> 
 	 * @param callback - Function receiving the native client
 	 * @returns Result of the callback
 	 */
-	async exec<T>(callback: (client: TClient) => Promise<T>): Promise<T> {
+	async exec<T>(callback: (client: ClientOf<A>) => Promise<T>): Promise<T> {
 		const client = this.getClient();
 		return callback(client);
 	}

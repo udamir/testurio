@@ -30,9 +30,13 @@
     "paths": {
       "testurio": ["./packages/core/src"],
       "@testurio/protocol-grpc": ["./packages/protocol-grpc/src"],
-      "@testurio/adapter-pg": ["./packages/adapter-pg/src"],
       "@testurio/protocol-ws": ["./packages/protocol-ws/src"],
       "@testurio/protocol-tcp": ["./packages/protocol-tcp/src"],
+      "@testurio/adapter-kafka": ["./packages/adapter-kafka/src"],
+      "@testurio/adapter-mongo": ["./packages/adapter-mongo/src"],
+      "@testurio/adapter-pg": ["./packages/adapter-pg/src"],
+      "@testurio/adapter-rabbitmq": ["./packages/adapter-rabbitmq/src"],
+      "@testurio/adapter-redis": ["./packages/adapter-redis/src"],
       "@testurio/reporter-allure": ["./packages/reporter-allure/src"]
     }
   },

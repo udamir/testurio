@@ -8,14 +8,14 @@
  * if Docker is not available.
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
-import { DataSource, TestScenario, testCase } from "testurio";
 import { PostgresAdapter } from "@testurio/adapter-pg";
+import { DataSource, TestScenario, testCase } from "testurio";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
-	startPostgresContainer,
-	stopPostgresContainer,
 	isDockerAvailable,
 	type PostgresTestContext,
+	startPostgresContainer,
+	stopPostgresContainer,
 } from "../containers";
 
 describe.skipIf(!isDockerAvailable())("PostgreSQL DataSource Integration", () => {
@@ -188,10 +188,11 @@ describe.skipIf(!isDockerAvailable())("PostgreSQL DataSource Integration", () =>
 
 				store
 					.exec("insert user", async (pool) => {
-						const result = await pool.query(
-							"INSERT INTO users (name, email, age) VALUES ($1, $2, $3) RETURNING id",
-							["John Doe", "john@example.com", 30]
-						);
+						const result = await pool.query("INSERT INTO users (name, email, age) VALUES ($1, $2, $3) RETURNING id", [
+							"John Doe",
+							"john@example.com",
+							30,
+						]);
 						return result.rows[0].id;
 					})
 					.assert("should return id", (id) => typeof id === "number" && id > 0);
@@ -282,9 +283,7 @@ describe.skipIf(!isDockerAvailable())("PostgreSQL DataSource Integration", () =>
 
 				store
 					.exec("delete user", async (pool) => {
-						const result = await pool.query("DELETE FROM users WHERE email = $1 RETURNING id", [
-							"delete@example.com",
-						]);
+						const result = await pool.query("DELETE FROM users WHERE email = $1 RETURNING id", ["delete@example.com"]);
 						return result.rowCount;
 					})
 					.assert("should delete 1 row", (count) => count === 1);
@@ -332,10 +331,10 @@ describe.skipIf(!isDockerAvailable())("PostgreSQL DataSource Integration", () =>
 
 				store
 					.exec("query with parameters", async (pool) => {
-						const result = await pool.query(
-							"SELECT * FROM users WHERE age >= $1 AND active = $2 ORDER BY age",
-							[25, true]
-						);
+						const result = await pool.query("SELECT * FROM users WHERE age >= $1 AND active = $2 ORDER BY age", [
+							25,
+							true,
+						]);
 						return result.rows;
 					})
 					.assert("should return filtered users", (rows) => {
@@ -712,9 +711,7 @@ describe.skipIf(!isDockerAvailable())("PostgreSQL DataSource Integration", () =>
 						const gadgets = rows.find((r: { category: string }) => r.category === "gadgets");
 						const widgets = rows.find((r: { category: string }) => r.category === "widgets");
 						return (
-							parseInt(gadgets.count) === 3 &&
-							parseInt(widgets.count) === 2 &&
-							parseFloat(gadgets.avg_price) === 30
+							parseInt(gadgets.count) === 3 && parseInt(widgets.count) === 2 && parseFloat(gadgets.avg_price) === 30
 						);
 					});
 

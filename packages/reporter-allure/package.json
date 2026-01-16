@@ -1,5 +1,5 @@
 {
-  "name": "@testurio/allure-reporter",
+  "name": "@testurio/reporter-allure",
   "version": "0.1.0",
   "description": "Allure reporter for testurio - TestOps integration",
   "keywords": [

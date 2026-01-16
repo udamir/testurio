@@ -9,6 +9,8 @@ export { DataSource } from "./datasource.component";
 export { DataSourceHookBuilder } from "./datasource.hook-builder";
 export { DataSourceStepBuilder } from "./datasource.step-builder";
 export type {
+	ClientOf,
+	ConfigOf,
 	DataSourceAdapter,
 	DataSourceAdapterEvents,
 	DataSourceOptions,

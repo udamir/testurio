@@ -6,7 +6,7 @@
 
 import { Client, DataSource, HttpProtocol, Server, TestScenario, testCase } from "testurio";
 import { describe, expect, it } from "vitest";
-import { createFakeAdapter, createInMemoryClient, type InMemoryClient } from "../mocks/fakeDSAdapter";
+import { createFakeAdapter, createInMemoryClient } from "../mocks/fakeDSAdapter";
 
 // Service definition for typed HTTP requests
 interface TestServiceDef {
@@ -40,7 +40,7 @@ describe("DataSource Integration", () => {
 			const tc = testCase("test lifecycle", (test) => {
 				const store = test.use(db);
 				store.exec(async (c) => {
-					(c as InMemoryClient).set("key", "value");
+					c.set("key", "value");
 				});
 			});
 
@@ -125,7 +125,7 @@ describe("DataSource Integration", () => {
 				// Setup: DataSource operation before HTTP
 				store.exec("setup data", async (c) => {
 					executionOrder.push("db:setup");
-					(c as InMemoryClient).set("user:1", { id: 1, name: "John" });
+					c.set("user:1", { id: 1, name: "John" });
 				});
 
 				// HTTP request
@@ -142,7 +142,7 @@ describe("DataSource Integration", () => {
 				// Verify: DataSource operation after HTTP
 				store.exec("verify data", async (c) => {
 					executionOrder.push("db:verify");
-					return (c as InMemoryClient).get("user:1");
+					return c.get("user:1");
 				});
 			});
 
@@ -183,7 +183,7 @@ describe("DataSource Integration", () => {
 				// 1. Check cache (miss)
 				cache.exec(async (c) => {
 					operations.push("cache:check:1");
-					return (c as InMemoryClient).get("data");
+					return c.get("data");
 				});
 
 				// 2. Make HTTP request and wait for response
@@ -198,14 +198,14 @@ describe("DataSource Integration", () => {
 				// 3. Cache the response
 				cache.exec(async (c) => {
 					operations.push("cache:set");
-					(c as InMemoryClient).set("data", { value: 42 });
+					c.set("data", { value: 42 });
 				});
 
 				// 4. Verify cache
 				cache
 					.exec(async (c) => {
 						operations.push("cache:verify");
-						return (c as InMemoryClient).get("data");
+						return c.get("data");
 					})
 					.assert((result) => {
 						const data = result as { value: number };
@@ -234,7 +234,7 @@ describe("DataSource Integration", () => {
 			const tc = testCase("should fail assertion", (test) => {
 				test
 					.use(db)
-					.exec(async (c) => (c as InMemoryClient).get("nonexistent"))
+					.exec(async (c) => c.get("nonexistent"))
 					.assert("value should exist", (result) => result !== null);
 			});
 
@@ -259,7 +259,7 @@ describe("DataSource Integration", () => {
 			const tc = testCase("should pass assertion", (test) => {
 				test
 					.use(db)
-					.exec(async (c) => (c as InMemoryClient).get("key"))
+					.exec(async (c) => c.get("key"))
 					.assert("value should be 'value'", (result) => result === "value");
 			});
 
@@ -283,7 +283,7 @@ describe("DataSource Integration", () => {
 				const store = test.use(db);
 
 				store
-					.exec(async (c) => (c as InMemoryClient).get("user"))
+					.exec(async (c) => c.get("user"))
 					.assert("user should exist", (result) => result !== null)
 					.assert("user should have id", (result) => {
 						const user = result as { id: number };
@@ -402,18 +402,18 @@ describe("DataSource Integration", () => {
 
 				// Store in DB
 				postgres.exec(async (c) => {
-					(c as InMemoryClient).set("user:1", { id: 1, name: "John" });
+					c.set("user:1", { id: 1, name: "John" });
 				});
 
 				// Cache from DB
 				redis.exec(async (c) => {
 					const user = dbClient.get("user:1");
-					(c as InMemoryClient).set("cached:user:1", user);
+					c.set("cached:user:1", user);
 				});
 
 				// Verify cache
 				redis
-					.exec(async (c) => (c as InMemoryClient).get("cached:user:1"))
+					.exec(async (c) => c.get("cached:user:1"))
 					.assert((result) => {
 						const user = result as { name: string };
 						return user.name === "John";
@@ -471,7 +471,7 @@ describe("DataSource Integration", () => {
 			const tc = testCase("metadata test", (test) => {
 				test
 					.use(db)
-					.exec("fetch from cache", async (c) => (c as InMemoryClient).get("key"))
+					.exec("fetch from cache", async (c) => c.get("key"))
 					.assert("value should exist", (result) => result !== null);
 			});
 

@@ -76,16 +76,37 @@ export interface DataSourceAdapter<TClient, TConfig = unknown> {
 }
 
 // =============================================================================
+// Type Utilities
+// =============================================================================
+
+/**
+ * Extract the client type from a DataSourceAdapter.
+ * Used to infer TClient from the adapter type parameter.
+ *
+ * @example
+ * ```typescript
+ * type RedisClient = ClientOf<RedisAdapter>; // Redis
+ * type PgClient = ClientOf<PostgresAdapter>; // Pool
+ * type MongoClient = ClientOf<MongoAdapter>; // Db
+ * ```
+ */
+export type ClientOf<A> = A extends DataSourceAdapter<infer TClient, unknown> ? TClient : unknown;
+
+/**
+ * Extract the config type from a DataSourceAdapter.
+ */
+export type ConfigOf<A> = A extends DataSourceAdapter<unknown, infer TConfig> ? TConfig : unknown;
+
+// =============================================================================
 // Component Options
 // =============================================================================
 
 /**
  * DataSource component options
  *
- * @typeParam TClient - Native SDK client type
- * @typeParam A - Adapter type
+ * @typeParam A - Adapter type extending DataSourceAdapter
  */
-export interface DataSourceOptions<TClient, A extends DataSourceAdapter<TClient, unknown>> {
+export interface DataSourceOptions<A extends DataSourceAdapter<unknown, unknown>> {
 	/** Adapter instance for the data store */
 	adapter: A;
 }

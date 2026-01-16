@@ -5,10 +5,7 @@
  * using testcontainers for integration testing.
  */
 
-import {
-	PostgreSqlContainer,
-	type StartedPostgreSqlContainer,
-} from "@testcontainers/postgresql";
+import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 
 export interface PostgresTestContext {
 	container: StartedPostgreSqlContainer;
@@ -48,18 +45,13 @@ export interface PostgresContainerOptions {
  * // pg.port = 55123 (dynamically allocated)
  * ```
  */
-export async function startPostgresContainer(
-	options?: PostgresContainerOptions
-): Promise<PostgresTestContext> {
+export async function startPostgresContainer(options?: PostgresContainerOptions): Promise<PostgresTestContext> {
 	const image = options?.image ?? "postgres:16-alpine";
 	const database = options?.database ?? "testdb";
 	const username = options?.username ?? "testuser";
 	const password = options?.password ?? "testpass";
 
-	const container = new PostgreSqlContainer(image)
-		.withDatabase(database)
-		.withUsername(username)
-		.withPassword(password);
+	const container = new PostgreSqlContainer(image).withDatabase(database).withUsername(username).withPassword(password);
 
 	const started = await container.start();
 
