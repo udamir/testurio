@@ -46,11 +46,15 @@ export async function startRedisContainer(options?: RedisContainerOptions): Prom
 
 	const started = await container.start();
 
+	// TESTCONTAINERS_HOST_OVERRIDE is set in global-setup.ts to force IPv4
+	const host = started.getHost();
+	const port = started.getMappedPort(6379);
+
 	return {
 		container: started,
-		host: started.getHost(),
-		port: started.getMappedPort(6379),
-		connectionUrl: started.getConnectionUrl(),
+		host,
+		port,
+		connectionUrl: `redis://${host}:${port}`,
 	};
 }
 

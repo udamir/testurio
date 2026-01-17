@@ -24,6 +24,10 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
 	// We handle cleanup ourselves in the teardown function
 	process.env.TESTCONTAINERS_RYUK_DISABLED = "true";
 
+	// Force testcontainers to use IPv4 to avoid port mapping issues on macOS
+	// See: https://github.com/testcontainers/testcontainers-node/issues/750
+	process.env.TESTCONTAINERS_HOST_OVERRIDE = "127.0.0.1";
+
 	// Check Docker availability first
 	const dockerAvailable = isDockerAvailable();
 	process.env.TESTURIO_DOCKER_AVAILABLE = String(dockerAvailable);

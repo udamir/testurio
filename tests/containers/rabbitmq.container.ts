@@ -53,15 +53,17 @@ export async function startRabbitMQContainer(options?: RabbitMQContainerOptions)
 
 	const started = await container.start();
 
+	// TESTCONTAINERS_HOST_OVERRIDE is set in global-setup.ts to force IPv4
 	const host = started.getHost();
 	const port = started.getMappedPort(5672);
+	const managementPort = started.getMappedPort(15672);
 
 	return {
 		container: started,
 		host,
 		port,
-		amqpUrl: started.getAmqpUrl(),
-		managementUrl: `http://${host}:${started.getMappedPort(15672)}`,
+		amqpUrl: `amqp://${username}:${password}@${host}:${port}`,
+		managementUrl: `http://${host}:${managementPort}`,
 		username,
 		password,
 	};

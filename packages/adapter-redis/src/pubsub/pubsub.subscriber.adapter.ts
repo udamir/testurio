@@ -50,6 +50,14 @@ export class RedisPubSubSubscriberAdapter implements IMQSubscriberAdapter<QueueM
 	 * Connect to Redis and set up message handlers.
 	 */
 	async connect(): Promise<void> {
+		// Wait for Redis connection to be ready
+		if (this.redis.status !== "ready") {
+			await new Promise<void>((resolve, reject) => {
+				this.redis.once("ready", resolve);
+				this.redis.once("error", reject);
+			});
+		}
+
 		this.setupHandlers();
 		this._isConnected = true;
 	}

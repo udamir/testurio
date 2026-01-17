@@ -73,7 +73,9 @@ export class RedisAdapter implements DataSourceAdapter<Redis, RedisAdapterConfig
 		this.client = new Redis(redisOptions);
 
 		// Setup event handlers
-		this.client.on("connect", () => {
+		// Use 'ready' event which fires after Redis handshake is complete,
+		// not just 'connect' which only indicates TCP connection
+		this.client.on("ready", () => {
 			this.connected = true;
 			this.emit("connected", undefined);
 		});
@@ -87,9 +89,16 @@ export class RedisAdapter implements DataSourceAdapter<Redis, RedisAdapterConfig
 			this.emit("error", error);
 		});
 
-		// Connect to Redis
+		// Connect to Redis and wait for ready state
 		try {
 			await this.client.connect();
+			// Wait for the 'ready' event if not already ready
+			if (this.client.status !== "ready") {
+				await new Promise<void>((resolve, reject) => {
+					this.client!.once("ready", resolve);
+					this.client!.once("error", reject);
+				});
+			}
 		} catch (error) {
 			this.client = null;
 			throw error;

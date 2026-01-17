@@ -56,6 +56,7 @@ export async function startKafkaContainer(options?: KafkaContainerOptions): Prom
 
 	const started = await container.start();
 
+	// TESTCONTAINERS_HOST_OVERRIDE is set in global-setup.ts to force IPv4
 	const host = started.getHost();
 	const port = started.getMappedPort(9092);
 
@@ -68,11 +69,13 @@ export async function startKafkaContainer(options?: KafkaContainerOptions): Prom
 
 	// Schema Registry and REST Proxy are always available (exposed by default)
 	if (options?.enableSchemaRegistry) {
-		context.schemaRegistryUrl = `http://${host}:${started.getMappedPort(8081)}`;
+		const schemaPort = started.getMappedPort(8081);
+		context.schemaRegistryUrl = `http://${host}:${schemaPort}`;
 	}
 
 	if (options?.enableRestProxy) {
-		context.restProxyUrl = `http://${host}:${started.getMappedPort(8082)}`;
+		const restPort = started.getMappedPort(8082);
+		context.restProxyUrl = `http://${host}:${restPort}`;
 	}
 
 	return context;

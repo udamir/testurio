@@ -55,14 +55,18 @@ export async function startPostgresContainer(options?: PostgresContainerOptions)
 
 	const started = await container.start();
 
+	// TESTCONTAINERS_HOST_OVERRIDE is set in global-setup.ts to force IPv4
+	const host = started.getHost();
+	const port = started.getMappedPort(5432);
+
 	return {
 		container: started,
-		host: started.getHost(),
-		port: started.getPort(),
+		host,
+		port,
 		database,
 		username,
 		password,
-		connectionString: started.getConnectionUri(),
+		connectionString: `postgresql://${username}:${password}@${host}:${port}/${database}`,
 	};
 }
 
