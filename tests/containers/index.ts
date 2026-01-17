@@ -24,3 +24,17 @@ export {
 	startRedisContainer,
 	stopRedisContainer,
 } from "./redis.container";
+
+// Environment-based configuration helpers (for use with global setup)
+export {
+	type KafkaEnvConfig,
+	type PostgresEnvConfig,
+	type RedisEnvConfig,
+	getKafkaConfig,
+	getPostgresConfig,
+	getRedisConfig,
+	isContainerSetupAvailable,
+	isKafkaAvailable,
+	isPostgresAvailable,
+	isRedisAvailable,
+} from "./env-config";

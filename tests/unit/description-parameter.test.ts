@@ -18,7 +18,7 @@ import { WebSocketProtocol } from "../../packages/protocol-ws/src";
 
 describe("Description Parameter", () => {
 	describe("SyncClientHookBuilder.assert()", () => {
-		const PORT = 17000;
+		const PORT = 18000;
 
 		it("should include description in error message when assertion fails", async () => {
 			const client = new Client("api", {
@@ -126,7 +126,7 @@ describe("Description Parameter", () => {
 	});
 
 	describe("SyncHookBuilderImpl (server)", () => {
-		const PORT = 17100;
+		const PORT = 18100;
 
 		it("assert() should include description in error message", async () => {
 			const client = new Client("api", {
@@ -283,7 +283,7 @@ describe("Description Parameter", () => {
 	});
 
 	describe("AsyncClientHookBuilder", () => {
-		const PORT = 17200;
+		const PORT = 18200;
 
 		it("assert() should work with description (passing case)", async () => {
 			interface WsMessages {
@@ -361,7 +361,7 @@ describe("Description Parameter", () => {
 	});
 
 	describe("AsyncServerHookBuilder", () => {
-		const PORT = 17300;
+		const PORT = 18300;
 
 		it("mockEvent() should accept description", async () => {
 			interface WsMessages {

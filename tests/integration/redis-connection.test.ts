@@ -5,27 +5,12 @@
  */
 
 import Redis from "ioredis";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { isDockerAvailable, type RedisTestContext, startRedisContainer, stopRedisContainer } from "../containers";
+import { describe, expect, it } from "vitest";
+import { getRedisConfig, isRedisAvailable } from "../containers";
 
-describe.skipIf(!isDockerAvailable())("Redis Connection Debug", () => {
-	let redis: RedisTestContext;
-
-	beforeAll(async () => {
-		console.log("Starting Redis container...");
-		redis = await startRedisContainer();
-		console.log(`Redis container started: host=${redis.host}, port=${redis.port}`);
-		console.log(`Connection URL: ${redis.connectionUrl}`);
-	}, 60000);
-
-	afterAll(async () => {
-		if (redis) {
-			console.log("Stopping Redis container...");
-			await stopRedisContainer(redis);
-		}
-	});
-
+describe.skipIf(!isRedisAvailable())("Redis Connection Debug", () => {
 	it("should connect to Redis directly with ioredis", async () => {
+		const redis = getRedisConfig();
 		console.log(`Connecting to Redis at ${redis.host}:${redis.port}...`);
 
 		const client = new Redis({
@@ -48,6 +33,8 @@ describe.skipIf(!isDockerAvailable())("Redis Connection Debug", () => {
 	});
 
 	it("should work with pub/sub", async () => {
+		const redis = getRedisConfig();
+
 		const publisher = new Redis({
 			host: redis.host,
 			port: redis.port,

@@ -6,31 +6,26 @@
  *
  * These tests require Docker to be running. They will be skipped automatically
  * if Docker is not available.
+ *
+ * Note: Each test creates its own adapter and components because Kafka consumer
+ * group coordination requires ~3s per consumer setup. TestScenario's lifecycle
+ * model (start components once, run test cases, stop components) works well,
+ * but running multiple test cases with different topics in a single scenario
+ * doesn't work because Kafka subscriptions are established during component start.
  */
 
 import { KafkaAdapter } from "@testurio/adapter-kafka";
 import { Publisher, Subscriber, TestScenario, testCase } from "testurio";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { isDockerAvailable, type KafkaTestContext, startKafkaContainer, stopKafkaContainer } from "../containers";
+import { describe, expect, it } from "vitest";
+import { getKafkaConfig, isKafkaAvailable } from "../containers";
 
-describe.skipIf(!isDockerAvailable())("Kafka Pub/Sub Integration", () => {
-	let kafka: KafkaTestContext;
-
-	beforeAll(async () => {
-		kafka = await startKafkaContainer();
-	}, 60000); // 60s timeout for container startup
-
-	afterAll(async () => {
-		if (kafka) {
-			await stopKafkaContainer(kafka);
-		}
-	});
-
+describe.skipIf(!isKafkaAvailable())("Kafka Pub/Sub Integration", () => {
 	it("should publish and receive a single message", async () => {
+		const kafka = getKafkaConfig();
 		const adapter = new KafkaAdapter({
 			brokers: kafka.brokers,
-			clientId: `test-single-message-${Date.now()}`,
-			groupId: `test-group-single-${Date.now()}`,
+			clientId: `test-kafka-${Date.now()}`,
+			groupId: `test-group-${Date.now()}`,
 			fromBeginning: true,
 			testMode: true,
 		});
@@ -47,10 +42,8 @@ describe.skipIf(!isDockerAvailable())("Kafka Pub/Sub Integration", () => {
 			const pub = test.use(publisher);
 			const sub = test.use(subscriber);
 
-			// Publish message first (action step)
 			pub.publish("notifications", { event: "user_created", userId: 123 });
 
-			// Then wait for message (wait step)
 			sub.waitMessage("notifications").assert((msg) => {
 				expect(msg).toHaveProperty("payload");
 				expect(msg.payload).toEqual({ event: "user_created", userId: 123 });
@@ -66,10 +59,11 @@ describe.skipIf(!isDockerAvailable())("Kafka Pub/Sub Integration", () => {
 	});
 
 	it("should handle multiple messages on same topic", async () => {
+		const kafka = getKafkaConfig();
 		const adapter = new KafkaAdapter({
 			brokers: kafka.brokers,
-			clientId: `test-multiple-messages-${Date.now()}`,
-			groupId: `test-group-multiple-${Date.now()}`,
+			clientId: `test-kafka-${Date.now()}`,
+			groupId: `test-group-${Date.now()}`,
 			fromBeginning: true,
 			testMode: true,
 		});
@@ -86,11 +80,9 @@ describe.skipIf(!isDockerAvailable())("Kafka Pub/Sub Integration", () => {
 			const pub = test.use(publisher);
 			const sub = test.use(subscriber);
 
-			// Publish messages first (action steps)
 			pub.publish("events", { order: 1, data: "first" });
 			pub.publish("events", { order: 2, data: "second" });
 
-			// Then wait for messages (wait steps)
 			sub.waitMessage("events").assert((msg) => {
 				expect(msg).toHaveProperty("payload");
 				return true;
@@ -110,10 +102,11 @@ describe.skipIf(!isDockerAvailable())("Kafka Pub/Sub Integration", () => {
 	});
 
 	it("should support multiple topics", async () => {
+		const kafka = getKafkaConfig();
 		const adapter = new KafkaAdapter({
 			brokers: kafka.brokers,
-			clientId: `test-multiple-topics-${Date.now()}`,
-			groupId: `test-group-topics-${Date.now()}`,
+			clientId: `test-kafka-${Date.now()}`,
+			groupId: `test-group-${Date.now()}`,
 			fromBeginning: true,
 			testMode: true,
 		});
@@ -130,11 +123,9 @@ describe.skipIf(!isDockerAvailable())("Kafka Pub/Sub Integration", () => {
 			const pub = test.use(publisher);
 			const sub = test.use(subscriber);
 
-			// Publish to both topics first
 			pub.publish("topic-a", { from: "topic-a" });
 			pub.publish("topic-b", { from: "topic-b" });
 
-			// Then wait for messages
 			sub.waitMessage("topic-a").assert((msg) => {
 				expect(msg.payload).toEqual({ from: "topic-a" });
 				return true;
@@ -151,10 +142,11 @@ describe.skipIf(!isDockerAvailable())("Kafka Pub/Sub Integration", () => {
 	});
 
 	it("should include Kafka-specific metadata", async () => {
+		const kafka = getKafkaConfig();
 		const adapter = new KafkaAdapter({
 			brokers: kafka.brokers,
-			clientId: `test-metadata-${Date.now()}`,
-			groupId: `test-group-metadata-${Date.now()}`,
+			clientId: `test-kafka-${Date.now()}`,
+			groupId: `test-group-${Date.now()}`,
 			fromBeginning: true,
 			testMode: true,
 		});
@@ -188,10 +180,11 @@ describe.skipIf(!isDockerAvailable())("Kafka Pub/Sub Integration", () => {
 	});
 
 	it("should support message keys", async () => {
+		const kafka = getKafkaConfig();
 		const adapter = new KafkaAdapter({
 			brokers: kafka.brokers,
-			clientId: `test-keys-${Date.now()}`,
-			groupId: `test-group-keys-${Date.now()}`,
+			clientId: `test-kafka-${Date.now()}`,
+			groupId: `test-group-${Date.now()}`,
 			fromBeginning: true,
 			testMode: true,
 		});
@@ -222,10 +215,11 @@ describe.skipIf(!isDockerAvailable())("Kafka Pub/Sub Integration", () => {
 	});
 
 	it("should support message headers", async () => {
+		const kafka = getKafkaConfig();
 		const adapter = new KafkaAdapter({
 			brokers: kafka.brokers,
-			clientId: `test-headers-${Date.now()}`,
-			groupId: `test-group-headers-${Date.now()}`,
+			clientId: `test-kafka-${Date.now()}`,
+			groupId: `test-group-${Date.now()}`,
 			fromBeginning: true,
 			testMode: true,
 		});
@@ -261,10 +255,11 @@ describe.skipIf(!isDockerAvailable())("Kafka Pub/Sub Integration", () => {
 	});
 
 	it("should handle rapid message publishing", async () => {
+		const kafka = getKafkaConfig();
 		const adapter = new KafkaAdapter({
 			brokers: kafka.brokers,
-			clientId: `test-rapid-${Date.now()}`,
-			groupId: `test-group-rapid-${Date.now()}`,
+			clientId: `test-kafka-${Date.now()}`,
+			groupId: `test-group-${Date.now()}`,
 			fromBeginning: true,
 			testMode: true,
 		});
@@ -283,12 +278,10 @@ describe.skipIf(!isDockerAvailable())("Kafka Pub/Sub Integration", () => {
 			const pub = test.use(publisher);
 			const sub = test.use(subscriber);
 
-			// Publish all messages rapidly first
 			for (let i = 0; i < messageCount; i++) {
 				pub.publish("rapid", { index: i });
 			}
 
-			// Then wait for all messages
 			for (let i = 0; i < messageCount; i++) {
 				sub.waitMessage("rapid").assert((msg) => {
 					expect(msg).toHaveProperty("payload");
@@ -305,10 +298,11 @@ describe.skipIf(!isDockerAvailable())("Kafka Pub/Sub Integration", () => {
 	});
 
 	it("should support batch publishing", async () => {
+		const kafka = getKafkaConfig();
 		const adapter = new KafkaAdapter({
 			brokers: kafka.brokers,
-			clientId: `test-batch-${Date.now()}`,
-			groupId: `test-group-batch-${Date.now()}`,
+			clientId: `test-kafka-${Date.now()}`,
+			groupId: `test-group-${Date.now()}`,
 			fromBeginning: true,
 			testMode: true,
 		});
@@ -325,14 +319,12 @@ describe.skipIf(!isDockerAvailable())("Kafka Pub/Sub Integration", () => {
 			const pub = test.use(publisher);
 			const sub = test.use(subscriber);
 
-			// Publish batch
 			pub.publishBatch("batch-topic", [
 				{ payload: { id: 1, name: "first" } },
 				{ payload: { id: 2, name: "second" } },
 				{ payload: { id: 3, name: "third" } },
 			]);
 
-			// Wait for all batch messages
 			sub.waitMessage("batch-topic").assert((msg) => {
 				expect(msg.payload).toHaveProperty("id");
 				return true;
@@ -353,9 +345,10 @@ describe.skipIf(!isDockerAvailable())("Kafka Pub/Sub Integration", () => {
 		expect(result.passed).toBe(true);
 	});
 
-	// Consumer groups: Each group gets the message once
 	it("should support independent consumer groups", async () => {
+		const kafka = getKafkaConfig();
 		const timestamp = Date.now();
+
 		// Two adapters with different group IDs
 		const adapter1 = new KafkaAdapter({
 			brokers: kafka.brokers,
@@ -373,36 +366,39 @@ describe.skipIf(!isDockerAvailable())("Kafka Pub/Sub Integration", () => {
 			testMode: true,
 		});
 
-		const publisher = new Publisher("pub", { adapter: adapter1 });
-		const subscriber1 = new Subscriber("sub1", { adapter: adapter1 });
-		const subscriber2 = new Subscriber("sub2", { adapter: adapter2 });
+		try {
+			const publisher = new Publisher("pub", { adapter: adapter1 });
+			const subscriber1 = new Subscriber("sub1", { adapter: adapter1 });
+			const subscriber2 = new Subscriber("sub2", { adapter: adapter2 });
 
-		const scenario = new TestScenario({
-			name: "Consumer groups",
-			components: [subscriber1, subscriber2, publisher],
-		});
-
-		const tc = testCase("both groups receive message independently", (test) => {
-			const pub = test.use(publisher);
-			const sub1 = test.use(subscriber1);
-			const sub2 = test.use(subscriber2);
-
-			// Publish once - both groups should receive
-			pub.publish("broadcast", { message: "hello everyone" });
-
-			// Both subscribers in different groups receive the message
-			sub1.waitMessage("broadcast").assert((msg) => {
-				expect(msg.payload).toEqual({ message: "hello everyone" });
-				return true;
+			const scenario = new TestScenario({
+				name: "Consumer groups",
+				components: [subscriber1, subscriber2, publisher],
 			});
 
-			sub2.waitMessage("broadcast").assert((msg) => {
-				expect(msg.payload).toEqual({ message: "hello everyone" });
-				return true;
-			});
-		});
+			const tc = testCase("both groups receive message independently", (test) => {
+				const pub = test.use(publisher);
+				const sub1 = test.use(subscriber1);
+				const sub2 = test.use(subscriber2);
 
-		const result = await scenario.run(tc);
-		expect(result.passed).toBe(true);
+				pub.publish("broadcast", { message: "hello everyone" });
+
+				sub1.waitMessage("broadcast").assert((msg) => {
+					expect(msg.payload).toEqual({ message: "hello everyone" });
+					return true;
+				});
+
+				sub2.waitMessage("broadcast").assert((msg) => {
+					expect(msg.payload).toEqual({ message: "hello everyone" });
+					return true;
+				});
+			});
+
+			const result = await scenario.run(tc);
+			expect(result.passed).toBe(true);
+		} finally {
+			await adapter1.dispose();
+			await adapter2.dispose();
+		}
 	});
 });

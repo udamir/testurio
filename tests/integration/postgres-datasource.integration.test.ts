@@ -10,29 +10,13 @@
 
 import { PostgresAdapter } from "@testurio/adapter-pg";
 import { DataSource, TestScenario, testCase } from "testurio";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import {
-	isDockerAvailable,
-	type PostgresTestContext,
-	startPostgresContainer,
-	stopPostgresContainer,
-} from "../containers";
+import { beforeEach, describe, expect, it } from "vitest";
+import { getPostgresConfig, isPostgresAvailable } from "../containers";
 
-describe.skipIf(!isDockerAvailable())("PostgreSQL DataSource Integration", () => {
-	let postgres: PostgresTestContext;
-
-	beforeAll(async () => {
-		postgres = await startPostgresContainer();
-	}, 90000); // 90s timeout for container startup
-
-	afterAll(async () => {
-		if (postgres) {
-			await stopPostgresContainer(postgres);
-		}
-	});
-
+describe.skipIf(!isPostgresAvailable())("PostgreSQL DataSource Integration", () => {
 	describe("Connection Lifecycle", () => {
 		it("should connect and disconnect via TestScenario lifecycle", async () => {
+			const postgres = getPostgresConfig();
 			const adapter = new PostgresAdapter({
 				host: postgres.host,
 				port: postgres.port,
@@ -65,6 +49,7 @@ describe.skipIf(!isDockerAvailable())("PostgreSQL DataSource Integration", () =>
 		});
 
 		it("should connect using connection string", async () => {
+			const postgres = getPostgresConfig();
 			const adapter = new PostgresAdapter({
 				connectionString: postgres.connectionString,
 			});
@@ -92,6 +77,7 @@ describe.skipIf(!isDockerAvailable())("PostgreSQL DataSource Integration", () =>
 
 	describe("Schema Setup", () => {
 		it("should create and drop tables", async () => {
+			const postgres = getPostgresConfig();
 			const adapter = new PostgresAdapter({
 				host: postgres.host,
 				port: postgres.port,
@@ -145,6 +131,7 @@ describe.skipIf(!isDockerAvailable())("PostgreSQL DataSource Integration", () =>
 	describe("CRUD Operations", () => {
 		beforeEach(async () => {
 			// Setup: Create test table before each test
+			const postgres = getPostgresConfig();
 			const adapter = new PostgresAdapter({
 				host: postgres.host,
 				port: postgres.port,
@@ -169,6 +156,7 @@ describe.skipIf(!isDockerAvailable())("PostgreSQL DataSource Integration", () =>
 		});
 
 		it("should insert and select rows", async () => {
+			const postgres = getPostgresConfig();
 			const adapter = new PostgresAdapter({
 				host: postgres.host,
 				port: postgres.port,
@@ -212,6 +200,7 @@ describe.skipIf(!isDockerAvailable())("PostgreSQL DataSource Integration", () =>
 		});
 
 		it("should update rows", async () => {
+			const postgres = getPostgresConfig();
 			const adapter = new PostgresAdapter({
 				host: postgres.host,
 				port: postgres.port,
@@ -253,6 +242,7 @@ describe.skipIf(!isDockerAvailable())("PostgreSQL DataSource Integration", () =>
 		});
 
 		it("should delete rows", async () => {
+			const postgres = getPostgresConfig();
 			const adapter = new PostgresAdapter({
 				host: postgres.host,
 				port: postgres.port,
@@ -301,6 +291,7 @@ describe.skipIf(!isDockerAvailable())("PostgreSQL DataSource Integration", () =>
 		});
 
 		it("should handle parameterized queries", async () => {
+			const postgres = getPostgresConfig();
 			const adapter = new PostgresAdapter({
 				host: postgres.host,
 				port: postgres.port,
@@ -349,6 +340,7 @@ describe.skipIf(!isDockerAvailable())("PostgreSQL DataSource Integration", () =>
 
 	describe("Transactions", () => {
 		beforeEach(async () => {
+			const postgres = getPostgresConfig();
 			const adapter = new PostgresAdapter({
 				host: postgres.host,
 				port: postgres.port,
@@ -370,6 +362,7 @@ describe.skipIf(!isDockerAvailable())("PostgreSQL DataSource Integration", () =>
 		});
 
 		it("should commit transaction successfully", async () => {
+			const postgres = getPostgresConfig();
 			const adapter = new PostgresAdapter({
 				host: postgres.host,
 				port: postgres.port,
@@ -415,6 +408,7 @@ describe.skipIf(!isDockerAvailable())("PostgreSQL DataSource Integration", () =>
 		});
 
 		it("should rollback transaction on error", async () => {
+			const postgres = getPostgresConfig();
 			const adapter = new PostgresAdapter({
 				host: postgres.host,
 				port: postgres.port,
@@ -461,6 +455,7 @@ describe.skipIf(!isDockerAvailable())("PostgreSQL DataSource Integration", () =>
 		});
 
 		it("should handle transfer between accounts", async () => {
+			const postgres = getPostgresConfig();
 			const adapter = new PostgresAdapter({
 				host: postgres.host,
 				port: postgres.port,
@@ -521,6 +516,7 @@ describe.skipIf(!isDockerAvailable())("PostgreSQL DataSource Integration", () =>
 
 	describe("Data Types", () => {
 		it("should handle various PostgreSQL data types", async () => {
+			const postgres = getPostgresConfig();
 			const adapter = new PostgresAdapter({
 				host: postgres.host,
 				port: postgres.port,
@@ -606,6 +602,7 @@ describe.skipIf(!isDockerAvailable())("PostgreSQL DataSource Integration", () =>
 		});
 
 		it("should handle NULL values", async () => {
+			const postgres = getPostgresConfig();
 			const adapter = new PostgresAdapter({
 				host: postgres.host,
 				port: postgres.port,
@@ -661,6 +658,7 @@ describe.skipIf(!isDockerAvailable())("PostgreSQL DataSource Integration", () =>
 
 	describe("Aggregations and Joins", () => {
 		it("should perform aggregation queries", async () => {
+			const postgres = getPostgresConfig();
 			const adapter = new PostgresAdapter({
 				host: postgres.host,
 				port: postgres.port,
@@ -725,6 +723,7 @@ describe.skipIf(!isDockerAvailable())("PostgreSQL DataSource Integration", () =>
 		});
 
 		it("should perform JOIN queries", async () => {
+			const postgres = getPostgresConfig();
 			const adapter = new PostgresAdapter({
 				host: postgres.host,
 				port: postgres.port,
@@ -799,6 +798,7 @@ describe.skipIf(!isDockerAvailable())("PostgreSQL DataSource Integration", () =>
 
 	describe("Error Handling", () => {
 		it("should handle constraint violations", async () => {
+			const postgres = getPostgresConfig();
 			const adapter = new PostgresAdapter({
 				host: postgres.host,
 				port: postgres.port,
@@ -838,6 +838,7 @@ describe.skipIf(!isDockerAvailable())("PostgreSQL DataSource Integration", () =>
 		});
 
 		it("should handle syntax errors", async () => {
+			const postgres = getPostgresConfig();
 			const adapter = new PostgresAdapter({
 				host: postgres.host,
 				port: postgres.port,
@@ -867,6 +868,7 @@ describe.skipIf(!isDockerAvailable())("PostgreSQL DataSource Integration", () =>
 
 	describe("Assertions", () => {
 		it("should fail test when assertion fails", async () => {
+			const postgres = getPostgresConfig();
 			const adapter = new PostgresAdapter({
 				host: postgres.host,
 				port: postgres.port,
@@ -898,6 +900,7 @@ describe.skipIf(!isDockerAvailable())("PostgreSQL DataSource Integration", () =>
 		});
 
 		it("should support multiple chained assertions", async () => {
+			const postgres = getPostgresConfig();
 			const adapter = new PostgresAdapter({
 				host: postgres.host,
 				port: postgres.port,

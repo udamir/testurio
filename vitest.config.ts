@@ -9,6 +9,7 @@ export default defineConfig({
     exclude: ['node_modules'],
     testTimeout: 30000,
     hookTimeout: 60000,
+    globalSetup: ['./tests/global-setup.ts'],
   },
   resolve: {
     alias: {

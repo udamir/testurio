@@ -10,23 +10,12 @@
 
 import { RedisPubSubAdapter } from "@testurio/adapter-redis";
 import { Publisher, Subscriber, TestScenario, testCase } from "testurio";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { isDockerAvailable, type RedisTestContext, startRedisContainer, stopRedisContainer } from "../containers";
+import { describe, expect, it } from "vitest";
+import { getRedisConfig, isRedisAvailable } from "../containers";
 
-describe.skipIf(!isDockerAvailable())("Redis Pub/Sub Integration", () => {
-	let redis: RedisTestContext;
-
-	beforeAll(async () => {
-		redis = await startRedisContainer();
-	}, 60000); // 60s timeout for container startup
-
-	afterAll(async () => {
-		if (redis) {
-			await stopRedisContainer(redis);
-		}
-	});
-
+describe.skipIf(!isRedisAvailable())("Redis Pub/Sub Integration", () => {
 	it("should publish and receive a single message", async () => {
+		const redis = getRedisConfig();
 		const adapter = new RedisPubSubAdapter({
 			host: redis.host,
 			port: redis.port,
@@ -62,6 +51,7 @@ describe.skipIf(!isDockerAvailable())("Redis Pub/Sub Integration", () => {
 	});
 
 	it("should handle multiple messages on same topic", async () => {
+		const redis = getRedisConfig();
 		const adapter = new RedisPubSubAdapter({
 			host: redis.host,
 			port: redis.port,
@@ -103,6 +93,7 @@ describe.skipIf(!isDockerAvailable())("Redis Pub/Sub Integration", () => {
 	});
 
 	it("should support multiple topics", async () => {
+		const redis = getRedisConfig();
 		const adapter = new RedisPubSubAdapter({
 			host: redis.host,
 			port: redis.port,
@@ -141,6 +132,7 @@ describe.skipIf(!isDockerAvailable())("Redis Pub/Sub Integration", () => {
 	});
 
 	it("should support pattern subscriptions", async () => {
+		const redis = getRedisConfig();
 		const adapter = new RedisPubSubAdapter({
 			host: redis.host,
 			port: redis.port,
@@ -174,6 +166,7 @@ describe.skipIf(!isDockerAvailable())("Redis Pub/Sub Integration", () => {
 	});
 
 	it("should handle multiple subscribers with shared adapter", async () => {
+		const redis = getRedisConfig();
 		const adapter = new RedisPubSubAdapter({
 			host: redis.host,
 			port: redis.port,
@@ -213,6 +206,7 @@ describe.skipIf(!isDockerAvailable())("Redis Pub/Sub Integration", () => {
 	});
 
 	it("should handle rapid message publishing", async () => {
+		const redis = getRedisConfig();
 		const adapter = new RedisPubSubAdapter({
 			host: redis.host,
 			port: redis.port,
