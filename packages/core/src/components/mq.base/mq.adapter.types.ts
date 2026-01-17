@@ -5,6 +5,8 @@
  * Topic is delivered separately from message to allow hook matching at component level.
  */
 
+import type { Codec } from "../../codecs";
+
 /**
  * Main MQ adapter factory.
  * Creates publisher and subscriber adapters.
@@ -21,13 +23,17 @@ export interface IMQAdapter<TMessage = unknown, TOptions = unknown, TBatchMessag
 
 	/**
 	 * Create a publisher adapter.
+	 *
+	 * @param codec - Codec for message serialization
 	 */
-	createPublisher(): Promise<IMQPublisherAdapter<TOptions, TBatchMessage>>;
+	createPublisher(codec: Codec): Promise<IMQPublisherAdapter<TOptions, TBatchMessage>>;
 
 	/**
 	 * Create a subscriber adapter.
+	 *
+	 * @param codec - Codec for message deserialization
 	 */
-	createSubscriber(): Promise<IMQSubscriberAdapter<TMessage>>;
+	createSubscriber(codec: Codec): Promise<IMQSubscriberAdapter<TMessage>>;
 
 	/**
 	 * Dispose of adapter resources.

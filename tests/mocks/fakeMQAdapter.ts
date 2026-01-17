@@ -6,7 +6,7 @@
  * Supports dynamic topic subscription via subscribe()/unsubscribe().
  */
 
-import type { IMQAdapter, IMQPublisherAdapter, IMQSubscriberAdapter } from "../../packages/core/src/components/mq.base";
+import type { Codec, IMQAdapter, IMQPublisherAdapter, IMQSubscriberAdapter } from "testurio";
 
 /**
  * Fake message type for testing.
@@ -240,7 +240,7 @@ export class FakeMQAdapter implements IMQAdapter<FakeMessage, FakePublishOptions
 		this.broker = broker ?? new InMemoryBroker();
 	}
 
-	async createPublisher(): Promise<IMQPublisherAdapter<FakePublishOptions, FakeBatchMessage>> {
+	async createPublisher(_codec: Codec): Promise<IMQPublisherAdapter<FakePublishOptions, FakeBatchMessage>> {
 		if (this.options.failOnConnect) {
 			throw new Error("Connection failed");
 		}
@@ -252,7 +252,7 @@ export class FakeMQAdapter implements IMQAdapter<FakeMessage, FakePublishOptions
 		return new FakeMQPublisherAdapter(this.broker, this.options);
 	}
 
-	async createSubscriber(): Promise<IMQSubscriberAdapter<FakeMessage>> {
+	async createSubscriber(_codec: Codec): Promise<IMQSubscriberAdapter<FakeMessage>> {
 		if (this.options.failOnConnect) {
 			throw new Error("Connection failed");
 		}

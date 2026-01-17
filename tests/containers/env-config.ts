@@ -28,6 +28,15 @@ export interface KafkaEnvConfig {
 	restProxyUrl?: string;
 }
 
+export interface RabbitMQEnvConfig {
+	host: string;
+	port: number;
+	amqpUrl: string;
+	managementUrl: string;
+	username: string;
+	password: string;
+}
+
 /**
  * Check if Docker containers were started by global setup.
  * This should be used with describe.skipIf() to skip tests when Docker is unavailable.
@@ -55,6 +64,13 @@ export function isPostgresAvailable(): boolean {
  */
 export function isKafkaAvailable(): boolean {
 	return isContainerSetupAvailable() && !!process.env.TESTURIO_KAFKA_HOST;
+}
+
+/**
+ * Check if RabbitMQ container is available.
+ */
+export function isRabbitMQAvailable(): boolean {
+	return isContainerSetupAvailable() && !!process.env.TESTURIO_RABBITMQ_HOST;
 }
 
 /**
@@ -129,5 +145,33 @@ export function getKafkaConfig(): KafkaEnvConfig {
 		brokers: brokersStr.split(","),
 		schemaRegistryUrl: process.env.TESTURIO_KAFKA_SCHEMA_REGISTRY_URL,
 		restProxyUrl: process.env.TESTURIO_KAFKA_REST_PROXY_URL,
+	};
+}
+
+/**
+ * Get RabbitMQ connection config from environment variables.
+ * Throws if RabbitMQ is not available.
+ */
+export function getRabbitMQConfig(): RabbitMQEnvConfig {
+	const host = process.env.TESTURIO_RABBITMQ_HOST;
+	const port = process.env.TESTURIO_RABBITMQ_PORT;
+	const amqpUrl = process.env.TESTURIO_RABBITMQ_URL;
+	const managementUrl = process.env.TESTURIO_RABBITMQ_MANAGEMENT_URL;
+	const username = process.env.TESTURIO_RABBITMQ_USERNAME;
+	const password = process.env.TESTURIO_RABBITMQ_PASSWORD;
+
+	if (!host || !port || !amqpUrl || !username || !password) {
+		throw new Error(
+			"RabbitMQ container config not found in environment. " + "Ensure global setup has run and Docker is available.",
+		);
+	}
+
+	return {
+		host,
+		port: parseInt(port, 10),
+		amqpUrl,
+		managementUrl: managementUrl ?? `http://${host}:15672`,
+		username,
+		password,
 	};
 }

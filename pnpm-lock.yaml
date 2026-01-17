@@ -14,6 +14,9 @@ importers:
       '@testcontainers/postgresql':
         specifier: ^11.11.0
         version: 11.11.0
+      '@testcontainers/rabbitmq':
+        specifier: ^11.11.0
+        version: 11.11.0
       '@testcontainers/redis':
         specifier: ^11.11.0
         version: 11.11.0
@@ -1430,6 +1433,17 @@ packages:
 
   /@testcontainers/postgresql@11.11.0:
     resolution: {integrity: sha512-Og64I/h5LKLVvUTkAcLeTXfFcMhh3dCHCypN3Uzd+tQMd70SpCfQ0LCP9v/U+MS7JBRzU9EmqhUFkTOm4hyZWw==}
+    dependencies:
+      testcontainers: 11.11.0
+    transitivePeerDependencies:
+      - bare-abort-controller
+      - bare-buffer
+      - react-native-b4a
+      - supports-color
+    dev: true
+
+  /@testcontainers/rabbitmq@11.11.0:
+    resolution: {integrity: sha512-Gwp563kky9A7cxLcVp/EzLazwFcCdr76/Mc7e+1EUvZTcYlV3l0vf8E9JPwtBlhU/u3w92QUOSD2t3LxV88few==}
     dependencies:
       testcontainers: 11.11.0
     transitivePeerDependencies:

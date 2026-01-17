@@ -334,6 +334,13 @@ export class TestScenario {
 	async run(...testCases: (TestCase | TestCase[])[]): Promise<TestResult> {
 		const startTime = Date.now();
 		const results: TestCaseResult[] = [];
+		let initError: Error | undefined;
+
+		// Count expected test cases for validation
+		const expectedTestCount = testCases.reduce(
+			(sum, tc) => sum + (Array.isArray(tc) ? tc.length : 1),
+			0
+		);
 
 		// Notify reporters of start
 		for (const reporter of this.reporters) {
@@ -364,20 +371,21 @@ export class TestScenario {
 			for (const group of groupResults) {
 				results.push(...group);
 			}
-		} catch (_error) {
-			// Test execution failed
+		} catch (error) {
+			// Capture initialization/execution error instead of swallowing it
+			initError = error instanceof Error ? error : new Error(String(error));
 		} finally {
 			// Always run cleanup
 			try {
 				await this.runStop();
 			} catch (_error) {
-				// Cleanup failed
+				// Cleanup failed - this is OK to swallow as it's just cleanup
 			}
 		}
 
 		const endTime = Date.now();
 
-		const result = this.createTestResult(results, startTime, endTime);
+		const result = this.createTestResult(results, startTime, endTime, expectedTestCount, initError);
 
 		// Notify reporters of completion
 		for (const reporter of this.reporters) {
@@ -462,14 +470,34 @@ export class TestScenario {
 
 	/**
 	 * Create final test result
+	 *
+	 * @param testCases - Array of test case results
+	 * @param startTime - Scenario start time
+	 * @param endTime - Scenario end time
+	 * @param expectedTestCount - Number of test cases that were expected to run
+	 * @param initError - Error that occurred during initialization (if any)
 	 */
-	private createTestResult(testCases: TestCaseResult[], startTime: number, endTime: number): TestResult {
+	private createTestResult(
+		testCases: TestCaseResult[],
+		startTime: number,
+		endTime: number,
+		expectedTestCount: number,
+		initError?: Error
+	): TestResult {
 		const passedTests = testCases.filter((tc) => tc.passed).length;
 		const failedTests = testCases.filter((tc) => !tc.passed).length;
 
+		// Scenario fails if:
+		// 1. Any test case failed
+		// 2. There was an initialization error
+		// 3. Expected test cases didn't run (e.g., init failed before execution)
+		const hasInitError = initError !== undefined;
+		const missingTests = expectedTestCount > 0 && testCases.length < expectedTestCount;
+		const passed = failedTests === 0 && !hasInitError && !missingTests;
+
 		return {
 			name: this.config.name,
-			passed: failedTests === 0,
+			passed,
 			duration: endTime - startTime,
 			startTime,
 			endTime,
@@ -478,6 +506,8 @@ export class TestScenario {
 			failedTests,
 			totalTests: testCases.length,
 			interactions: this.config.recording ? this.interactions : undefined,
+			error: initError?.message,
+			stackTrace: initError?.stack,
 			summary: {
 				totalTestCases: testCases.length,
 				passedTestCases: passedTests,
@@ -488,7 +518,7 @@ export class TestScenario {
 				totalDuration: endTime - startTime,
 				averageDuration: testCases.length > 0 ? Math.round((endTime - startTime) / testCases.length) : 0,
 				totalInteractions: this.interactions.length,
-				passRate: testCases.length > 0 ? passedTests / testCases.length : 1,
+				passRate: testCases.length > 0 ? passedTests / testCases.length : 0,
 			},
 		};
 	}

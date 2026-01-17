@@ -5,6 +5,8 @@
  * Extends BaseComponent directly (no protocol required).
  */
 
+import type { Codec } from "../../codecs";
+import { defaultJsonCodec } from "../../codecs";
 import { BaseComponent } from "../base/base.component";
 import type { ITestCaseContext } from "../base/base.types";
 import type { Handler, Step } from "../base/step.types";
@@ -13,6 +15,11 @@ import { PublisherStepBuilder } from "./publisher.step-builder";
 
 export interface PublisherOptions<TOptions = unknown, TBatchMessage = unknown> {
 	adapter: IMQAdapter<unknown, TOptions, TBatchMessage>;
+	/**
+	 * Codec for message serialization.
+	 * Defaults to JSON codec.
+	 */
+	codec?: Codec;
 }
 
 /**
@@ -36,11 +43,13 @@ export class Publisher<
 	TBatchMessage = unknown,
 > extends BaseComponent<PublisherStepBuilder<T, TOptions, TBatchMessage>> {
 	private readonly _adapter: IMQAdapter<unknown, TOptions, TBatchMessage>;
+	private readonly _codec: Codec;
 	private _publisherAdapter?: IMQPublisherAdapter<TOptions, TBatchMessage>;
 
 	constructor(name: string, options: PublisherOptions<TOptions, TBatchMessage>) {
 		super(name);
 		this._adapter = options.adapter;
+		this._codec = options.codec ?? defaultJsonCodec;
 	}
 
 	createStepBuilder(context: ITestCaseContext): PublisherStepBuilder<T, TOptions, TBatchMessage> {
@@ -116,7 +125,7 @@ export class Publisher<
 	// =========================================================================
 
 	protected async doStart(): Promise<void> {
-		this._publisherAdapter = await this._adapter.createPublisher();
+		this._publisherAdapter = await this._adapter.createPublisher(this._codec);
 	}
 
 	protected async doStop(): Promise<void> {

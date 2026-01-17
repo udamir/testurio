@@ -10,14 +10,20 @@
 import { isDockerAvailable } from "./containers/docker-check";
 import { startKafkaContainer, stopKafkaContainer, type KafkaTestContext } from "./containers/kafka.container";
 import { startPostgresContainer, stopPostgresContainer, type PostgresTestContext } from "./containers/postgres.container";
+import { startRabbitMQContainer, stopRabbitMQContainer, type RabbitMQTestContext } from "./containers/rabbitmq.container";
 import { startRedisContainer, stopRedisContainer, type RedisTestContext } from "./containers/redis.container";
 
 // Container contexts - stored at module level for teardown access
 let redisContext: RedisTestContext | null = null;
 let postgresContext: PostgresTestContext | null = null;
 let kafkaContext: KafkaTestContext | null = null;
+let rabbitmqContext: RabbitMQTestContext | null = null;
 
 export default async function globalSetup(): Promise<() => Promise<void>> {
+	// Disable Ryuk (Reaper) to avoid "Failed to connect to Reaper" errors
+	// We handle cleanup ourselves in the teardown function
+	process.env.TESTCONTAINERS_RYUK_DISABLED = "true";
+
 	// Check Docker availability first
 	const dockerAvailable = isDockerAvailable();
 	process.env.TESTURIO_DOCKER_AVAILABLE = String(dockerAvailable);
@@ -33,7 +39,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
 
 	try {
 		// Start all containers in parallel for faster startup
-		const [redis, postgres, kafka] = await Promise.all([
+		const [redis, postgres, kafka, rabbitmq] = await Promise.all([
 			startRedisContainer().catch((err) => {
 				console.error("[Global Setup] Failed to start Redis:", err.message);
 				return null;
@@ -49,12 +55,17 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
 				console.error("[Global Setup] Failed to start Kafka:", err.message);
 				return null;
 			}),
+			startRabbitMQContainer().catch((err) => {
+				console.error("[Global Setup] Failed to start RabbitMQ:", err.message);
+				return null;
+			}),
 		]);
 
 		// Store contexts for teardown
 		redisContext = redis;
 		postgresContext = postgres;
 		kafkaContext = kafka;
+		rabbitmqContext = rabbitmq;
 
 		// Set Redis environment variables
 		if (redis) {
@@ -87,6 +98,17 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
 				process.env.TESTURIO_KAFKA_REST_PROXY_URL = kafka.restProxyUrl;
 			}
 			console.log(`[Global Setup] Kafka started: ${kafka.brokers.join(",")}`);
+		}
+
+		// Set RabbitMQ environment variables
+		if (rabbitmq) {
+			process.env.TESTURIO_RABBITMQ_HOST = rabbitmq.host;
+			process.env.TESTURIO_RABBITMQ_PORT = String(rabbitmq.port);
+			process.env.TESTURIO_RABBITMQ_URL = rabbitmq.amqpUrl;
+			process.env.TESTURIO_RABBITMQ_MANAGEMENT_URL = rabbitmq.managementUrl;
+			process.env.TESTURIO_RABBITMQ_USERNAME = rabbitmq.username;
+			process.env.TESTURIO_RABBITMQ_PASSWORD = rabbitmq.password;
+			console.log(`[Global Setup] RabbitMQ started: ${rabbitmq.host}:${rabbitmq.port}`);
 		}
 
 		const elapsed = Date.now() - startTime;
@@ -123,6 +145,14 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
 			stopPromises.push(
 				stopKafkaContainer(kafkaContext).catch((err) => {
 					console.error("[Global Teardown] Error stopping Kafka:", err.message);
+				}),
+			);
+		}
+
+		if (rabbitmqContext) {
+			stopPromises.push(
+				stopRabbitMQContainer(rabbitmqContext).catch((err) => {
+					console.error("[Global Teardown] Error stopping RabbitMQ:", err.message);
 				}),
 			);
 		}

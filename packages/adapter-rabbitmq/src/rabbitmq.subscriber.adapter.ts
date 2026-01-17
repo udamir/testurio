@@ -15,11 +15,11 @@ import type { RabbitMQMessageMetadata } from "./rabbitmq.types";
  * Wraps amqplib Channel to implement the IMQSubscriberAdapter interface.
  * Topics are bound dynamically via subscribe()/unsubscribe().
  */
-export class RabbitMQSubscriberAdapter implements IMQSubscriberAdapter {
+export class RabbitMQSubscriberAdapter implements IMQSubscriberAdapter<QueueMessage> {
 	readonly id: string;
 	private _isConnected = false;
 	private channel: Channel | null = null;
-	private messageHandler?: (message: QueueMessage) => void;
+	private messageHandler?: (topic: string, message: QueueMessage) => void;
 	private errorHandler?: (error: Error) => void;
 	private disconnectHandler?: () => void;
 	private consumerTag?: string;
@@ -178,13 +178,13 @@ export class RabbitMQSubscriberAdapter implements IMQSubscriberAdapter {
 				metadata,
 			};
 
-			this.messageHandler(queueMessage);
+			this.messageHandler(msg.fields.routingKey, queueMessage);
 		} catch (error) {
 			this.errorHandler?.(error instanceof Error ? error : new Error(String(error)));
 		}
 	}
 
-	onMessage(handler: (message: QueueMessage) => void): void {
+	onMessage(handler: (topic: string, message: QueueMessage) => void): void {
 		this.messageHandler = handler;
 	}
 

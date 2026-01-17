@@ -8,6 +8,8 @@
  * Messages are captured directly by Hook.pending - no buffer needed.
  */
 
+import type { Codec } from "../../codecs";
+import { defaultJsonCodec } from "../../codecs";
 import { BaseComponent } from "../base/base.component";
 import type { ITestCaseContext } from "../base/base.types";
 import type { Hook } from "../base/hook.types";
@@ -27,6 +29,11 @@ class DropMessageError extends Error {
 
 export interface SubscriberOptions<TMessage = unknown> {
 	adapter: IMQAdapter<TMessage>;
+	/**
+	 * Codec for message deserialization.
+	 * Defaults to JSON codec.
+	 */
+	codec?: Codec;
 }
 
 /**
@@ -46,11 +53,13 @@ export class Subscriber<T extends Topics<T> = DefaultTopics, TMessage = unknown>
 	SubscriberStepBuilder<T, TMessage>
 > {
 	private readonly _adapter: IMQAdapter<TMessage>;
+	private readonly _codec: Codec;
 	private _subscriberAdapter?: IMQSubscriberAdapter<TMessage>;
 
 	constructor(name: string, options: SubscriberOptions<TMessage>) {
 		super(name);
 		this._adapter = options.adapter;
+		this._codec = options.codec ?? defaultJsonCodec;
 	}
 
 	createStepBuilder(context: ITestCaseContext): SubscriberStepBuilder<T, TMessage> {
@@ -131,7 +140,7 @@ export class Subscriber<T extends Topics<T> = DefaultTopics, TMessage = unknown>
 		const timeout = params.timeout ?? 5000;
 
 		// Find the hook registered in Phase 1
-		const hook = this.findHookByStepId(step.id) as Hook<TMessage>;
+		const hook = this.findHookByStepId(step.id);
 		if (!hook) {
 			throw new Error(`No hook found for step ${step.id}`);
 		}
@@ -166,7 +175,7 @@ export class Subscriber<T extends Topics<T> = DefaultTopics, TMessage = unknown>
 
 		if (hook.step.type === "waitMessage") {
 			// Resolve the hook's pending - step will receive message
-			this.resolveHook(hook as Hook<TMessage>, message);
+			this.resolveHook(hook, message);
 		} else if (hook.step.type === "onMessage") {
 			// Execute handlers immediately for hook mode
 			this.executeHandlers(hook.step, message).catch((error) => {
@@ -177,7 +186,7 @@ export class Subscriber<T extends Topics<T> = DefaultTopics, TMessage = unknown>
 		}
 	}
 
-	private findMatchingHookForMessage(topic: string, message: TMessage): Hook<TMessage> | null {
+	private findMatchingHookForMessage(topic: string, message: TMessage): Hook | null {
 		for (const hook of this.hooks) {
 			// Skip already-resolved hooks (for multiple messages on same topic)
 			if (hook.resolved) {
@@ -186,7 +195,7 @@ export class Subscriber<T extends Topics<T> = DefaultTopics, TMessage = unknown>
 			try {
 				const matchData = { topic, message };
 				if (hook.isMatch(matchData)) {
-					return hook as Hook<TMessage>;
+					return hook;
 				}
 			} catch {
 				// Matcher error = no match
@@ -271,7 +280,7 @@ export class Subscriber<T extends Topics<T> = DefaultTopics, TMessage = unknown>
 	// =========================================================================
 
 	protected async doStart(): Promise<void> {
-		this._subscriberAdapter = await this._adapter.createSubscriber();
+		this._subscriberAdapter = await this._adapter.createSubscriber(this._codec);
 
 		// Set up message handler
 		this._subscriberAdapter.onMessage((topic, message) => {

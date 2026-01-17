@@ -197,6 +197,10 @@ export interface TestResult {
 	interactions?: Interaction[];
 	summary?: TestSummary;
 	metadata?: Record<string, unknown>;
+	/** Error that occurred during scenario initialization */
+	error?: string;
+	/** Stack trace for initialization error */
+	stackTrace?: string;
 }
 
 /**
