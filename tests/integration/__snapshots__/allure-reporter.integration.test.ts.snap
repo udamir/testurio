@@ -1,0 +1,1293 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Allure Reporter Integration Tests > Complex Multi-Step Workflow > should generate comprehensive report for complex workflow > complex-workflow-container 1`] = `
+{
+  "afters": [],
+  "befores": [],
+  "children": [
+    "<UUID>",
+  ],
+  "name": "E-Commerce User Workflow",
+  "uuid": "<UUID>",
+}
+`;
+
+exports[`Allure Reporter Integration Tests > Complex Multi-Step Workflow > should generate comprehensive report for complex workflow > complex-workflow-result 1`] = `
+{
+  "attachments": [],
+  "description": "Tests the complete user lifecycle including health check, listing, and creating multiple users",
+  "fullName": "Complete user lifecycle",
+  "historyId": "<HISTORYID>",
+  "labels": [
+    {
+      "name": "framework",
+      "value": "testurio",
+    },
+    {
+      "name": "language",
+      "value": "typescript",
+    },
+    {
+      "name": "owner",
+      "value": "api-team",
+    },
+    {
+      "name": "layer",
+      "value": "integration",
+    },
+    {
+      "name": "ALLURE_ID",
+      "value": "WF-001",
+    },
+    {
+      "name": "epic",
+      "value": "E-Commerce Platform",
+    },
+    {
+      "name": "feature",
+      "value": "User Lifecycle",
+    },
+    {
+      "name": "story",
+      "value": "User Registration Flow",
+    },
+    {
+      "name": "severity",
+      "value": "critical",
+    },
+    {
+      "name": "tag",
+      "value": "workflow",
+    },
+    {
+      "name": "tag",
+      "value": "e2e",
+    },
+    {
+      "name": "tag",
+      "value": "critical-path",
+    },
+  ],
+  "links": [],
+  "name": "Complete user lifecycle",
+  "parameters": [],
+  "stage": "finished",
+  "start": "<TIMESTAMP>",
+  "status": "passed",
+  "statusDetails": {},
+  "steps": [
+    {
+      "attachments": [],
+      "name": "Step 1: request - Request getHealth",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "api",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+    {
+      "attachments": [],
+      "name": "Step 2: onRequest - Handle request getHealth",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "backend",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+    {
+      "attachments": [],
+      "name": "Step 3: onResponse - Handle response for getHealth",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "api",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+    {
+      "attachments": [],
+      "name": "Step 4: request - Request getUsers",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "api",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+    {
+      "attachments": [],
+      "name": "Step 5: onRequest - Handle request getUsers",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "backend",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+    {
+      "attachments": [],
+      "name": "Step 6: onResponse - Handle response for getUsers",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "api",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+    {
+      "attachments": [],
+      "name": "Step 7: request - Request createUser",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "api",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+    {
+      "attachments": [],
+      "name": "Step 8: onRequest - Handle request createUser",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "backend",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+    {
+      "attachments": [],
+      "name": "Step 9: onResponse - Handle response for createUser",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "api",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+  ],
+  "stop": "<TIMESTAMP>",
+  "testCaseId": "<TESTCASEID>",
+  "uuid": "<UUID>",
+}
+`;
+
+exports[`Allure Reporter Integration Tests > Failure Scenarios > should generate report with broken status for unexpected error > broken-test-result 1`] = `
+{
+  "attachments": [],
+  "fullName": "Should break on runtime error",
+  "historyId": "<HISTORYID>",
+  "labels": [
+    {
+      "name": "framework",
+      "value": "testurio",
+    },
+    {
+      "name": "language",
+      "value": "typescript",
+    },
+  ],
+  "links": [],
+  "name": "Should break on runtime error",
+  "parameters": [],
+  "stage": "finished",
+  "start": "<TIMESTAMP>",
+  "status": "broken",
+  "statusDetails": {
+    "message": "Cannot read properties of null (reading 'prop')",
+    "trace": "TypeError: Cannot read properties of null (reading 'prop')
+    at <STACK_FRAME>
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)",
+  },
+  "steps": [
+    {
+      "attachments": [],
+      "name": "Step 1: request - Request getUsers",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "api",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+    {
+      "attachments": [],
+      "name": "Step 2: onRequest - Handle request getUsers",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "backend",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+    {
+      "attachments": [],
+      "name": "Step 3: onResponse - Handle response for getUsers",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "api",
+        },
+      ],
+      "stage": "finished",
+      "status": "broken",
+      "statusDetails": {
+        "message": "Cannot read properties of null (reading 'prop')",
+        "trace": "TypeError: Cannot read properties of null (reading 'prop')
+    at <STACK_FRAME>
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)",
+      },
+      "steps": [],
+    },
+  ],
+  "stop": "<TIMESTAMP>",
+  "testCaseId": "<TESTCASEID>",
+  "uuid": "<UUID>",
+}
+`;
+
+exports[`Allure Reporter Integration Tests > Failure Scenarios > should generate report with failed status for assertion error > failed-test-result 1`] = `
+{
+  "attachments": [],
+  "fullName": "Should fail on wrong status",
+  "historyId": "<HISTORYID>",
+  "labels": [
+    {
+      "name": "framework",
+      "value": "testurio",
+    },
+    {
+      "name": "language",
+      "value": "typescript",
+    },
+  ],
+  "links": [],
+  "name": "Should fail on wrong status",
+  "parameters": [],
+  "stage": "finished",
+  "start": "<TIMESTAMP>",
+  "status": "failed",
+  "statusDetails": {
+    "message": "expected +0 to be 5 // Object.is equality",
+    "trace": "AssertionError: expected +0 to be 5 // Object.is equality
+    at <STACK_FRAME>
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)",
+  },
+  "steps": [
+    {
+      "attachments": [],
+      "name": "Step 1: request - Request getUsers",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "api",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+    {
+      "attachments": [],
+      "name": "Step 2: onRequest - Handle request getUsers",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "backend",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+    {
+      "attachments": [],
+      "name": "Step 3: onResponse - Handle response for getUsers",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "api",
+        },
+      ],
+      "stage": "finished",
+      "status": "failed",
+      "statusDetails": {
+        "message": "expected +0 to be 5 // Object.is equality",
+        "trace": "AssertionError: expected +0 to be 5 // Object.is equality
+    at <STACK_FRAME>
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)",
+      },
+      "steps": [],
+    },
+  ],
+  "stop": "<TIMESTAMP>",
+  "testCaseId": "<TESTCASEID>",
+  "uuid": "<UUID>",
+}
+`;
+
+exports[`Allure Reporter Integration Tests > Failure Scenarios > should generate report with mixed pass/fail results > mixed-results 1`] = `
+[
+  {
+    "attachments": [],
+    "fullName": "Failing test",
+    "historyId": "<HISTORYID>",
+    "labels": [
+      {
+        "name": "framework",
+        "value": "testurio",
+      },
+      {
+        "name": "language",
+        "value": "typescript",
+      },
+    ],
+    "links": [],
+    "name": "Failing test",
+    "parameters": [],
+    "stage": "finished",
+    "start": "<TIMESTAMP>",
+    "status": "failed",
+    "statusDetails": {
+      "message": "expected 'degraded' to be 'healthy' // Object.is equality",
+      "trace": "AssertionError: expected 'degraded' to be 'healthy' // Object.is equality
+    at <STACK_FRAME>
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)",
+    },
+    "steps": [
+      {
+        "attachments": [],
+        "name": "Step 1: request - Request getHealth",
+        "parameters": [
+          {
+            "name": "component",
+            "value": "api",
+          },
+        ],
+        "stage": "finished",
+        "status": "passed",
+        "statusDetails": {},
+        "steps": [],
+      },
+      {
+        "attachments": [],
+        "name": "Step 2: onRequest - Handle request getHealth",
+        "parameters": [
+          {
+            "name": "component",
+            "value": "backend",
+          },
+        ],
+        "stage": "finished",
+        "status": "passed",
+        "statusDetails": {},
+        "steps": [],
+      },
+      {
+        "attachments": [],
+        "name": "Step 3: onResponse - Handle response for getHealth",
+        "parameters": [
+          {
+            "name": "component",
+            "value": "api",
+          },
+        ],
+        "stage": "finished",
+        "status": "failed",
+        "statusDetails": {
+          "message": "expected 'degraded' to be 'healthy' // Object.is equality",
+          "trace": "AssertionError: expected 'degraded' to be 'healthy' // Object.is equality
+    at <STACK_FRAME>
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)
+    at <STACK_FRAME>)",
+        },
+        "steps": [],
+      },
+    ],
+    "stop": "<TIMESTAMP>",
+    "testCaseId": "<TESTCASEID>",
+    "uuid": "<UUID>",
+  },
+  {
+    "attachments": [],
+    "fullName": "Passing test",
+    "historyId": "<HISTORYID>",
+    "labels": [
+      {
+        "name": "framework",
+        "value": "testurio",
+      },
+      {
+        "name": "language",
+        "value": "typescript",
+      },
+    ],
+    "links": [],
+    "name": "Passing test",
+    "parameters": [],
+    "stage": "finished",
+    "start": "<TIMESTAMP>",
+    "status": "passed",
+    "statusDetails": {},
+    "steps": [
+      {
+        "attachments": [],
+        "name": "Step 1: request - Request getUsers",
+        "parameters": [
+          {
+            "name": "component",
+            "value": "api",
+          },
+        ],
+        "stage": "finished",
+        "status": "passed",
+        "statusDetails": {},
+        "steps": [],
+      },
+      {
+        "attachments": [],
+        "name": "Step 2: onRequest - Handle request getUsers",
+        "parameters": [
+          {
+            "name": "component",
+            "value": "backend",
+          },
+        ],
+        "stage": "finished",
+        "status": "passed",
+        "statusDetails": {},
+        "steps": [],
+      },
+      {
+        "attachments": [],
+        "name": "Step 3: onResponse - Handle response for getUsers",
+        "parameters": [
+          {
+            "name": "component",
+            "value": "api",
+          },
+        ],
+        "stage": "finished",
+        "status": "passed",
+        "statusDetails": {},
+        "steps": [],
+      },
+    ],
+    "stop": "<TIMESTAMP>",
+    "testCaseId": "<TESTCASEID>",
+    "uuid": "<UUID>",
+  },
+]
+`;
+
+exports[`Allure Reporter Integration Tests > Multi-Component Chain Scenario > should generate report for client → proxy → mock chain > proxy-chain-result 1`] = `
+{
+  "attachments": [],
+  "fullName": "Get users through proxy",
+  "historyId": "<HISTORYID>",
+  "labels": [
+    {
+      "name": "framework",
+      "value": "testurio",
+    },
+    {
+      "name": "language",
+      "value": "typescript",
+    },
+    {
+      "name": "epic",
+      "value": "User Management",
+    },
+    {
+      "name": "feature",
+      "value": "User API",
+    },
+    {
+      "name": "story",
+      "value": "List Users",
+    },
+    {
+      "name": "severity",
+      "value": "critical",
+    },
+    {
+      "name": "tag",
+      "value": "api",
+    },
+    {
+      "name": "tag",
+      "value": "smoke",
+    },
+  ],
+  "links": [],
+  "name": "Get users through proxy",
+  "parameters": [],
+  "stage": "finished",
+  "start": "<TIMESTAMP>",
+  "status": "passed",
+  "statusDetails": {},
+  "steps": [
+    {
+      "attachments": [],
+      "name": "Step 1: request - Request getUsers",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "api",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+    {
+      "attachments": [],
+      "name": "Step 2: onRequest - Handle request getUsers",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "backend",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+    {
+      "attachments": [],
+      "name": "Step 3: onResponse - Handle response for getUsers",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "api",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+  ],
+  "stop": "<TIMESTAMP>",
+  "testCaseId": "<TESTCASEID>",
+  "uuid": "<UUID>",
+}
+`;
+
+exports[`Allure Reporter Integration Tests > Multi-Component Chain Scenario > should generate report for multiple requests (client to mock) > multi-request-result 1`] = `
+{
+  "attachments": [],
+  "description": "Tests multiple API operations in sequence",
+  "fullName": "Multiple API operations",
+  "historyId": "<HISTORYID>",
+  "labels": [
+    {
+      "name": "framework",
+      "value": "testurio",
+    },
+    {
+      "name": "language",
+      "value": "typescript",
+    },
+    {
+      "name": "epic",
+      "value": "User Management",
+    },
+    {
+      "name": "feature",
+      "value": "User CRUD",
+    },
+    {
+      "name": "story",
+      "value": "Create and List Users",
+    },
+  ],
+  "links": [],
+  "name": "Multiple API operations",
+  "parameters": [],
+  "stage": "finished",
+  "start": "<TIMESTAMP>",
+  "status": "passed",
+  "statusDetails": {},
+  "steps": [
+    {
+      "attachments": [],
+      "name": "Step 1: request - Request getUsers",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "api",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+    {
+      "attachments": [],
+      "name": "Step 2: onRequest - Handle request getUsers",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "backend",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+    {
+      "attachments": [],
+      "name": "Step 3: onResponse - Handle response for getUsers",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "api",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+    {
+      "attachments": [],
+      "name": "Step 4: request - Request createUser",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "api",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+    {
+      "attachments": [],
+      "name": "Step 5: onRequest - Handle request createUser",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "backend",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+    {
+      "attachments": [],
+      "name": "Step 6: onResponse - Handle response for createUser",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "api",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+    {
+      "attachments": [],
+      "name": "Step 7: request - Request getHealth",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "api",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+    {
+      "attachments": [],
+      "name": "Step 8: onRequest - Handle request getHealth",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "backend",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+    {
+      "attachments": [],
+      "name": "Step 9: onResponse - Handle response for getHealth",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "api",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+  ],
+  "stop": "<TIMESTAMP>",
+  "testCaseId": "<TESTCASEID>",
+  "uuid": "<UUID>",
+}
+`;
+
+exports[`Allure Reporter Integration Tests > Multiple Test Cases > should generate report for multiple test cases in sequence > multiple-test-cases-container 1`] = `
+{
+  "afters": [],
+  "befores": [],
+  "children": [
+    "<UUID>",
+    "<UUID>",
+    "<UUID>",
+  ],
+  "name": "Multi Test Case Scenario",
+  "uuid": "<UUID>",
+}
+`;
+
+exports[`Allure Reporter Integration Tests > Multiple Test Cases > should generate report for multiple test cases in sequence > multiple-test-cases-results 1`] = `
+[
+  {
+    "attachments": [],
+    "fullName": "TC-001: List users",
+    "historyId": "<HISTORYID>",
+    "labels": [
+      {
+        "name": "framework",
+        "value": "testurio",
+      },
+      {
+        "name": "language",
+        "value": "typescript",
+      },
+      {
+        "name": "ALLURE_ID",
+        "value": "TC-001",
+      },
+      {
+        "name": "epic",
+        "value": "User Management",
+      },
+      {
+        "name": "feature",
+        "value": "User List",
+      },
+      {
+        "name": "tag",
+        "value": "smoke",
+      },
+    ],
+    "links": [
+      {
+        "name": "TC-001",
+        "type": "tms",
+        "url": "https://testrail.example.com/view/TC-001",
+      },
+    ],
+    "name": "TC-001: List users",
+    "parameters": [],
+    "stage": "finished",
+    "start": "<TIMESTAMP>",
+    "status": "passed",
+    "statusDetails": {},
+    "steps": [
+      {
+        "attachments": [],
+        "name": "Step 1: request - Request getUsers",
+        "parameters": [
+          {
+            "name": "component",
+            "value": "api",
+          },
+        ],
+        "stage": "finished",
+        "status": "passed",
+        "statusDetails": {},
+        "steps": [],
+      },
+      {
+        "attachments": [],
+        "name": "Step 2: onRequest - Handle request getUsers",
+        "parameters": [
+          {
+            "name": "component",
+            "value": "backend",
+          },
+        ],
+        "stage": "finished",
+        "status": "passed",
+        "statusDetails": {},
+        "steps": [],
+      },
+      {
+        "attachments": [],
+        "name": "Step 3: onResponse - Handle response for getUsers",
+        "parameters": [
+          {
+            "name": "component",
+            "value": "api",
+          },
+        ],
+        "stage": "finished",
+        "status": "passed",
+        "statusDetails": {},
+        "steps": [],
+      },
+    ],
+    "stop": "<TIMESTAMP>",
+    "testCaseId": "<TESTCASEID>",
+    "uuid": "<UUID>",
+  },
+  {
+    "attachments": [],
+    "fullName": "TC-002: Create user",
+    "historyId": "<HISTORYID>",
+    "labels": [
+      {
+        "name": "framework",
+        "value": "testurio",
+      },
+      {
+        "name": "language",
+        "value": "typescript",
+      },
+      {
+        "name": "ALLURE_ID",
+        "value": "TC-002",
+      },
+      {
+        "name": "epic",
+        "value": "User Management",
+      },
+      {
+        "name": "feature",
+        "value": "User Create",
+      },
+      {
+        "name": "tag",
+        "value": "regression",
+      },
+    ],
+    "links": [
+      {
+        "name": "TC-002",
+        "type": "tms",
+        "url": "https://testrail.example.com/view/TC-002",
+      },
+      {
+        "name": "BUG-123",
+        "type": "issue",
+        "url": "https://jira.example.com/browse/BUG-123",
+      },
+    ],
+    "name": "TC-002: Create user",
+    "parameters": [],
+    "stage": "finished",
+    "start": "<TIMESTAMP>",
+    "status": "passed",
+    "statusDetails": {},
+    "steps": [
+      {
+        "attachments": [],
+        "name": "Step 1: request - Request createUser",
+        "parameters": [
+          {
+            "name": "component",
+            "value": "api",
+          },
+        ],
+        "stage": "finished",
+        "status": "passed",
+        "statusDetails": {},
+        "steps": [],
+      },
+      {
+        "attachments": [],
+        "name": "Step 2: onRequest - Handle request createUser",
+        "parameters": [
+          {
+            "name": "component",
+            "value": "backend",
+          },
+        ],
+        "stage": "finished",
+        "status": "passed",
+        "statusDetails": {},
+        "steps": [],
+      },
+      {
+        "attachments": [],
+        "name": "Step 3: onResponse - Handle response for createUser",
+        "parameters": [
+          {
+            "name": "component",
+            "value": "api",
+          },
+        ],
+        "stage": "finished",
+        "status": "passed",
+        "statusDetails": {},
+        "steps": [],
+      },
+    ],
+    "stop": "<TIMESTAMP>",
+    "testCaseId": "<TESTCASEID>",
+    "uuid": "<UUID>",
+  },
+  {
+    "attachments": [],
+    "fullName": "TC-003: Health check",
+    "historyId": "<HISTORYID>",
+    "labels": [
+      {
+        "name": "framework",
+        "value": "testurio",
+      },
+      {
+        "name": "language",
+        "value": "typescript",
+      },
+      {
+        "name": "ALLURE_ID",
+        "value": "TC-003",
+      },
+      {
+        "name": "epic",
+        "value": "User Management",
+      },
+      {
+        "name": "feature",
+        "value": "Health",
+      },
+      {
+        "name": "severity",
+        "value": "blocker",
+      },
+    ],
+    "links": [
+      {
+        "name": "TC-003",
+        "type": "tms",
+        "url": "https://testrail.example.com/view/TC-003",
+      },
+    ],
+    "name": "TC-003: Health check",
+    "parameters": [],
+    "stage": "finished",
+    "start": "<TIMESTAMP>",
+    "status": "passed",
+    "statusDetails": {},
+    "steps": [
+      {
+        "attachments": [],
+        "name": "Step 1: request - Request getHealth",
+        "parameters": [
+          {
+            "name": "component",
+            "value": "api",
+          },
+        ],
+        "stage": "finished",
+        "status": "passed",
+        "statusDetails": {},
+        "steps": [],
+      },
+      {
+        "attachments": [],
+        "name": "Step 2: onRequest - Handle request getHealth",
+        "parameters": [
+          {
+            "name": "component",
+            "value": "backend",
+          },
+        ],
+        "stage": "finished",
+        "status": "passed",
+        "statusDetails": {},
+        "steps": [],
+      },
+      {
+        "attachments": [],
+        "name": "Step 3: onResponse - Handle response for getHealth",
+        "parameters": [
+          {
+            "name": "component",
+            "value": "api",
+          },
+        ],
+        "stage": "finished",
+        "status": "passed",
+        "statusDetails": {},
+        "steps": [],
+      },
+    ],
+    "stop": "<TIMESTAMP>",
+    "testCaseId": "<TESTCASEID>",
+    "uuid": "<UUID>",
+  },
+]
+`;
+
+exports[`Allure Reporter Integration Tests > Payload Capture Configuration > should generate report with payload configuration enabled > payload-capture-result 1`] = `
+{
+  "attachments": [],
+  "fullName": "Create user with payload capture",
+  "historyId": "<HISTORYID>",
+  "labels": [
+    {
+      "name": "framework",
+      "value": "testurio",
+    },
+    {
+      "name": "language",
+      "value": "typescript",
+    },
+  ],
+  "links": [],
+  "name": "Create user with payload capture",
+  "parameters": [],
+  "stage": "finished",
+  "start": "<TIMESTAMP>",
+  "status": "passed",
+  "statusDetails": {},
+  "steps": [
+    {
+      "attachments": [],
+      "name": "Step 1: request - Request createUser",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "api",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+    {
+      "attachments": [],
+      "name": "Step 2: onRequest - Handle request createUser",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "backend",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+    {
+      "attachments": [],
+      "name": "Step 3: onResponse - Handle response for createUser",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "api",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+  ],
+  "stop": "<TIMESTAMP>",
+  "testCaseId": "<TESTCASEID>",
+  "uuid": "<UUID>",
+}
+`;
+
+exports[`Allure Reporter Integration Tests > Single Component Scenario > should generate report for client-mock scenario with single test case > single-test-case-container 1`] = `
+{
+  "afters": [],
+  "befores": [],
+  "children": [
+    "<UUID>",
+  ],
+  "name": "Simple API Test",
+  "uuid": "<UUID>",
+}
+`;
+
+exports[`Allure Reporter Integration Tests > Single Component Scenario > should generate report for client-mock scenario with single test case > single-test-case-result 1`] = `
+{
+  "attachments": [],
+  "fullName": "Get all users",
+  "historyId": "<HISTORYID>",
+  "labels": [
+    {
+      "name": "framework",
+      "value": "testurio",
+    },
+    {
+      "name": "language",
+      "value": "typescript",
+    },
+  ],
+  "links": [],
+  "name": "Get all users",
+  "parameters": [],
+  "stage": "finished",
+  "start": "<TIMESTAMP>",
+  "status": "passed",
+  "statusDetails": {},
+  "steps": [
+    {
+      "attachments": [],
+      "name": "Step 1: request - Request getUsers",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "api",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+    {
+      "attachments": [],
+      "name": "Step 2: onRequest - Handle request getUsers",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "backend",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+    {
+      "attachments": [],
+      "name": "Step 3: onResponse - Handle response for getUsers",
+      "parameters": [
+        {
+          "name": "component",
+          "value": "api",
+        },
+      ],
+      "stage": "finished",
+      "status": "passed",
+      "statusDetails": {},
+      "steps": [],
+    },
+  ],
+  "stop": "<TIMESTAMP>",
+  "testCaseId": "<TESTCASEID>",
+  "uuid": "<UUID>",
+}
+`;
