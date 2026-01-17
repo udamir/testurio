@@ -20,6 +20,41 @@ import { SyncClientHookBuilder } from "./sync-client.hook-builder";
 import type { ExtractClientResponse, ExtractRequestData } from "./sync-client.types";
 
 /**
+ * Request Builder - returned by request() for fluent chaining
+ *
+ * Allows chaining onResponse() directly to request() for concise syntax:
+ *   api.request("getUsers", {...}).onResponse().assert(...)
+ *
+ * Creates separate steps in the report - onResponse() delegates to the step builder.
+ *
+ * @template P - Protocol type
+ * @template K - Operation key
+ */
+export class SyncClientRequestBuilder<P extends ISyncProtocol, K extends SyncOperationId<P>> {
+	private readonly stepBuilder: SyncClientStepBuilder<P>;
+	private readonly messageType: K;
+	private readonly traceId?: string;
+
+	constructor(stepBuilder: SyncClientStepBuilder<P>, messageType: K, traceId?: string) {
+		this.stepBuilder = stepBuilder;
+		this.messageType = messageType;
+		this.traceId = traceId;
+	}
+
+	/**
+	 * Chain onResponse directly to request
+	 *
+	 * Creates a separate onResponse step (visible in reports).
+	 * Returns SyncClientHookBuilder for assert/transform/timeout chaining.
+	 *
+	 * @param timeout - Optional timeout in ms (default: 5000)
+	 */
+	onResponse(timeout?: number): SyncClientHookBuilder<ExtractClientResponse<P, K>> {
+		return this.stepBuilder.onResponse(this.messageType, this.traceId, timeout);
+	}
+}
+
+/**
  * Sync Client Step Builder
  *
  * Provides declarative API for sync request/response flows.
@@ -32,12 +67,30 @@ export class SyncClientStepBuilder<P extends ISyncProtocol = ISyncProtocol> exte
 	 * Send a request (generic API for all sync protocols)
 	 *
 	 * After receiving response, triggers matching onResponse hooks.
+	 * Returns a builder for fluent chaining of onResponse().
 	 *
 	 * @param messageType - Message type identifier (operationId for HTTP, method name for gRPC)
 	 * @param data - Request data (type comes directly from service definition)
 	 * @param traceId - Optional traceId for explicit correlation with onResponse()
+	 * @returns SyncClientRequestBuilder for chaining onResponse()
+	 *
+	 * @example
+	 * ```typescript
+	 * // Without chaining (existing pattern)
+	 * api.request("getUsers", { method: "GET", path: "/users" });
+	 * api.onResponse("getUsers").assert((res) => res.status === 200);
+	 *
+	 * // With chaining (new pattern)
+	 * api.request("getUsers", { method: "GET", path: "/users" })
+	 *    .onResponse()
+	 *    .assert((res) => res.status === 200);
+	 * ```
 	 */
-	request<K extends SyncOperationId<P>>(messageType: K, data: ExtractRequestData<P, K>, traceId?: string): void {
+	request<K extends SyncOperationId<P>>(
+		messageType: K,
+		data: ExtractRequestData<P, K>,
+		traceId?: string
+	): SyncClientRequestBuilder<P, K> {
 		this.registerStep({
 			type: "request",
 			description: `Request ${messageType}${traceId ? ` (${traceId})` : ""}`,
@@ -49,6 +102,8 @@ export class SyncClientStepBuilder<P extends ISyncProtocol = ISyncProtocol> exte
 			handlers: [],
 			mode: "action",
 		});
+
+		return new SyncClientRequestBuilder(this, messageType, traceId);
 	}
 
 	/**

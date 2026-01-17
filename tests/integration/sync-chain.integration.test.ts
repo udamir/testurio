@@ -560,4 +560,264 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 			});
 		});
 	});
+
+	// ============================================================
+	// 1.7 Chained Request/Response API
+	// ============================================================
+	describe("1.7 Chained Request/Response API", () => {
+		it("should support request().onResponse().assert() chain", async () => {
+			const backendPort = getNextPort();
+			const backendServer = createMockServer("backend", backendPort);
+			const apiClient = createClient("api", backendPort);
+
+			const scenario = new TestScenario({
+				name: "Chained API Test",
+				components: [backendServer, apiClient],
+			});
+
+			let responseData!: HttpResponse<User[]>;
+
+			const tc = testCase("GET /users with chained API", (test) => {
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
+
+				// Chained request/response pattern
+				api.request("getUsers", { method: "GET", path: "/users" })
+					.onResponse()
+					.assert((res) => {
+						responseData = res;
+						return res.code === 200;
+					});
+
+				// Mock handler
+				backend.onRequest("getUsers", { method: "GET", path: "/users" }).mockResponse(() => ({
+					code: 200,
+					body: [{ id: 1, name: "Alice" }],
+				}));
+			});
+
+			const result = await scenario.run(tc);
+
+			expect(result.passed).toBe(true);
+			expect(responseData.code).toBe(200);
+			expect(responseData.body).toEqual([{ id: 1, name: "Alice" }]);
+		});
+
+		it("should support multiple chained assertions", async () => {
+			const backendPort = getNextPort();
+			const backendServer = createMockServer("backend", backendPort);
+			const apiClient = createClient("api", backendPort);
+
+			const scenario = new TestScenario({
+				name: "Multiple Assertions Test",
+				components: [backendServer, apiClient],
+			});
+
+			const tc = testCase("GET /users with multiple assertions", (test) => {
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
+
+				api.request("getUsers", { method: "GET", path: "/users" })
+					.onResponse()
+					.assert("status is 200", (res) => res.code === 200)
+					.assert("has users", (res) => res.body.length > 0)
+					.assert("first user is Alice", (res) => res.body[0].name === "Alice");
+
+				backend.onRequest("getUsers", { method: "GET", path: "/users" }).mockResponse(() => ({
+					code: 200,
+					body: [{ id: 1, name: "Alice" }],
+				}));
+			});
+
+			const result = await scenario.run(tc);
+
+			expect(result.passed).toBe(true);
+		});
+
+		it("should fail when chained assertion returns false", async () => {
+			const backendPort = getNextPort();
+			const backendServer = createMockServer("backend", backendPort);
+			const apiClient = createClient("api", backendPort);
+
+			const scenario = new TestScenario({
+				name: "Failed Assertion Test",
+				components: [backendServer, apiClient],
+			});
+
+			const tc = testCase("GET /users with failing assertion", (test) => {
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
+
+				api.request("getUsers", { method: "GET", path: "/users" })
+					.onResponse()
+					.assert("expects 201 but gets 200", (res) => res.code === 201);
+
+				backend.onRequest("getUsers", { method: "GET", path: "/users" }).mockResponse(() => ({
+					code: 200,
+					body: [],
+				}));
+			});
+
+			const result = await scenario.run(tc);
+
+			expect(result.passed).toBe(false);
+		});
+
+		it("should support transform().assert() in chain", async () => {
+			const backendPort = getNextPort();
+			const backendServer = createMockServer("backend", backendPort);
+			const apiClient = createClient("api", backendPort);
+
+			const scenario = new TestScenario({
+				name: "Transform Chain Test",
+				components: [backendServer, apiClient],
+			});
+
+			let transformedData: User[] | undefined;
+
+			const tc = testCase("GET /users with transform", (test) => {
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
+
+				api.request("getUsers", { method: "GET", path: "/users" })
+					.onResponse()
+					.transform((res) => res.body)
+					.assert((users) => {
+						transformedData = users;
+						return users.length === 2;
+					});
+
+				backend.onRequest("getUsers", { method: "GET", path: "/users" }).mockResponse(() => ({
+					code: 200,
+					body: [
+						{ id: 1, name: "Alice" },
+						{ id: 2, name: "Bob" },
+					],
+				}));
+			});
+
+			const result = await scenario.run(tc);
+
+			expect(result.passed).toBe(true);
+			expect(transformedData).toEqual([
+				{ id: 1, name: "Alice" },
+				{ id: 2, name: "Bob" },
+			]);
+		});
+
+		it("should support timeout in chain", async () => {
+			const backendPort = getNextPort();
+			const backendServer = createMockServer("backend", backendPort);
+			const apiClient = createClient("api", backendPort);
+
+			const scenario = new TestScenario({
+				name: "Timeout Chain Test",
+				components: [backendServer, apiClient],
+			});
+
+			const tc = testCase("GET /users with timeout", (test) => {
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
+
+				api.request("getUsers", { method: "GET", path: "/users" })
+					.onResponse(10000) // 10 second timeout
+					.assert((res) => res.code === 200);
+
+				backend.onRequest("getUsers", { method: "GET", path: "/users" }).mockResponse(() => ({
+					code: 200,
+					body: [],
+				}));
+			});
+
+			const result = await scenario.run(tc);
+
+			expect(result.passed).toBe(true);
+		});
+
+		it("should work alongside separate onResponse calls", async () => {
+			const backendPort = getNextPort();
+			const backendServer = createMockServer("backend", backendPort);
+			const apiClient = createClient("api", backendPort);
+
+			const scenario = new TestScenario({
+				name: "Mixed API Test",
+				components: [backendServer, apiClient],
+			});
+
+			let response1!: HttpResponse<User[]>;
+			let response2!: HttpResponse<User>;
+
+			const tc = testCase("Mixed chained and separate API", (test) => {
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
+
+				// Chained pattern
+				api.request("getUsers", { method: "GET", path: "/users" })
+					.onResponse()
+					.assert((res) => {
+						response1 = res;
+						return true;
+					});
+
+				// Separate pattern
+				api.request("createUser", { method: "POST", path: "/users", body: { name: "Charlie" } });
+				api.onResponse("createUser").assert((res) => {
+					response2 = res;
+					return true;
+				});
+
+				backend.onRequest("getUsers", { method: "GET", path: "/users" }).mockResponse(() => ({
+					code: 200,
+					body: [{ id: 1, name: "Alice" }],
+				}));
+
+				backend.onRequest("createUser", { method: "POST", path: "/users" }).mockResponse(() => ({
+					code: 201,
+					body: { id: 2, name: "Charlie" },
+				}));
+			});
+
+			const result = await scenario.run(tc);
+
+			expect(result.passed).toBe(true);
+			expect(response1.body).toEqual([{ id: 1, name: "Alice" }]);
+			expect(response2.body).toMatchObject({ id: 2, name: "Charlie" });
+		});
+
+		it("should pass traceId through chain", async () => {
+			const backendPort = getNextPort();
+			const backendServer = createMockServer("backend", backendPort);
+			const apiClient = createClient("api", backendPort);
+
+			const scenario = new TestScenario({
+				name: "TraceId Chain Test",
+				components: [backendServer, apiClient],
+			});
+
+			let responseData!: HttpResponse<User[]>;
+
+			const tc = testCase("Request with traceId", (test) => {
+				const api = test.use(apiClient);
+				const backend = test.use(backendServer);
+
+				// Using traceId with chained API
+				api.request("getUsers", { method: "GET", path: "/users" }, "trace-abc")
+					.onResponse()
+					.assert((res) => {
+						responseData = res;
+						return res.code === 200;
+					});
+
+				backend.onRequest("getUsers", { method: "GET", path: "/users" }).mockResponse(() => ({
+					code: 200,
+					body: [{ id: 1, name: "Alice" }],
+				}));
+			});
+
+			const result = await scenario.run(tc);
+
+			expect(result.passed).toBe(true);
+			expect(responseData.code).toBe(200);
+		});
+	});
 });
