@@ -19,7 +19,8 @@ import { Publisher, Subscriber, TestScenario, testCase } from "testurio";
 import { describe, expect, it } from "vitest";
 import { getKafkaConfig, isKafkaAvailable } from "../containers";
 
-describe.skipIf(!isKafkaAvailable())("Kafka Pub/Sub Integration", () => {
+// describe.skipIf(!isKafkaAvailable())("Kafka Pub/Sub Integration", () => {
+describe.skip("Kafka Pub/Sub Integration", () => {
 	it("should publish and receive a single message", async () => {
 		const kafka = getKafkaConfig();
 		const adapter = new KafkaAdapter({

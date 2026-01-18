@@ -527,7 +527,12 @@ describe.skipIf(!isRedisAvailable())("Redis DataSource Integration", () => {
 				test
 					.use(cache)
 					.exec("execute transaction", async (client) => {
-						const results = await client.multi().set("tx-key1", "value1").set("tx-key2", "value2").get("tx-key1").exec();
+						const results = await client
+							.multi()
+							.set("tx-key1", "value1")
+							.set("tx-key2", "value2")
+							.get("tx-key1")
+							.exec();
 						return results;
 					})
 					.assert("all commands should succeed", (result) => {

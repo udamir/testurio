@@ -37,6 +37,13 @@ export interface RabbitMQEnvConfig {
 	password: string;
 }
 
+export interface MongoDBEnvConfig {
+	host: string;
+	port: number;
+	uri: string;
+	database: string;
+}
+
 /**
  * Check if Docker containers were started by global setup.
  * This should be used with describe.skipIf() to skip tests when Docker is unavailable.
@@ -74,6 +81,13 @@ export function isRabbitMQAvailable(): boolean {
 }
 
 /**
+ * Check if MongoDB container is available.
+ */
+export function isMongoDBAvailable(): boolean {
+	return isContainerSetupAvailable() && !!process.env.TESTURIO_MONGODB_HOST;
+}
+
+/**
  * Get Redis connection config from environment variables.
  * Throws if Redis is not available.
  */
@@ -84,7 +98,7 @@ export function getRedisConfig(): RedisEnvConfig {
 
 	if (!host || !port || !url) {
 		throw new Error(
-			"Redis container config not found in environment. " + "Ensure global setup has run and Docker is available.",
+			"Redis container config not found in environment. " + "Ensure global setup has run and Docker is available."
 		);
 	}
 
@@ -109,8 +123,7 @@ export function getPostgresConfig(): PostgresEnvConfig {
 
 	if (!host || !port || !database || !username || !password || !connectionString) {
 		throw new Error(
-			"PostgreSQL container config not found in environment. " +
-				"Ensure global setup has run and Docker is available.",
+			"PostgreSQL container config not found in environment. " + "Ensure global setup has run and Docker is available."
 		);
 	}
 
@@ -135,7 +148,7 @@ export function getKafkaConfig(): KafkaEnvConfig {
 
 	if (!host || !port || !brokersStr) {
 		throw new Error(
-			"Kafka container config not found in environment. " + "Ensure global setup has run and Docker is available.",
+			"Kafka container config not found in environment. " + "Ensure global setup has run and Docker is available."
 		);
 	}
 
@@ -162,7 +175,7 @@ export function getRabbitMQConfig(): RabbitMQEnvConfig {
 
 	if (!host || !port || !amqpUrl || !username || !password) {
 		throw new Error(
-			"RabbitMQ container config not found in environment. " + "Ensure global setup has run and Docker is available.",
+			"RabbitMQ container config not found in environment. " + "Ensure global setup has run and Docker is available."
 		);
 	}
 
@@ -173,5 +186,29 @@ export function getRabbitMQConfig(): RabbitMQEnvConfig {
 		managementUrl: managementUrl ?? `http://${host}:15672`,
 		username,
 		password,
+	};
+}
+
+/**
+ * Get MongoDB connection config from environment variables.
+ * Throws if MongoDB is not available.
+ */
+export function getMongoDBConfig(): MongoDBEnvConfig {
+	const host = process.env.TESTURIO_MONGODB_HOST;
+	const port = process.env.TESTURIO_MONGODB_PORT;
+	const uri = process.env.TESTURIO_MONGODB_URI;
+	const database = process.env.TESTURIO_MONGODB_DATABASE;
+
+	if (!host || !port || !uri || !database) {
+		throw new Error(
+			"MongoDB container config not found in environment. " + "Ensure global setup has run and Docker is available."
+		);
+	}
+
+	return {
+		host,
+		port: parseInt(port, 10),
+		uri,
+		database,
 	};
 }

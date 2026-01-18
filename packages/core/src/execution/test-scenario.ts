@@ -337,10 +337,7 @@ export class TestScenario {
 		let initError: Error | undefined;
 
 		// Count expected test cases for validation
-		const expectedTestCount = testCases.reduce(
-			(sum, tc) => sum + (Array.isArray(tc) ? tc.length : 1),
-			0
-		);
+		const expectedTestCount = testCases.reduce((sum, tc) => sum + (Array.isArray(tc) ? tc.length : 1), 0);
 
 		// Notify reporters of start
 		for (const reporter of this.reporters) {

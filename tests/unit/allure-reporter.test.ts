@@ -8,17 +8,20 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { TestCaseMetadata, TestCaseResult, TestResult, TestStepResult } from "testurio";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { AllureReporterOptions } from "@testurio/reporter-allure";
 import {
-	AllureReporter, FileSystemWriter, Status, Stage,
+	AllureReporter,
 	convertMetadataToLabels,
 	convertStatusDetails,
 	convertTestCase,
 	convertToContainer,
+	FileSystemWriter,
 	LabelName,
+	Stage,
+	Status,
 } from "@testurio/reporter-allure";
+import type { TestCaseMetadata, TestCaseResult, TestResult, TestStepResult } from "testurio";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 describe("AllureReporter", () => {
 	let tempDir: string;

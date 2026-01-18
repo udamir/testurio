@@ -814,8 +814,7 @@ describe("Allure Reporter Integration Tests", () => {
 					id: "WF-001",
 					feature: "User Lifecycle",
 					story: "User Registration Flow",
-					description:
-						"Tests the complete user lifecycle including health check, listing, and creating multiple users",
+					description: "Tests the complete user lifecycle including health check, listing, and creating multiple users",
 					severity: "critical",
 					tags: ["workflow", "e2e", "critical-path"],
 				}

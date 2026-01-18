@@ -582,7 +582,8 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 				const backend = test.use(backendServer);
 
 				// Chained request/response pattern
-				api.request("getUsers", { method: "GET", path: "/users" })
+				api
+					.request("getUsers", { method: "GET", path: "/users" })
 					.onResponse()
 					.assert((res) => {
 						responseData = res;
@@ -617,7 +618,8 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 				const api = test.use(apiClient);
 				const backend = test.use(backendServer);
 
-				api.request("getUsers", { method: "GET", path: "/users" })
+				api
+					.request("getUsers", { method: "GET", path: "/users" })
 					.onResponse()
 					.assert("status is 200", (res) => res.code === 200)
 					.assert("has users", (res) => res.body.length > 0)
@@ -648,7 +650,8 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 				const api = test.use(apiClient);
 				const backend = test.use(backendServer);
 
-				api.request("getUsers", { method: "GET", path: "/users" })
+				api
+					.request("getUsers", { method: "GET", path: "/users" })
 					.onResponse()
 					.assert("expects 201 but gets 200", (res) => res.code === 201);
 
@@ -679,7 +682,8 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 				const api = test.use(apiClient);
 				const backend = test.use(backendServer);
 
-				api.request("getUsers", { method: "GET", path: "/users" })
+				api
+					.request("getUsers", { method: "GET", path: "/users" })
 					.onResponse()
 					.transform((res) => res.body)
 					.assert((users) => {
@@ -719,7 +723,8 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 				const api = test.use(apiClient);
 				const backend = test.use(backendServer);
 
-				api.request("getUsers", { method: "GET", path: "/users" })
+				api
+					.request("getUsers", { method: "GET", path: "/users" })
 					.onResponse(10000) // 10 second timeout
 					.assert((res) => res.code === 200);
 
@@ -752,7 +757,8 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 				const backend = test.use(backendServer);
 
 				// Chained pattern
-				api.request("getUsers", { method: "GET", path: "/users" })
+				api
+					.request("getUsers", { method: "GET", path: "/users" })
 					.onResponse()
 					.assert((res) => {
 						response1 = res;
@@ -801,7 +807,8 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 				const backend = test.use(backendServer);
 
 				// Using traceId with chained API
-				api.request("getUsers", { method: "GET", path: "/users" }, "trace-abc")
+				api
+					.request("getUsers", { method: "GET", path: "/users" }, "trace-abc")
 					.onResponse()
 					.assert((res) => {
 						responseData = res;
