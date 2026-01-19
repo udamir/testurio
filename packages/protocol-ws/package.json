@@ -27,8 +27,7 @@
     }
   },
   "files": [
-    "dist",
-    "README.md"
+    "dist"
   ],
   "engines": {
     "node": ">=18.0.0"

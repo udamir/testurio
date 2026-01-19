@@ -34,8 +34,7 @@
     }
   },
   "files": [
-    "dist",
-    "README.md"
+    "dist"
   ],
   "engines": {
     "node": ">=18.0.0"
@@ -45,7 +44,7 @@
     "test": "vitest run",
     "lint": "biome check src",
     "lint:fix": "biome check --write .",
-    "prepublish": "cp ../../README.md ./README.md && pnpm run lint && pnpm run test && pnpm run build"
+    "prepublish": "npm pkg set version=$(node -p \"require('../../package.json').version\") && pnpm run lint && pnpm run test && pnpm run build && cp ../../README.md ../../CHANGELOG.md ./dist/"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",
