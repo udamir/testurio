@@ -147,13 +147,18 @@ export class RabbitMQSubscriberAdapter implements IMQSubscriberAdapter<QueueMess
 			// Decode payload
 			const decodedPayload = this.codec.decode(msg.content.toString());
 
+			// Find which subscription pattern matched this routing key
+			const routingKey = msg.fields.routingKey;
+			const matchedPattern = this.findMatchingPattern(routingKey) ?? routingKey;
+
 			// Build RabbitMQ-specific metadata
 			const metadata: RabbitMQMessageMetadata = {
 				consumerTag: msg.fields.consumerTag,
 				deliveryTag: msg.fields.deliveryTag,
 				redelivered: msg.fields.redelivered,
 				exchange: msg.fields.exchange,
-				routingKey: msg.fields.routingKey,
+				routingKey: routingKey,
+				subscriptionPattern: matchedPattern,
 				properties: {
 					contentType: msg.properties.contentType,
 					contentEncoding: msg.properties.contentEncoding,
@@ -169,19 +174,104 @@ export class RabbitMQSubscriberAdapter implements IMQSubscriberAdapter<QueueMess
 				},
 			};
 
-			// Use routing key as topic
+			// Use matched pattern as topic for hook matching
 			const queueMessage: QueueMessage = {
-				topic: msg.fields.routingKey,
+				topic: matchedPattern,
 				payload: decodedPayload,
 				headers: Object.keys(headers).length > 0 ? headers : undefined,
 				timestamp: msg.properties.timestamp,
 				metadata,
 			};
 
-			this.messageHandler(msg.fields.routingKey, queueMessage);
+			// Pass matched pattern as topic for Subscriber hook matching
+			this.messageHandler(matchedPattern, queueMessage);
 		} catch (error) {
 			this.errorHandler?.(error instanceof Error ? error : new Error(String(error)));
 		}
+	}
+
+	/**
+	 * Find which subscription pattern matches the given routing key.
+	 * Supports RabbitMQ topic exchange wildcards:
+	 * - `*` matches exactly one word
+	 * - `#` matches zero or more words
+	 */
+	private findMatchingPattern(routingKey: string): string | undefined {
+		for (const pattern of this.subscribedTopics) {
+			if (this.matchesPattern(pattern, routingKey)) {
+				return pattern;
+			}
+		}
+		return undefined;
+	}
+
+	/**
+	 * Check if a routing key matches a RabbitMQ topic pattern.
+	 */
+	private matchesPattern(pattern: string, routingKey: string): boolean {
+		// Direct match (also handles non-wildcard patterns)
+		if (pattern === routingKey) return true;
+
+		// For patterns without wildcards, no match
+		if (!pattern.includes("*") && !pattern.includes("#")) {
+			return false;
+		}
+
+		const patternParts = pattern.split(".");
+		const routingParts = routingKey.split(".");
+
+		return this.matchParts(patternParts, 0, routingParts, 0);
+	}
+
+	/**
+	 * Recursively match pattern parts against routing key parts.
+	 */
+	private matchParts(patternParts: string[], patternIdx: number, routingParts: string[], routingIdx: number): boolean {
+		// Both exhausted - success
+		if (patternIdx === patternParts.length && routingIdx === routingParts.length) {
+			return true;
+		}
+
+		// Pattern exhausted but routing key has more parts - fail
+		if (patternIdx === patternParts.length) {
+			return false;
+		}
+
+		const patternPart = patternParts[patternIdx];
+
+		if (patternPart === "#") {
+			// # can match zero or more words
+			// Try matching zero words (skip #)
+			if (this.matchParts(patternParts, patternIdx + 1, routingParts, routingIdx)) {
+				return true;
+			}
+			// Try matching one or more words
+			if (routingIdx < routingParts.length) {
+				return this.matchParts(patternParts, patternIdx, routingParts, routingIdx + 1);
+			}
+			return false;
+		}
+
+		// Routing key exhausted but pattern has more parts
+		if (routingIdx === routingParts.length) {
+			// Only valid if remaining pattern parts are all #
+			for (let i = patternIdx; i < patternParts.length; i++) {
+				if (patternParts[i] !== "#") return false;
+			}
+			return true;
+		}
+
+		if (patternPart === "*") {
+			// * matches exactly one word
+			return this.matchParts(patternParts, patternIdx + 1, routingParts, routingIdx + 1);
+		}
+
+		// Literal match required
+		if (patternPart === routingParts[routingIdx]) {
+			return this.matchParts(patternParts, patternIdx + 1, routingParts, routingIdx + 1);
+		}
+
+		return false;
 	}
 
 	onMessage(handler: (topic: string, message: QueueMessage) => void): void {

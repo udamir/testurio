@@ -92,9 +92,16 @@ export interface RabbitMQMessageMetadata {
 	exchange: string;
 
 	/**
-	 * Routing key used
+	 * Actual routing key from the message
 	 */
 	routingKey: string;
+
+	/**
+	 * Subscription pattern that matched this message.
+	 * For topic exchanges with wildcards (# or *), this is the pattern
+	 * that was used to subscribe, not the actual routing key.
+	 */
+	subscriptionPattern: string;
 
 	/**
 	 * Message properties
@@ -124,9 +131,11 @@ export function isRabbitMQMetadata(metadata: unknown): metadata is RabbitMQMessa
 		"consumerTag" in metadata &&
 		"deliveryTag" in metadata &&
 		"routingKey" in metadata &&
+		"subscriptionPattern" in metadata &&
 		typeof (metadata as RabbitMQMessageMetadata).consumerTag === "string" &&
 		typeof (metadata as RabbitMQMessageMetadata).deliveryTag === "number" &&
-		typeof (metadata as RabbitMQMessageMetadata).routingKey === "string"
+		typeof (metadata as RabbitMQMessageMetadata).routingKey === "string" &&
+		typeof (metadata as RabbitMQMessageMetadata).subscriptionPattern === "string"
 	);
 }
 

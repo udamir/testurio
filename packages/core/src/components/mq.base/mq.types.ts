@@ -68,3 +68,38 @@ export type Topic<T> = IsLooseMode<T> extends true ? string : keyof T & string;
  * - Strict mode: Returns the defined payload type for topic K
  */
 export type Payload<T, K> = IsLooseMode<T> extends true ? unknown : K extends keyof T ? T[K] : unknown;
+
+// =============================================================================
+// Message Types
+// =============================================================================
+
+/**
+ * Standard queue message structure.
+ * Used by subscriber adapters to deliver messages with broker-specific metadata.
+ *
+ * @template TMetadata - Broker-specific metadata type (e.g., KafkaMessageMetadata)
+ */
+export interface QueueMessage<TMetadata = unknown> {
+	/** Topic/routing key the message was published to */
+	topic: string;
+	/** Deserialized message payload */
+	payload: unknown;
+	/** Message key (for partitioning in Kafka, etc.) */
+	key?: string;
+	/** Message headers */
+	headers?: Record<string, string>;
+	/** Message timestamp */
+	timestamp?: number;
+	/** Broker-specific metadata */
+	metadata?: TMetadata;
+}
+
+/**
+ * Options for publishing messages.
+ */
+export interface PublishOptions {
+	/** Message key (for partitioning) */
+	key?: string;
+	/** Message headers */
+	headers?: Record<string, string>;
+}
