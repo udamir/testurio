@@ -24,7 +24,7 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
-    "prepublish": "pnpm run lint && pnpm run test:run && pnpm run build",
+    "prepublish": "pnpm run lint && pnpm run test:run && pnpm run build && cp README.md CHANGELOG.md packages/core/dist",
     "publish:all": "pnpm run prepublish && pnpm -r publish --access public"
   },
   "devDependencies": {

@@ -44,7 +44,7 @@
     "amqplib": "^0.10.5"
   },
   "peerDependencies": {
-    "testurio": "^0.1.0"
+    "testurio": "^0.4.0"
   },
   "devDependencies": {
     "testurio": "workspace:*",

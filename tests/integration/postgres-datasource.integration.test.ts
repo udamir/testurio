@@ -267,7 +267,7 @@ describe.skipIf(!isPostgresAvailable())("PostgreSQL DataSource Integration", () 
 				store
 					.exec("verify exists", async (pool) => {
 						const result = await pool.query("SELECT COUNT(*) FROM users");
-						return parseInt(result.rows[0].count);
+						return parseInt(result.rows[0].count, 10);
 					})
 					.assert("should have 1 user", (count) => count === 1);
 
@@ -281,7 +281,7 @@ describe.skipIf(!isPostgresAvailable())("PostgreSQL DataSource Integration", () 
 				store
 					.exec("verify deleted", async (pool) => {
 						const result = await pool.query("SELECT COUNT(*) FROM users");
-						return parseInt(result.rows[0].count);
+						return parseInt(result.rows[0].count, 10);
 					})
 					.assert("should have 0 users", (count) => count === 0);
 			});
@@ -445,7 +445,7 @@ describe.skipIf(!isPostgresAvailable())("PostgreSQL DataSource Integration", () 
 				store
 					.exec("verify no accounts created", async (pool) => {
 						const result = await pool.query("SELECT COUNT(*) FROM accounts");
-						return parseInt(result.rows[0].count);
+						return parseInt(result.rows[0].count, 10);
 					})
 					.assert("should have 0 accounts", (count) => count === 0);
 			});
@@ -567,7 +567,7 @@ describe.skipIf(!isPostgresAvailable())("PostgreSQL DataSource Integration", () 
 							42,
 							"9007199254740993",
 							3.14,
-							2.718281828459045,
+							Math.E,
 							true,
 							JSON.stringify({ key: "value", nested: { a: 1 } }),
 							[1, 2, 3, 4, 5],
@@ -709,7 +709,9 @@ describe.skipIf(!isPostgresAvailable())("PostgreSQL DataSource Integration", () 
 						const gadgets = rows.find((r: { category: string }) => r.category === "gadgets");
 						const widgets = rows.find((r: { category: string }) => r.category === "widgets");
 						return (
-							parseInt(gadgets.count) === 3 && parseInt(widgets.count) === 2 && parseFloat(gadgets.avg_price) === 30
+							parseInt(gadgets.count, 10) === 3 &&
+							parseInt(widgets.count, 10) === 2 &&
+							parseFloat(gadgets.avg_price) === 30
 						);
 					});
 

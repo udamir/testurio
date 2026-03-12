@@ -87,7 +87,7 @@ describe("AllureReporter", () => {
 
 		const files = fs.readdirSync(tempDir);
 		const resultFile = files.find((f) => f.endsWith("-result.json"));
-		return JSON.parse(fs.readFileSync(path.join(tempDir, resultFile!), "utf-8"));
+		return JSON.parse(fs.readFileSync(path.join(tempDir, resultFile ?? ""), "utf-8"));
 	};
 
 	describe("constructor", () => {
@@ -603,7 +603,7 @@ describe("AllureReporter", () => {
 
 			const files = fs.readdirSync(tempDir);
 			const containerFile = files.find((f) => f.endsWith("-container.json"));
-			const container = JSON.parse(fs.readFileSync(path.join(tempDir, containerFile!), "utf-8"));
+			const container = JSON.parse(fs.readFileSync(path.join(tempDir, containerFile ?? ""), "utf-8"));
 
 			expect(container.name).toBe("My Test Scenario");
 		});
@@ -617,7 +617,7 @@ describe("AllureReporter", () => {
 
 			const files = fs.readdirSync(tempDir);
 			const containerFile = files.find((f) => f.endsWith("-container.json"));
-			const container = JSON.parse(fs.readFileSync(path.join(tempDir, containerFile!), "utf-8"));
+			const container = JSON.parse(fs.readFileSync(path.join(tempDir, containerFile ?? ""), "utf-8"));
 
 			expect(container.befores).toEqual([]);
 			expect(container.afters).toEqual([]);
@@ -642,7 +642,7 @@ describe("AllureReporter", () => {
 
 			const files = fs.readdirSync(tempDir);
 			const resultFile = files.find((f) => f.endsWith("-result.json"));
-			const result = JSON.parse(fs.readFileSync(path.join(tempDir, resultFile!), "utf-8"));
+			const result = JSON.parse(fs.readFileSync(path.join(tempDir, resultFile ?? ""), "utf-8"));
 
 			expect(result.steps).toEqual([]);
 		});

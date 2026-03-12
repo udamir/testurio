@@ -880,7 +880,7 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 
 		// In proxy mode, establish backend connection
 		if (this.isProxy && this._targetAddress) {
-			this.establishBackendConnection(clientConnection);
+			this.establishBackendConnection(clientConnection, this._targetAddress);
 		}
 	}
 
@@ -888,7 +888,7 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 	 * Establish backend connection for proxy mode.
 	 * Uses the same connectionId as the client connection.
 	 */
-	private establishBackendConnection(clientConnection: IAsyncClientAdapter): void {
+	private establishBackendConnection(clientConnection: IAsyncClientAdapter, targetAddress: Address): void {
 		const connectionId = clientConnection.id;
 		const ready = createDeferred<void>();
 
@@ -903,7 +903,7 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 		// Start backend connection (async)
 		this.protocol
 			.createClient({
-				targetAddress: this._targetAddress!,
+				targetAddress,
 				tls: this._tls,
 				connectionId: connectionId, // Use same ID for consistent chain
 			})

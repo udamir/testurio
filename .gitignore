@@ -2,6 +2,7 @@
 .idea/
 .windsurf/
 .claude/
+.ai-kanban
 
 reports/*
 !reports/.gitkeep

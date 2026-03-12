@@ -416,7 +416,7 @@ describe.skipIf(!isMongoDBAvailable())("MongoDB DataSource Integration", () => {
 					await collection.insertOne({
 						stringField: "hello world",
 						numberField: 42,
-						floatField: 3.14159,
+						floatField: Math.PI,
 						boolField: true,
 						dateField: testDate,
 						arrayField: [1, 2, 3, 4, 5],
@@ -435,7 +435,7 @@ describe.skipIf(!isMongoDBAvailable())("MongoDB DataSource Integration", () => {
 						return (
 							doc?.stringField === "hello world" &&
 							doc?.numberField === 42 &&
-							Math.abs(doc?.floatField - 3.14159) < 0.0001 &&
+							Math.abs(doc?.floatField - Math.PI) < 0.0001 &&
 							doc?.boolField === true &&
 							doc?.dateField instanceof Date &&
 							Array.isArray(doc?.arrayField) &&

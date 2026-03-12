@@ -80,14 +80,14 @@ export abstract class BaseStepBuilder {
 	 *
 	 * @param stepData - Step data without id (id will be generated)
 	 * @param HookBuilderClass - Optional hook builder class to instantiate
-	 * @returns Hook builder instance if HookBuilderClass provided, void otherwise
+	 * @returns Hook builder instance if HookBuilderClass provided, undefined otherwise
 	 */
 	protected registerStep<T extends BaseHookBuilder>(stepData: StepData, HookBuilderClass: new (step: Step) => T): T;
-	protected registerStep(stepData: StepData): void;
+	protected registerStep(stepData: StepData): undefined;
 	protected registerStep<T extends BaseHookBuilder>(
 		stepData: StepData,
 		HookBuilderClass?: new (step: Step) => T
-	): T | void {
+	): T | undefined {
 		// Create the Step object (pure data)
 		const step: Step = {
 			id: generateId("step_"),
@@ -103,5 +103,7 @@ export abstract class BaseStepBuilder {
 			// Pass step directly to HookBuilder - it can mutate handlers and params
 			return new HookBuilderClass(step);
 		}
+
+		return;
 	}
 }

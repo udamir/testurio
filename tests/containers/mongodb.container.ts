@@ -51,9 +51,7 @@ export async function startMongoContainer(options?: MongoDBContainerOptions): Pr
 	// This is required for standalone MongoDB instances to avoid
 	// replica set discovery which causes connection timeouts
 	const baseUri = started.getConnectionString();
-	const uri = baseUri.includes("?")
-		? `${baseUri}&directConnection=true`
-		: `${baseUri}?directConnection=true`;
+	const uri = baseUri.includes("?") ? `${baseUri}&directConnection=true` : `${baseUri}?directConnection=true`;
 
 	return {
 		container: started,

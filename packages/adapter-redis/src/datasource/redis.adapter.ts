@@ -95,8 +95,8 @@ export class RedisAdapter implements DataSourceAdapter<Redis, RedisAdapterConfig
 			// Wait for the 'ready' event if not already ready
 			if (this.client.status !== "ready") {
 				await new Promise<void>((resolve, reject) => {
-					this.client!.once("ready", resolve);
-					this.client!.once("error", reject);
+					this.client?.once("ready", resolve);
+					this.client?.once("error", reject);
 				});
 			}
 		} catch (error) {

@@ -10,8 +10,6 @@ import { describe, expect, it } from "vitest";
 
 // Minimal test component for hook matching
 class TestComponent extends BaseComponent {
-	private _matcherFn: ((msg: { type: string; payload: HttpRequest }) => boolean) | null = null;
-
 	protected async doStart(): Promise<void> {}
 	protected async doStop(): Promise<void> {}
 
@@ -31,7 +29,7 @@ class TestComponent extends BaseComponent {
 		if (params.matcherFn) {
 			return (message: unknown) => {
 				const msg = message as { type: string; payload: HttpRequest };
-				return params.matcherFn!(msg);
+				return params.matcherFn?.(msg);
 			};
 		}
 		return () => false;

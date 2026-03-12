@@ -160,7 +160,7 @@ describe("Description Parameter", () => {
 				api.onResponse("test").timeout(500);
 			});
 
-			const result = await scenario.run(tc);
+			const _result = await scenario.run(tc);
 
 			// Server assertion should fail and be tracked as unhandled error
 			const serverErrors = server.getUnhandledErrors();
