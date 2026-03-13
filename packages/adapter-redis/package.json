@@ -36,13 +36,13 @@
     "build": "tsup src/index.ts --format cjs,esm --dts --sourcemap --clean",
     "test": "vitest run",
     "lint": "biome check src",
-    "prepublish": "pnpm run lint && pnpm run test && pnpm run build"
+    "prepublish": "npm pkg set version=$(node -p \"require('../../package.json').version\") && pnpm run lint && pnpm run test && pnpm run build"
   },
   "dependencies": {
     "ioredis": "^5.4.1"
   },
   "peerDependencies": {
-    "testurio": "^0.1.0"
+    "testurio": "^0.4.0"
   },
   "devDependencies": {
     "testurio": "workspace:*",

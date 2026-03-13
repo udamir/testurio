@@ -2,47 +2,6 @@
   "name": "@testurio/adapter-mongo",
   "version": "0.1.0",
   "description": "MongoDB adapter for Testurio DataSource",
-  "type": "module",
-  "main": "./dist/index.js",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": {
-        "types": "./dist/index.d.mts",
-        "default": "./dist/index.mjs"
-      },
-      "require": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      }
-    }
-  },
-  "files": [
-    "dist"
-  ],
-  "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "lint": "biome check .",
-    "lint:fix": "biome check . --fix"
-  },
-  "dependencies": {
-    "mongodb": "^6.12.0"
-  },
-  "devDependencies": {
-    "@biomejs/biome": "^2.3.11",
-    "@types/node": "^24.10.0",
-    "testurio": "workspace:*",
-    "tsup": "^8.5.1",
-    "typescript": "^5.9.3",
-    "vitest": "^1.6.0"
-  },
-  "peerDependencies": {
-    "testurio": "workspace:*"
-  },
   "keywords": [
     "testurio",
     "mongodb",
@@ -51,6 +10,47 @@
     "testing",
     "e2e"
   ],
-  "author": "",
-  "license": "MIT"
+  "author": "Damir Yusipov",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/udamir/testurio.git",
+    "directory": "packages/adapter-mongo"
+  },
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --sourcemap --clean",
+    "test": "vitest run",
+    "lint": "biome check src",
+    "prepublish": "npm pkg set version=$(node -p \"require('../../package.json').version\") && pnpm run lint && pnpm run test && pnpm run build"
+  },
+  "dependencies": {
+    "mongodb": "^6.12.0"
+  },
+  "peerDependencies": {
+    "testurio": "^0.4.0"
+  },
+  "devDependencies": {
+    "testurio": "workspace:*",
+    "@biomejs/biome": "^2.3.11",
+    "@types/node": "^24.10.0",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^1.6.0"
+  }
 }

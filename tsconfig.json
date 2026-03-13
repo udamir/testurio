@@ -10,8 +10,6 @@
     "removeComments": false,
 
     "strict": true,
-    "noImplicitAny": true,
-    "noImplicitThis": true,
     "types": ["node"],
     "typeRoots": ["node_modules/@types", "types"],
 
@@ -22,8 +20,6 @@
 
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
     "allowImportingTsExtensions": true,
     "baseUrl": ".",
     "skipLibCheck": true,
