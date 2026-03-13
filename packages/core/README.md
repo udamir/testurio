@@ -647,6 +647,15 @@ dataSource.exec('slow query', async (client) => {
 }, { timeout: 5000 });
 ```
 
+## Documentation
+
+For detailed documentation, see the [docs](./docs/) directory:
+
+- [Architecture](./docs/ARCHITECTURE.md) - System architecture and design principles
+- [Type System](./docs/type-system.md) - Type system internals and inference
+- [Test Lifecycle](./docs/test-lifecycle.md) - Test execution flow and component lifecycle
+- [Examples](./examples/) - Usage examples for all supported protocols and adapters
+
 ## Best Practices
 
 1. **Declare components first** - Get component references at the start of each test
