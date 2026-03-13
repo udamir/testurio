@@ -647,57 +647,21 @@ dataSource.exec('slow query', async (client) => {
 }, { timeout: 5000 });
 ```
 
+## Documentation
+
+For detailed documentation, see the [docs](./docs/) directory:
+
+- [Architecture](./docs/ARCHITECTURE.md) - System architecture and design principles
+- [Type System](./docs/type-system.md) - Type system internals and inference
+- [Test Lifecycle](./docs/test-lifecycle.md) - Test execution flow and component lifecycle
+- [Examples](./examples/) - Usage examples for all supported protocols and adapters
+
 ## Best Practices
 
 1. **Declare components first** - Get component references at the start of each test
 2. **Write steps in execution order** - Request → Mock handles → Response
 3. **Use traceId for multiple requests** - Correlate requests with responses explicitly
 4. **Keep mock handlers simple** - Avoid complex logic in response handlers
-
-## Architecture
-
-```mermaid
-graph TB
-    subgraph Execution["EXECUTION LAYER"]
-        E[TestScenario, TestCase, StepExecutor]
-    end
-
-    subgraph Builders["BUILDERS LAYER"]
-        B[TestCaseBuilder, SyncClientStepBuilder,<br/>SyncServerStepBuilder, AsyncClientStepBuilder]
-    end
-
-    subgraph Hooks["HOOKS LAYER"]
-        H[HookRegistry, SyncHookBuilder, message-matcher]
-    end
-
-    subgraph Components["COMPONENTS LAYER"]
-        C[Client, Server, AsyncClient, AsyncServer, DataSource]
-    end
-
-    subgraph Protocols["PROTOCOLS LAYER"]
-        P[HttpProtocol, GrpcUnaryProtocol,<br/>GrpcStreamProtocol, WebSocketProtocol, TcpProtocol]
-    end
-
-    subgraph Adapters["ADAPTERS LAYER"]
-        A[ISyncServerAdapter, ISyncClientAdapter,<br/>IAsyncServerAdapter, IAsyncClientAdapter]
-    end
-
-    Execution --> Builders
-    Builders --> Hooks
-    Hooks --> Components
-    Components --> Protocols
-    Protocols --> Adapters
-```
-
-| Layer          | Responsibility                                               |
-| -------------- | ------------------------------------------------------------ |
-| **Execution**  | Orchestrate test execution                                   |
-| **Builders**   | Fluent API for building test steps                           |
-| **Hooks**      | Message interception for test steps                          |
-| **Components** | High-level abstractions that own adapters and manage state   |
-| **Protocols**  | Stateless adapter factories (`createServer`, `createClient`) |
-| **Adapters**   | Protocol-specific I/O operations (owned by components)       |
-| **DataSource** | Direct SDK access to databases/caches (no hooks, no protocols) |
 
 ## License
 

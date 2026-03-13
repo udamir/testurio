@@ -27,6 +27,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added Codec Layer section to ARCHITECTURE.md
 - Created examples/custom-codecs/ with MessagePack and Protobuf examples
 
+## [0.3.1] - 2025-01-19
+
+### Added
+
+- **`@testurio/protocol-grpc`** - gRPC protocol package
+  - `GrpcUnaryProtocol` - Synchronous unary request/response calls
+  - `GrpcStreamProtocol` - Asynchronous bidirectional streaming
+  - Proto schema loading with `@grpc/proto-loader`
+  - gRPC credentials support
+  - Metadata handling for gRPC calls
+  - Type-safe gRPC service definitions
+
+- **`@testurio/protocol-ws`** - WebSocket protocol package
+  - `WebSocketProtocol` for async bidirectional messaging
+  - Type-safe WebSocket service definitions
+  - Custom codec support (JSON default, configurable)
+  - Client and server message type definitions
+
+- **`@testurio/protocol-tcp`** - TCP protocol package
+  - `TcpProtocol` for custom binary/text protocols
+  - Length-prefixed framing for binary protocols
+  - Custom codec support
+  - TCP client/server socket management
+  - Type-safe TCP service definitions
+
+- **`@testurio/reporter-allure`** - Allure TestOps integration
+  - `AllureReporter` - Converts Testurio test results to Allure format
+  - Environment info reporting
+  - Attachment support for payloads
+  - Label and link management
+  - Test step conversion with status tracking
+  - `FileSystemWriter` for result persistence
+
+- **`@testurio/adapter-kafka`** - Apache Kafka adapter
+  - `KafkaPublisherAdapter` - Publisher component integration
+  - `KafkaSubscriberAdapter` - Subscriber component integration
+  - KafkaJS-based implementation
+  - Topic-based message publishing
+  - Consumer group support
+  - Partition and offset management
+
+- **`@testurio/adapter-rabbitmq`** - RabbitMQ adapter
+  - `RabbitMQPublisherAdapter` - Publisher component integration
+  - `RabbitMQSubscriberAdapter` - Subscriber component integration
+  - Exchange and routing key support
+  - Topic pattern matching (e.g., `orders.#`, `*.created`)
+  - AMQP delivery tag tracking
+  - Redelivery detection
+
+- **`@testurio/adapter-redis`** - Redis adapter
+  - `RedisAdapter` - DataSource component integration
+  - Direct Redis client access via ioredis
+  - Redis Pub/Sub support
+  - Key-value operations
+
+- **`@testurio/adapter-pg`** - PostgreSQL adapter
+  - `PostgresAdapter` - DataSource component integration
+  - node-postgres (pg) based implementation
+  - Pool and PoolClient support
+  - Direct SQL query execution
+  - Transaction support
+
+- **`@testurio/adapter-mongo`** - MongoDB adapter
+  - `MongoAdapter` - DataSource component integration
+  - Official MongoDB Node.js driver based implementation
+  - Collection and database operations
+  - Direct database access
+
 ## [0.3.0] - 2025-01-09
 
 ### Added
