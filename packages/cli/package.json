@@ -1,0 +1,52 @@
+{
+  "name": "@testurio/cli",
+  "version": "0.4.0",
+  "description": "CLI for Testurio - Generate type-safe schemas from OpenAPI and gRPC specs",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "testurio": "dist/bin.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts src/bin.ts --format cjs,esm --dts --sourcemap --clean",
+    "test": "vitest run",
+    "lint": "biome check src",
+    "lint:fix": "biome check --write .",
+    "prepublish": "V=$(node -p \"require('../../package.json').version\") && npm pkg set version=$V peerDependencies.testurio=^$V && pnpm run lint && pnpm run build"
+  },
+  "dependencies": {
+    "api-ref-bundler": "^0.3.0",
+    "commander": "^13.0.0",
+    "cosmiconfig": "^9.0.0",
+    "orval": "^7.21.0",
+    "picocolors": "^1.1.0",
+    "protobufjs": "^7.4.0",
+    "yaml": "^2.6.0",
+    "zod": "^3.23.0"
+  },
+  "peerDependencies": {
+    "testurio": "^0.4.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.11",
+    "@types/node": "^24.10.0",
+    "testurio": "workspace:*",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^1.6.0"
+  }
+}

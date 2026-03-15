@@ -1,8 +1,8 @@
 # CLI Schema Generator
 
-**Status:** Not Started
+**Status:** Implemented
 **Priority:** Medium
-**Package:** `testurio-cli`
+**Package:** `@testurio/cli`
 
 ## Overview
 
@@ -31,7 +31,7 @@ Generation Layer
 ### Package Structure
 
 ```
-packages/testurio-cli/
+packages/@testurio/cli/
 ├── src/
 │   ├── index.ts              # CLI entry point
 │   ├── cli.ts                # Command definitions
@@ -64,7 +64,7 @@ testurio init
 
 ```typescript
 // testurio.config.ts
-import { defineConfig } from 'testurio-cli';
+import { defineConfig } from '@testurio/cli';
 
 export default defineConfig({
   input: './api/openapi.yaml',

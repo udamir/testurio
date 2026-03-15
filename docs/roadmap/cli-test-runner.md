@@ -2,7 +2,7 @@
 
 **Status:** Not Started
 **Priority:** Medium
-**Package:** `testurio-cli`
+**Package:** `@testurio/cli`
 
 ## Overview
 
@@ -47,7 +47,7 @@ Uses Vitest as the underlying runner. Provides:
 - Parallel execution, watch mode, and coverage via Vitest
 
 ```
-testurio-cli → Vitest Plugin → Vitest Runner → Reporter Bridge → Testurio Reporters
+@testurio/cli → Vitest Plugin → Vitest Runner → Reporter Bridge → Testurio Reporters
 ```
 
 ### Mode 2: Standalone
@@ -58,14 +58,14 @@ Lightweight runner for simple cases or minimal CI environments:
 - Direct `TestScenario.run()` invocation
 
 ```
-testurio-cli → Test Discovery → esbuild → Worker Pool → Reporter Manager
+@testurio/cli → Test Discovery → esbuild → Worker Pool → Reporter Manager
 ```
 
 ## Configuration
 
 ```typescript
 // testurio.config.ts
-import { defineConfig } from 'testurio-cli';
+import { defineConfig } from '@testurio/cli';
 
 export default defineConfig({
   root: '.',

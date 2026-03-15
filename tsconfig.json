@@ -33,7 +33,9 @@
       "@testurio/adapter-pg": ["./packages/adapter-pg/src"],
       "@testurio/adapter-rabbitmq": ["./packages/adapter-rabbitmq/src"],
       "@testurio/adapter-redis": ["./packages/adapter-redis/src"],
-      "@testurio/reporter-allure": ["./packages/reporter-allure/src"]
+      "@testurio/reporter-allure": ["./packages/reporter-allure/src"],
+      "@testurio/cli": ["./packages/cli/src"],
+      "@testurio/cli/*": ["./packages/cli/src/*"]
     }
   },
   "include": ["src/**/*", "tests/**/*", "packages/**/*"],

@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `CodecError` - Dedicated error class for codec failures
   - `codec` option in `WsProtocolOptions` and `TcpProtocolOptions`
   - Example codecs: MessagePackCodec, ProtobufCodec (`examples/custom-codecs/`)
+- **@testurio/cli package** (`packages/cli/`) - CLI tool for generating type-safe TypeScript schemas from API specifications
+  - `testurio generate` command to generate Zod schemas and Testurio-compatible service types
+  - `testurio init` command to scaffold a starter `testurio.config.ts`
+  - Config system using cosmiconfig with Zod validation (`testurio.config.ts/js/json/yaml`)
+  - `defineConfig` helper for type-safe configuration
+  - Generates Zod schemas from OpenAPI 3.x specs via Orval programmatic API
+  - Generates Zod schemas from `.proto` files via protobufjs
 
 ### Changed
 

@@ -79,7 +79,7 @@ console.log(result.passed); // true
 
 ## Roadmap
 
-- [ ] **testurio-cli** - Type definition generation from API specifications
+- [ ] **@testurio/cli** - Type definition generation from API specifications
   - [ ] OpenAPI/Swagger → HTTP service definitions
   - [ ] AsyncAPI → WebSocket/async service definitions
   - [ ] Protobuf → gRPC service definitions
