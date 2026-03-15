@@ -93,9 +93,9 @@ describe('CLI Config Schema', () => {
       const result = resolveInputs([FIXTURES_DIR]);
       expect(result).toContain(path.join(FIXTURES_DIR, 'chat-service.proto'));
       expect(result).toContain(path.join(FIXTURES_DIR, 'petstore.yaml'));
-      // .types.ts files should NOT be included
-      expect(result).not.toContain(path.join(FIXTURES_DIR, 'petstore.types.ts'));
-      expect(result).not.toContain(path.join(FIXTURES_DIR, 'chat-service.types.ts'));
+      // .schema.ts files should NOT be included
+      expect(result).not.toContain(path.join(FIXTURES_DIR, 'petstore.schema.ts'));
+      expect(result).not.toContain(path.join(FIXTURES_DIR, 'chat-service.schema.ts'));
     });
 
     it('handles mixed inputs (files + directories)', () => {
@@ -164,8 +164,8 @@ describe('CLI Config Schema', () => {
       const sources = generate.sources as Array<Record<string, unknown>>;
 
       const outputs = sources.map((s) => s.output);
-      expect(outputs).toContain(path.join('./generated/', 'chat-service.types.ts'));
-      expect(outputs).toContain(path.join('./generated/', 'petstore.types.ts'));
+      expect(outputs).toContain(path.join('./generated/', 'chat-service.schema.ts'));
+      expect(outputs).toContain(path.join('./generated/', 'petstore.schema.ts'));
     });
 
     it('inherits options to all expanded files', () => {
@@ -637,33 +637,33 @@ describe('CLI Config Schema', () => {
   });
 
   describe('resolveOutputPath', () => {
-    it('derives .types.ts from yaml input', () => {
-      expect(resolveOutputPath('petstore.yaml')).toBe('petstore.types.ts');
+    it('derives .schema.ts from yaml input', () => {
+      expect(resolveOutputPath('petstore.yaml')).toBe('petstore.schema.ts');
     });
 
-    it('derives .types.ts from proto input', () => {
-      expect(resolveOutputPath('service.proto')).toBe('service.types.ts');
+    it('derives .schema.ts from proto input', () => {
+      expect(resolveOutputPath('service.proto')).toBe('service.schema.ts');
     });
 
     it('preserves directory path', () => {
       expect(resolveOutputPath('./api/petstore.yaml')).toBe(
-        path.join('api', 'petstore.types.ts'),
+        path.join('api', 'petstore.schema.ts'),
       );
     });
 
     it('preserves nested directory path', () => {
       expect(resolveOutputPath('./specs/v2/api.json')).toBe(
-        path.join('specs', 'v2', 'api.types.ts'),
+        path.join('specs', 'v2', 'api.schema.ts'),
       );
     });
 
     it('handles filename with multiple dots', () => {
-      expect(resolveOutputPath('api.v2.yaml')).toBe('api.v2.types.ts');
+      expect(resolveOutputPath('api.v2.yaml')).toBe('api.v2.schema.ts');
     });
 
     it('uses first element for array input', () => {
       expect(resolveOutputPath(['./proto/a.proto', './proto/b.proto'])).toBe(
-        path.join('proto', 'a.types.ts'),
+        path.join('proto', 'a.schema.ts'),
       );
     });
   });
@@ -675,12 +675,12 @@ describe('CLI Config Schema', () => {
       expect(sources[0]).toEqual({
         type: 'openapi',
         input: 'a.yaml',
-        output: path.join('out', 'a.types.ts'),
+        output: path.join('out', 'a.schema.ts'),
       });
       expect(sources[1]).toEqual({
         type: 'grpc',
         input: 'b.proto',
-        output: path.join('out', 'b.types.ts'),
+        output: path.join('out', 'b.schema.ts'),
       });
     });
 
@@ -693,7 +693,7 @@ describe('CLI Config Schema', () => {
     it('derives output from input when no output specified', () => {
       const sources = buildSourcesFromInputs(['./api/petstore.yaml']);
       expect(sources).toHaveLength(1);
-      expect(sources[0].output).toBe(path.join('api', 'petstore.types.ts'));
+      expect(sources[0].output).toBe(path.join('api', 'petstore.schema.ts'));
     });
 
     it('auto-detects source type from file extension', () => {
@@ -722,7 +722,7 @@ describe('CLI Config Schema', () => {
       expect(sources.length).toBe(2);
       for (const source of sources) {
         expect(source.output).toMatch(/^out[/\\]/);
-        expect(source.output).toMatch(/\.types\.ts$/);
+        expect(source.output).toMatch(/\.schema\.ts$/);
       }
     });
   });

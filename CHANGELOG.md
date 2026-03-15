@@ -5,7 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.4.0] - 2025-02-15
+## [0.4.1] - 26
+ 
+### Added
+
+- **CLI: Protocol schema bridge exports** — Generated `.schema.ts` files now include a `{serviceName}Schema` export compatible with `SyncSchemaInput` (HTTP, gRPC Unary) and `{serviceName}StreamsSchema` compatible with `AsyncSchemaInput` (gRPC Streaming). These bridge objects compose individual Zod schemas into the structure expected by protocol constructors, enabling schema-first usage with automatic type inference.
+
+### Fixed
+
+- **CLI: File extension rename** — Default generated output changed from `.types.ts` to `.schema.ts` to better reflect the file's runtime content (Zod schemas + protocol schema bridge)
+- **CLI: Naming standardization** — Internal properties and section comments renamed from plural "schemas" to singular "schema" (e.g., `// ===== Zod Schema =====`)
+- **CLI: Doc comments updated** — Generated doc comments now show both "Schema-first (recommended)" and "Current usage (explicit generic)" patterns with accurate constructor signatures for the current API
+- **CLI: Header schema naming** — Renamed generated header schema variables from `{operationId}HeadersSchema` (plural) to `{operationId}HeaderSchema` (singular) for consistency with the naming convention
+- **CLI: Path parameter validation** — Protocol schema bridge now uses `z.string()` for OpenAPI operations with path parameters (e.g., `/pets/{petId}`) instead of `z.literal('/pets/{petId}')`, which would fail runtime validation when actual resolved paths like `/pets/123` are checked
+
+## [0.4.0] - 2026-02-15
 
 ### Added
 
@@ -34,7 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added Codec Layer section to ARCHITECTURE.md
 - Created examples/custom-codecs/ with MessagePack and Protobuf examples
 
-## [0.3.1] - 2025-01-19
+## [0.3.1] - 2026-01-19
 
 ### Added
 
@@ -102,7 +116,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Collection and database operations
   - Direct database access
 
-## [0.3.0] - 2025-01-09
+## [0.3.0] - 2026-01-09
 
 ### Added
 
@@ -116,7 +130,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Protocol type system refactored for better type inference
 
-## [0.2.0] - 2025-01-08
+## [0.2.0] - 2026-01-08
 
 ### Added
 
@@ -125,7 +139,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - WebSocket protocol (`WebSocketProtocol`)
 - Proxy mode for Server and AsyncServer components
 
-## [0.1.0] - 2025-01-07
+## [0.1.0] - 2026-01-07
 
 ### Added
 

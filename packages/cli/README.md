@@ -43,7 +43,7 @@ testurio generate [inputs...] [options]
 | --------------------- | ------------------------------------------------------------------------------------ |
 | `[inputs...]`         | Input files or directories (`.yaml`, `.yml`, `.json` for OpenAPI; `.proto` for gRPC) |
 | `-c, --config <path>` | Path to config file                                                                  |
-| `-o, --output <path>` | Output file or directory (default: `{input}.types.ts`)                               |
+| `-o, --output <path>` | Output file or directory (default: `{input}.schema.ts`)                               |
 | `--quiet`             | Suppress non-error output                                                            |
 | `--verbose`           | Enable debug output                                                                  |
 
@@ -62,7 +62,7 @@ testurio generate api.yaml user.proto chat.proto
 testurio generate ./specs/
 
 # Custom output
-testurio generate api.yaml -o ./generated/api.types.ts
+testurio generate api.yaml -o ./generated/api.schema.ts
 
 # Multiple files with output directory
 testurio generate api.yaml service.proto -o ./generated/
@@ -109,7 +109,7 @@ export default defineConfig({
 | Option                        | Type      | Default            | Description                                     |
 | ----------------------------- | --------- | ------------------ | ----------------------------------------------- |
 | `input`                       | `string`  | —                  | Path to OpenAPI spec (`.yaml`, `.yml`, `.json`) |
-| `output`                      | `string`  | `{input}.types.ts` | Output file path                                |
+| `output`                      | `string`  | `{input}.schema.ts` | Output file path                                |
 | `options.zod.strict.response` | `boolean` | —                  | Enable strict mode for response schemas         |
 | `options.zod.strict.body`     | `boolean` | —                  | Enable strict mode for body schemas             |
 | `options.zod.coerce.query`    | `boolean` | —                  | Enable coercion for query parameters            |
@@ -122,7 +122,7 @@ export default defineConfig({
 | Option                        | Type                 | Default              | Description                              |
 | ----------------------------- | -------------------- | -------------------- | ---------------------------------------- |
 | `input`                       | `string \| string[]` | —                    | Path(s) to `.proto` file(s)              |
-| `output`                      | `string`             | `{input}.types.ts`   | Output file path                         |
+| `output`                      | `string`             | `{input}.schema.ts`   | Output file path                         |
 | `options.services`            | `string[]`           | all                  | Filter to specific service names         |
 | `options.streaming`           | `boolean`            | `true`               | Generate streaming types                 |
 | `options.includeDirs`         | `string[]`           | —                    | Additional proto include directories     |
@@ -139,25 +139,34 @@ Source type is determined automatically from file extension — no `type` field 
 
 ## Generated Output
 
-The generator produces TypeScript files with Zod schemas and service interfaces compatible with Testurio protocols:
+The generator produces TypeScript files with Zod schemas, service interfaces, and protocol schema bridges compatible with Testurio protocols.
+
+### Schema-First Usage (Recommended)
+
+The generated `{serviceName}Schema` export provides runtime validation and automatic type inference:
 
 ```typescript
-// Generated from OpenAPI → use with HttpProtocol<PetStoreApi>()
-export interface PetStoreApi {
-  listPets: {
-    request: { method: 'GET'; path: '/pets' };
-    response: { code: 200; body: z.infer<typeof listPetsResponse>[] };
-  };
-}
+// Generated from OpenAPI → schema-first (types inferred automatically)
+import { petStoreSchema } from './petstore.schema';
+const protocol = new HttpProtocol({ schema: petStoreSchema });
 
-// Generated from .proto → use with GrpcUnaryProtocol<UserService>()
-export interface UserService {
-  GetUser: {
-    request: z.infer<typeof getUserRequestSchema>;
-    response: z.infer<typeof getUserResponseSchema>;
-    metadata: z.infer<typeof getUserMetadataSchema>;
-  };
-}
+// Generated from .proto → schema-first
+import { userServiceSchema } from './service.schema';
+const protocol = new GrpcUnaryProtocol({ protoPath: 'service.proto', schema: userServiceSchema });
+```
+
+### Legacy Usage (Explicit Generic)
+
+The generated TypeScript interfaces are still available for explicit generic usage without runtime validation:
+
+```typescript
+// OpenAPI — explicit generic, no runtime validation
+import type { PetStore } from './petstore.schema';
+const protocol = new HttpProtocol<PetStore>();
+
+// gRPC — explicit generic
+import type { UserService } from './service.schema';
+const protocol = new GrpcUnaryProtocol<UserService>({ protoPath: 'service.proto' });
 ```
 
 ## Programmatic API

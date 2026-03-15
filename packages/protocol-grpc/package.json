@@ -1,6 +1,6 @@
 {
   "name": "@testurio/protocol-grpc",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "gRPC protocol for testurio - unary and streaming support",
   "keywords": [
     "testurio",
@@ -43,7 +43,7 @@
     "@grpc/proto-loader": "^0.7.13"
   },
   "peerDependencies": {
-    "testurio": "^0.4.0"
+    "testurio": "^0.4.1"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",

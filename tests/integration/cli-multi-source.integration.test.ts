@@ -77,10 +77,49 @@ describe('Multi-source generation', () => {
     expect(openapiContent).toContain('export interface PetStore');
     expect(openapiContent).toContain('export const operations');
 
+    // Verify OpenAPI protocol schema bridge
+    expect(openapiContent).toContain('export const petStoreSchema');
+    expect(openapiContent).toContain('// ===== Protocol Schema =====');
+    expect(openapiContent).toContain('z.literal(');
+    expect(openapiContent).toContain('z.object({');
+
+    // Verify path parameter handling: z.string() for parameterized, z.literal() for non-parameterized
+    expect(openapiContent).toContain("path: z.string(),"); // getPetById has {petId}
+    expect(openapiContent).toContain("path: z.literal('/pets'),"); // listPets + createPet have no path params
+
+    // Verify header schema naming uses singular convention
+    expect(openapiContent).not.toContain('HeadersSchema');
+
+    // Verify OpenAPI singular section naming
+    expect(openapiContent).toContain('// ===== Zod Schema =====');
+    expect(openapiContent).not.toContain('// ===== Zod Schemas =====');
+
+    // Verify OpenAPI doc comments — schema-first and current usage patterns
+    expect(openapiContent).toContain('Schema-first (recommended');
+    expect(openapiContent).toContain('new HttpProtocol({ schema: petStoreSchema })');
+    expect(openapiContent).toContain('Current usage (explicit generic');
+    expect(openapiContent).toContain('new HttpProtocol<PetStore>()');
+
     // Verify gRPC output content
     const grpcContent = await readFile(grpcOutput, 'utf-8');
     expect(grpcContent).toContain('export interface TestService');
     expect(grpcContent).toContain('getUserRequestSchema');
+
+    // Verify gRPC protocol schema bridge
+    expect(grpcContent).toContain('export const testServiceSchema');
+    expect(grpcContent).toContain('// ===== Protocol Schema =====');
+    expect(grpcContent).toContain('payload: getUserRequestSchema,');
+    expect(grpcContent).toContain('payload: getUserResponseSchema,');
+
+    // Verify gRPC singular section naming
+    expect(grpcContent).toContain('// ===== Zod Schema =====');
+    expect(grpcContent).not.toContain('// ===== Zod Schemas =====');
+    expect(grpcContent).not.toContain('// ===== Metadata Schemas =====');
+
+    // Verify gRPC doc comments — both schema-first and current usage patterns
+    expect(grpcContent).toContain('Schema-first (recommended');
+    expect(grpcContent).toContain('protoPath:');
+    expect(grpcContent).toContain('Current usage (explicit generic');
   }, 60000);
 
   it('one source failing does not block the other', async () => {
@@ -137,7 +176,7 @@ describe('Multi-source generation', () => {
 
       // Each source should have an auto-derived output path
       for (const source of sources) {
-        expect(source.output).toMatch(/\.types\.ts$/);
+        expect(source.output).toMatch(/\.schema\.ts$/);
       }
     });
 
@@ -147,7 +186,7 @@ describe('Multi-source generation', () => {
 
       for (const source of sources) {
         expect(source.output).toMatch(/^out[/\\]/);
-        expect(source.output).toMatch(/\.types\.ts$/);
+        expect(source.output).toMatch(/\.schema\.ts$/);
       }
     });
   });
@@ -192,7 +231,7 @@ describe('Multi-source generation', () => {
         for (const source of sources) {
           expect(source.output).toBeDefined();
           expect(source.output).toMatch(/generated[/\\]/);
-          expect(source.output).toMatch(/\.types\.ts$/);
+          expect(source.output).toMatch(/\.schema\.ts$/);
         }
       }
     });

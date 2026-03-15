@@ -20,6 +20,7 @@ A declarative E2E/integration testing framework for distributed systems with mul
 - **Type-Safe** - Full TypeScript support with automatic type inference
 - **Flow Testing** - Test complete request flows through your distributed system
 - **Flexible Mocking** - Mock responses, add delays, drop messages, or proxy through
+- **Schema Generation CLI** - Auto-generate Zod schemas and service interfaces from OpenAPI and `.proto` files
 
 ## Installation
 
@@ -77,12 +78,104 @@ const result = await scenario.run(tc);
 console.log(result.passed); // true
 ```
 
+## Schema Generation (@testurio/cli)
+
+Generate type-safe Zod schemas and Testurio-compatible service interfaces from OpenAPI specs and `.proto` files.
+
+```bash
+npm install @testurio/cli --save-dev
+```
+
+### Quick Start
+
+```bash
+# Initialize config file
+testurio init
+
+# Generate schemas from config
+testurio generate
+
+# Or pass files directly (type auto-detected from extension)
+testurio generate api.yaml service.proto
+
+# Directory input (scans for .yaml, .yml, .json, .proto files)
+testurio generate ./api/
+
+# With output directory
+testurio generate api.yaml service.proto -o ./generated/
+```
+
+### Configuration
+
+```typescript
+// testurio.config.ts
+import { defineConfig } from '@testurio/cli';
+
+export default defineConfig({
+  generate: {
+    sources: [
+      {
+        input: './api/openapi.yaml',     // auto-detected as OpenAPI from .yaml
+      },
+      {
+        input: './proto/user-service.proto',  // auto-detected as gRPC from .proto
+        options: {
+          services: ['UserService'],
+        },
+      },
+      {
+        input: './specs/',               // directory input — all supported files
+        output: './generated/',          // each file → ./generated/{name}.types.ts
+      },
+    ],
+  },
+});
+```
+
+### Generated Output
+
+The generator produces TypeScript files containing Zod schemas and service interfaces compatible with Testurio protocols:
+
+```typescript
+// Generated from OpenAPI → use with HttpProtocol<PetStoreApi>()
+export interface PetStoreApi {
+  listPets: {
+    request: { method: 'GET'; path: '/pets' };
+    response: { code: 200; body: z.infer<typeof listPetsResponse>[] };
+  };
+}
+
+// Generated from .proto → use with GrpcUnaryProtocol<UserService>()
+export interface UserService {
+  GetUser: {
+    request: z.infer<typeof getUserRequestSchema>;
+    response: z.infer<typeof getUserResponseSchema>;
+    metadata: z.infer<typeof getUserMetadataSchema>;
+  };
+}
+```
+
+### Supported Features
+
+| Feature                      | OpenAPI              | gRPC                                            |
+| ---------------------------- | -------------------- | ----------------------------------------------- |
+| Zod schema generation        | Via Orval            | Via protobufjs                                  |
+| Service interface generation | `HttpProtocol<T>`    | `GrpcUnaryProtocol<T>`, `GrpcStreamProtocol<T>` |
+| External references          | `$ref` bundling      | Auto-detected include dirs                      |
+| Header/metadata typing       | OpenAPI `parameters` | Custom method options (`required_metadata`)     |
+| Streaming support            | N/A                  | Oneof envelope+variant, simple streaming        |
+| Service filtering            | N/A                  | `options.services` array                        |
+
 ## Roadmap
 
-- [ ] **@testurio/cli** - Type definition generation from API specifications
-  - [ ] OpenAPI/Swagger → HTTP service definitions
+- [x] **testurio cli** - Type definition generation from API specifications
+  - [x] OpenAPI → HTTP service definitions + Zod schemas
+  - [x] Protobuf → gRPC service definitions + Zod schemas (unary & streaming)
   - [ ] AsyncAPI → WebSocket/async service definitions
-  - [ ] Protobuf → gRPC service definitions
+- [ ] **Runtime Schema Validation** - Validate payloads at runtime using Zod-compatible schemas
+  - [ ] Schema-first protocol design — TypeScript infers generic types automatically from zod schema
+  - [ ] Auto-validation of outgoing requests/messages and incoming responses/events at I/O boundaries
+  - [ ] Supported across all protocols: HTTP, gRPC, WebSocket, TCP, Kafka, Redis Pub/Sub
 - [x] **Message Queue Support** - Integration with message brokers
   - [x] RabbitMQ (`@testurio/adapter-rabbitmq`)
   - [x] Kafka (`@testurio/adapter-kafka`)
@@ -368,17 +461,17 @@ console.log(result.passed); // true
 
 Components are high-level abstractions that own protocol adapters and manage their lifecycle.
 
-| Component       | Protocol Type | Role      | Description                                                    |
-| --------------- | ------------- | --------- | -------------------------------------------------------------- |
-| `Client`        | Sync          | Client    | Sends HTTP/gRPC unary requests to a target server              |
-| `Server`        | Sync          | Mock      | Listens for requests and returns configured responses          |
-| `Server`        | Sync          | Proxy     | Intercepts requests, can transform, mock, or forward to target |
-| `AsyncClient`   | Async         | Client    | Sends messages over WebSocket/TCP/gRPC streaming connections   |
-| `AsyncServer`   | Async         | Mock      | Listens for messages and sends response events                 |
-| `AsyncServer`   | Async         | Proxy     | Intercepts messages, can transform or forward to target        |
-| `Publisher`     | MQ            | Producer  | Publishes messages to message queue topics                     |
-| `Subscriber`    | MQ            | Consumer  | Subscribes to message queue topics and receives messages       |
-| `DataSource`    | None          | Data      | Direct SDK access to databases/caches (Redis, PostgreSQL, MongoDB) |
+| Component     | Protocol Type | Role     | Description                                                        |
+| ------------- | ------------- | -------- | ------------------------------------------------------------------ |
+| `Client`      | Sync          | Client   | Sends HTTP/gRPC unary requests to a target server                  |
+| `Server`      | Sync          | Mock     | Listens for requests and returns configured responses              |
+| `Server`      | Sync          | Proxy    | Intercepts requests, can transform, mock, or forward to target     |
+| `AsyncClient` | Async         | Client   | Sends messages over WebSocket/TCP/gRPC streaming connections       |
+| `AsyncServer` | Async         | Mock     | Listens for messages and sends response events                     |
+| `AsyncServer` | Async         | Proxy    | Intercepts messages, can transform or forward to target            |
+| `Publisher`   | MQ            | Producer | Publishes messages to message queue topics                         |
+| `Subscriber`  | MQ            | Consumer | Subscribes to message queue topics and receives messages           |
+| `DataSource`  | None          | Data     | Direct SDK access to databases/caches (Redis, PostgreSQL, MongoDB) |
 
 **Server as Proxy**: When a `Server` or `AsyncServer` has both `listenAddress` and `targetAddress`, it acts as a proxy:
 
@@ -411,19 +504,19 @@ Protocols are stateless adapter factories. Components own the adapters and manag
 
 ### Message Queue Adapters
 
-| Adapter              | Package                      | Use Case                        |
-| -------------------- | ---------------------------- | ------------------------------- |
-| `KafkaAdapter`       | `@testurio/adapter-kafka`    | Apache Kafka producer/consumer  |
-| `RabbitMQAdapter`    | `@testurio/adapter-rabbitmq` | RabbitMQ AMQP messaging         |
-| `RedisPubSubAdapter` | `@testurio/adapter-redis`    | Redis Pub/Sub channels          |
+| Adapter              | Package                      | Use Case                       |
+| -------------------- | ---------------------------- | ------------------------------ |
+| `KafkaAdapter`       | `@testurio/adapter-kafka`    | Apache Kafka producer/consumer |
+| `RabbitMQAdapter`    | `@testurio/adapter-rabbitmq` | RabbitMQ AMQP messaging        |
+| `RedisPubSubAdapter` | `@testurio/adapter-redis`    | Redis Pub/Sub channels         |
 
 ### DataSource Adapters
 
-| Adapter            | Package                    | Client Type | Use Case                     |
-| ------------------ | -------------------------- | ----------- | ---------------------------- |
-| `RedisAdapter`     | `@testurio/adapter-redis`  | `Redis`     | Redis cache/key-value store  |
-| `PostgresAdapter`  | `@testurio/adapter-pg`     | `Pool`      | PostgreSQL database          |
-| `MongoAdapter`     | `@testurio/adapter-mongo`  | `Db`        | MongoDB database             |
+| Adapter           | Package                   | Client Type | Use Case                    |
+| ----------------- | ------------------------- | ----------- | --------------------------- |
+| `RedisAdapter`    | `@testurio/adapter-redis` | `Redis`     | Redis cache/key-value store |
+| `PostgresAdapter` | `@testurio/adapter-pg`    | `Pool`      | PostgreSQL database         |
+| `MongoAdapter`    | `@testurio/adapter-mongo` | `Db`        | MongoDB database            |
 
 ### Custom Codecs
 

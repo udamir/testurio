@@ -107,6 +107,28 @@ interface Codec {
 
 The built-in `JsonCodec` handles JSON serialization. Custom codecs can be implemented for other formats.
 
+## CLI-Generated Protocol Schemas
+
+The `@testurio/cli` package generates `.schema.ts` files from OpenAPI specs and `.proto` files. Each generated file includes a **protocol schema bridge** — a runtime object compatible with the protocol's schema input types:
+
+- **Sync protocols** (HTTP, gRPC Unary): Generates `{serviceName}Schema` compatible with `SyncSchemaInput`
+- **Async protocols** (gRPC Streaming): Generates `{serviceName}StreamsSchema` compatible with `AsyncSchemaInput`
+
+```typescript
+// Generated from OpenAPI spec
+export const petStoreSchema = {
+  listPets: {
+    request: z.object({ method: z.literal('GET'), path: z.literal('/pets'), ... }),
+    response: z.object({ code: z.literal(200), body: ... }),
+  },
+};
+
+// Usage: types are inferred from schema
+new HttpProtocol({ schema: petStoreSchema });
+```
+
+The generated schema references existing Zod schema variables (no duplication). Response schemas use the first 2xx status code from the spec.
+
 ## Creating a New Protocol
 
 To add a new protocol:

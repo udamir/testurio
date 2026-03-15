@@ -3,6 +3,14 @@
  *
  * Demonstrates testing a gRPC-based API with testurio.
  *
+ * Schema-first approach (recommended):
+ *   Generate schemas with: testurio generate service.proto
+ *   Then import the generated schema:
+ *     import { userServiceSchema } from './generated/service.schema';
+ *     new GrpcUnaryProtocol({ protoPath: PROTO_PATH, schema: userServiceSchema })
+ *
+ * This example shows the explicit generic approach (no runtime validation).
+ *
  * Note: Requires a .proto file defining the service.
  */
 
@@ -13,7 +21,12 @@ import { Client, Server, TestScenario, testCase } from "testurio";
 // Type Definitions
 // =============================================================================
 
-// Service type definition matching the proto file
+// Manual service definition (explicit generic approach).
+// With CLI-generated schemas, this interface is auto-generated and types
+// are inferred from the schema — no manual definition needed:
+//   import { userServiceSchema } from './generated/service.schema';
+//   new GrpcUnaryProtocol({ protoPath: PROTO_PATH, schema: userServiceSchema })
+
 interface UserService {
 	GetUser: {
 		request: { user_id: number };
@@ -41,7 +54,7 @@ const SERVICE_NAME = "user.v1.UserService";
 // Component Setup
 // =============================================================================
 
-// Create mock gRPC server
+// Explicit generic approach (no runtime validation):
 const grpcServer = new Server("grpc-backend", {
 	protocol: new GrpcUnaryProtocol<UserService>({
 		schema: PROTO_PATH,
@@ -50,7 +63,6 @@ const grpcServer = new Server("grpc-backend", {
 	listenAddress: { host: "localhost", port: 50051 },
 });
 
-// Create gRPC client
 const grpcClient = new Client("grpc-client", {
 	protocol: new GrpcUnaryProtocol<UserService>({
 		schema: PROTO_PATH,

@@ -2,6 +2,14 @@
  * Basic HTTP Example
  *
  * Demonstrates testing a simple HTTP API with testurio.
+ *
+ * Schema-first approach (recommended):
+ *   Generate schemas with: testurio generate openapi.yaml
+ *   Then import the generated schema:
+ *     import { userApiSchema } from './generated/user-api.schema';
+ *     const protocol = new HttpProtocol({ schema: userApiSchema });
+ *
+ * This example shows the explicit generic approach (no runtime validation).
  */
 
 import { Client, HttpProtocol, Server, TestScenario, testCase } from "testurio";
@@ -9,6 +17,12 @@ import { Client, HttpProtocol, Server, TestScenario, testCase } from "testurio";
 // =============================================================================
 // Type Definitions
 // =============================================================================
+
+// Manual service definition (explicit generic approach).
+// With CLI-generated schemas, this interface is auto-generated and types
+// are inferred from the schema — no manual definition needed:
+//   import { userApiSchema } from './generated/user-api.schema';
+//   new HttpProtocol({ schema: userApiSchema })
 
 interface User {
 	id: number;
@@ -21,7 +35,6 @@ interface CreateUserPayload {
 	email: string;
 }
 
-// Type-safe HTTP service definition
 interface UserApiService {
 	getUser: {
 		request: { method: "GET"; path: "/users/{id}" };
@@ -37,13 +50,12 @@ interface UserApiService {
 // Component Setup
 // =============================================================================
 
-// Create mock backend server
+// Explicit generic approach (no runtime validation):
 const backendServer = new Server("backend", {
 	protocol: new HttpProtocol<UserApiService>(),
 	listenAddress: { host: "localhost", port: 3000 },
 });
 
-// Create HTTP client
 const apiClient = new Client("api", {
 	protocol: new HttpProtocol<UserApiService>(),
 	targetAddress: { host: "localhost", port: 3000 },

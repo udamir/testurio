@@ -94,6 +94,12 @@ The framework supports two typing modes:
 
 - **Loose mode** - Use protocol without a type parameter (e.g., `new HttpProtocol()`). Any string is accepted as a message type.
 - **Strict mode** - Use protocol with a type parameter (e.g., `new HttpProtocol<ServiceDef>()`). Only defined operation IDs are accepted.
+- **Schema-first mode** - Use CLI-generated protocol schemas (e.g., `new HttpProtocol({ schema: petStoreSchema })`). Types are inferred from the schema with runtime validation.
+
+The CLI (`@testurio/cli`) generates `.schema.ts` files containing:
+- Zod schemas for request/response validation
+- Protocol schema bridge exports (`{serviceName}Schema`) compatible with `SyncSchemaInput` / `AsyncSchemaInput`
+- TypeScript service interfaces for legacy explicit generic usage
 
 See [type-system.md](type-system.md) for details.
 
