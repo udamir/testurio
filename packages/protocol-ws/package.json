@@ -1,6 +1,6 @@
 {
   "name": "@testurio/protocol-ws",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "WebSocket protocol for testurio",
   "keywords": [
     "testurio",
@@ -42,7 +42,7 @@
     "ws": "^8.18.3"
   },
   "peerDependencies": {
-    "testurio": "^0.4.0"
+    "testurio": "^0.4.1"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",
