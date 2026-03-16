@@ -166,4 +166,16 @@ export class SyncServerHookBuilder<TPayload = unknown, TResponse = unknown> exte
 			params: {},
 		});
 	}
+
+	/**
+	 * Set timeout for this hook.
+	 * If the request is not received within the timeout, the step fails.
+	 * Updates step.params.timeout (not a handler).
+	 *
+	 * @param ms - Timeout in milliseconds
+	 * @returns this for chaining
+	 */
+	timeout(ms: number): this {
+		return this.setParam("timeout", ms);
+	}
 }

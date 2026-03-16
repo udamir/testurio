@@ -17,7 +17,7 @@ export class ValidationError extends Error {
 			operationId: string;
 			direction: string;
 			cause?: unknown;
-		},
+		}
 	) {
 		super(message, { cause: options.cause });
 		this.name = "ValidationError";

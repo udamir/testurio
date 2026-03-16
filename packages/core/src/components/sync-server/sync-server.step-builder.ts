@@ -34,13 +34,13 @@ export class SyncServerStepBuilder<P extends ISyncProtocol = ISyncProtocol> exte
 	 */
 	waitRequest<K extends SyncOperationId<P>>(
 		messageType: K,
-		options?: ProtocolRequestOptions<P> & { timeout?: number }
+		options?: ProtocolRequestOptions<P>
 	): SyncServerHookBuilder<ExtractServerRequest<P, K>, ExtractServerResponse<P, K>> {
 		return this.registerStep(
 			{
 				type: "waitRequest",
 				description: `Wait for request ${messageType}`,
-				params: { messageType, options, timeout: options?.timeout },
+				params: { messageType, options },
 				handlers: [],
 				mode: "wait",
 			},

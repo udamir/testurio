@@ -264,13 +264,12 @@ describe("DataSourceStepBuilder", () => {
 	it("should support timeout option", async () => {
 		const stepBuilder = ds.createStepBuilder(builder);
 
-		stepBuilder.exec(
-			async () => {
+		stepBuilder
+			.exec(async () => {
 				await new Promise((resolve) => setTimeout(resolve, 100));
 				return "done";
-			},
-			{ timeout: 50 }
-		);
+			})
+			.timeout(50);
 
 		const steps = builder.getSteps();
 		// New model: Component executes step via executeStep()

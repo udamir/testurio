@@ -1,2 +1,2 @@
-export * from "./validation.types";
 export * from "./validation.error";
+export * from "./validation.types";

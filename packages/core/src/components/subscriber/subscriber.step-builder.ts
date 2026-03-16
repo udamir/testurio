@@ -58,13 +58,12 @@ export class SubscriberStepBuilder<T extends Topics<T> = DefaultTopics, TMessage
 	 * Error if message arrives before this step starts executing.
 	 *
 	 * @param topic - Topic name to match
-	 * @param options - Optional matcher function and timeout
+	 * @param options - Optional matcher function
 	 */
 	waitMessage<K extends Topic<T>>(
 		topic: K,
 		options?: {
 			matcher?: (message: TMessage) => boolean;
-			timeout?: number;
 		}
 	): SubscriberHookBuilder<TMessage> {
 		// Subscription happens in registerHook() at runtime
@@ -76,7 +75,6 @@ export class SubscriberStepBuilder<T extends Topics<T> = DefaultTopics, TMessage
 					topic,
 					topics: [topic],
 					matcher: options?.matcher,
-					timeout: options?.timeout,
 				},
 				handlers: [],
 				mode: "wait",
@@ -89,13 +87,12 @@ export class SubscriberStepBuilder<T extends Topics<T> = DefaultTopics, TMessage
 	 * Wait for message from multiple topics (strict wait).
 	 *
 	 * @param topics - Array of topic names
-	 * @param options - Optional matcher function and timeout
+	 * @param options - Optional matcher function
 	 */
 	waitMessageFrom<K extends Topic<T>>(
 		topics: K[],
 		options?: {
 			matcher?: (message: TMessage) => boolean;
-			timeout?: number;
 		}
 	): SubscriberHookBuilder<TMessage> {
 		// Subscription happens in registerHook() at runtime
@@ -106,7 +103,6 @@ export class SubscriberStepBuilder<T extends Topics<T> = DefaultTopics, TMessage
 				params: {
 					topics,
 					matcher: options?.matcher,
-					timeout: options?.timeout,
 				},
 				handlers: [],
 				mode: "wait",

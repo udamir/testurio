@@ -1,6 +1,6 @@
 {
   "name": "@testurio/cli",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "CLI for Testurio - Generate type-safe schemas from OpenAPI and gRPC specs",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -29,24 +29,24 @@
     "prepublish": "V=$(node -p \"require('../../package.json').version\") && npm pkg set version=$V peerDependencies.testurio=^$V && pnpm run lint && pnpm run build"
   },
   "dependencies": {
-    "api-ref-bundler": "^0.3.0",
-    "commander": "^13.0.0",
+    "api-ref-bundler": "^0.5.0",
+    "commander": "^14.0.3",
     "cosmiconfig": "^9.0.0",
-    "orval": "^7.21.0",
+    "orval": "^8.5.3",
     "picocolors": "^1.1.0",
-    "protobufjs": "^7.4.0",
+    "protobufjs": "^8.0.0",
     "yaml": "^2.6.0",
-    "zod": "^3.23.0"
+    "zod": "^4.3.6"
   },
   "peerDependencies": {
-    "testurio": "^0.4.1"
+    "testurio": "^0.5.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.3.11",
-    "@types/node": "^24.10.0",
+    "@biomejs/biome": "^2.4.7",
+    "@types/node": "^25.5.0",
     "testurio": "workspace:*",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
-    "vitest": "^1.6.0"
+    "vitest": "^4.1.0"
   }
 }

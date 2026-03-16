@@ -100,10 +100,10 @@ describe("SyncClientRequestBuilder", () => {
 			});
 		});
 
-		it("should pass timeout to onResponse step", () => {
+		it("should pass timeout to onResponse step via chain", () => {
 			const stepBuilder = builder.use(client);
 
-			stepBuilder.request("getUsers", { method: "GET", path: "/users" }).onResponse(10000);
+			stepBuilder.request("getUsers", { method: "GET", path: "/users" }).onResponse().timeout(10000);
 
 			expect(registeredSteps[1].params).toMatchObject({
 				timeout: 10000,

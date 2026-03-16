@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Documentation Portal** — Comprehensive VitePress documentation site with getting started guides, API reference for all packages, examples/cookbook, and development guides for custom protocols, adapters, reporters, and codecs. Deployed to GitHub Pages via GitHub Actions.
+
 - **Runtime Schema Validation** — Validate request/response/message payloads at runtime using Zod-compatible schemas (any object with a `.parse()` method)
   - **Schema-first protocols** — Pass schemas to protocol constructors for automatic TypeScript type inference (`new HttpProtocol({ schema: zodSchemas })`). No manual generic parameters needed.
   - **Auto-validation** — Outgoing requests/messages and incoming responses/events are validated automatically at I/O boundaries when schemas are registered. Controlled via `validation: { validateRequests, validateResponses }` options.
@@ -38,6 +40,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ```
 
   `HttpProtocol` and `WebSocketProtocol` did not previously have a `schema` file path field and are unaffected by the rename.
+- **Timeout configuration** — Removed `timeout` from options/parameters in `waitRequest()`, `onResponse()`, `waitResponse()`, `waitMessage()`, `waitMessageFrom()`, and `exec()`. Use `.timeout(ms)` chain method instead.
+  - Before: `redis.exec(cb, { timeout: 5000 })`
+  - After: `redis.exec(cb).timeout(5000)`
+- **`ExecOptions` removed** — The `ExecOptions` interface has been removed from exports
+- **`SyncServerHookBuilder.timeout()`** — Added missing `.timeout(ms)` method to sync server hook builder for consistency
+
 
 ## [0.4.1] - 26
  

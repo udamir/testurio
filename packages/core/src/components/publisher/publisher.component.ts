@@ -8,8 +8,8 @@
 import type { Codec } from "../../codecs";
 import { defaultJsonCodec } from "../../codecs";
 import type { MQValidationOptions } from "../../protocols/base";
-import { ValidationError } from "../../validation";
 import type { MQSchemaInput, SchemaLike } from "../../validation";
+import { ValidationError } from "../../validation";
 import { BaseComponent } from "../base/base.component";
 import type { ITestCaseContext } from "../base/base.types";
 import type { Handler, Step } from "../base/step.types";
@@ -148,10 +148,12 @@ export class Publisher<
 		try {
 			schema.parse(data);
 		} catch (cause) {
-			throw new ValidationError(
-				`Auto-validation failed for ${this.name} '${topic}' (publish)`,
-				{ componentName: this.name, operationId: topic, direction: "publish", cause },
-			);
+			throw new ValidationError(`Auto-validation failed for ${this.name} '${topic}' (publish)`, {
+				componentName: this.name,
+				operationId: topic,
+				direction: "publish",
+				cause,
+			});
 		}
 	}
 

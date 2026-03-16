@@ -1,6 +1,6 @@
 {
   "name": "testurio-monorepo",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "private": true,
   "description": "Testurio monorepo - Declarative E2E/integration testing framework",
   "author": "Damir Yusipov",
@@ -25,25 +25,26 @@
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
     "prepublish": "pnpm run test:run && pnpm -r run prepublish",
-    "publish:all": "pnpm -r run prepublish && pnpm -r publish --access public"
+    "publish:all": "pnpm -r run prepublish && pnpm -r publish --access public",
+    "docs:dev": "cd docs-site && npm run dev",
+    "docs:build": "cd docs-site && npm run build",
+    "docs:preview": "cd docs-site && npm run preview"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.3.11",
-    "@testcontainers/mongodb": "^10.18.0",
-    "@testcontainers/postgresql": "^11.11.0",
-    "@testcontainers/rabbitmq": "^11.11.0",
-    "@testcontainers/redis": "^11.11.0",
-    "@testcontainers/redpanda": "^11.11.0",
-    "@types/node": "^24.10.0",
+    "@biomejs/biome": "^2.4.7",
+    "@testcontainers/mongodb": "^11.12.0",
+    "@testcontainers/postgresql": "^11.12.0",
+    "@testcontainers/rabbitmq": "^11.12.0",
+    "@testcontainers/redis": "^11.12.0",
+    "@testcontainers/redpanda": "^11.12.0",
+    "@types/node": "^25.5.0",
     "@types/ws": "^8.18.1",
-    "@vitest/coverage-v8": "^1.6.0",
-    "ioredis": "^5.4.1",
-    "testcontainers": "^11.11.0",
-    "ts-node": "^10.9.2",
+    "@vitest/coverage-v8": "^4.1.0",
+    "ioredis": "^5.10.0",
+    "testcontainers": "^11.12.0",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
-    "vite": "^6.4.1",
-    "vitest": "^1.6.0",
-    "zod": "^3.23.0"
+    "vitest": "^4.1.0",
+    "zod": "^4.3.6"
   }
 }

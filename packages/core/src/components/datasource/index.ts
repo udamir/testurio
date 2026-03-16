@@ -14,6 +14,5 @@ export type {
 	DataSourceAdapter,
 	DataSourceAdapterEvents,
 	DataSourceOptions,
-	ExecOptions,
 	Unsubscribe,
 } from "./datasource.types";

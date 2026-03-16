@@ -126,8 +126,6 @@ export class WebSocketProtocol<S = never>
 /**
  * Create WebSocket protocol factory
  */
-export function createWebSocketProtocol<S = never>(
-	options?: WsProtocolOptions<S>
-): WebSocketProtocol<S> {
+export function createWebSocketProtocol<S = never>(options?: WsProtocolOptions<S>): WebSocketProtocol<S> {
 	return new WebSocketProtocol<S>(options);
 }

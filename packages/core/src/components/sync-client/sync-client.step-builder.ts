@@ -46,11 +46,9 @@ export class SyncClientRequestBuilder<P extends ISyncProtocol, K extends SyncOpe
 	 *
 	 * Creates a separate onResponse step (visible in reports).
 	 * Returns SyncClientHookBuilder for assert/transform/timeout chaining.
-	 *
-	 * @param timeout - Optional timeout in ms (default: 5000)
 	 */
-	onResponse(timeout?: number): SyncClientHookBuilder<ExtractClientResponse<P, K>> {
-		return this.stepBuilder.onResponse(this.messageType, this.traceId, timeout);
+	onResponse(): SyncClientHookBuilder<ExtractClientResponse<P, K>> {
+		return this.stepBuilder.onResponse(this.messageType, this.traceId);
 	}
 }
 
@@ -114,12 +112,10 @@ export class SyncClientStepBuilder<P extends ISyncProtocol = ISyncProtocol> exte
 	 *
 	 * @param messageType - Message type to match
 	 * @param traceId - Optional traceId for explicit correlation
-	 * @param timeout - Optional timeout in ms (default: 5000)
 	 */
 	onResponse<K extends SyncOperationId<P>, TResponse = ExtractClientResponse<P, K>>(
 		messageType: K,
-		traceId?: string,
-		timeout?: number
+		traceId?: string
 	): SyncClientHookBuilder<TResponse> {
 		return this.registerStep(
 			{
@@ -128,7 +124,6 @@ export class SyncClientStepBuilder<P extends ISyncProtocol = ISyncProtocol> exte
 				params: {
 					messageType,
 					traceId,
-					timeout,
 				},
 				handlers: [],
 				mode: "hook",
@@ -145,12 +140,10 @@ export class SyncClientStepBuilder<P extends ISyncProtocol = ISyncProtocol> exte
 	 *
 	 * @param messageType - Message type to match
 	 * @param traceId - Optional traceId for explicit correlation
-	 * @param timeout - Optional timeout in ms (default: 5000)
 	 */
 	waitResponse<K extends SyncOperationId<P>, TResponse = ExtractClientResponse<P, K>>(
 		messageType: K,
-		traceId?: string,
-		timeout?: number
+		traceId?: string
 	): SyncClientHookBuilder<TResponse> {
 		return this.registerStep(
 			{
@@ -159,7 +152,6 @@ export class SyncClientStepBuilder<P extends ISyncProtocol = ISyncProtocol> exte
 				params: {
 					messageType,
 					traceId,
-					timeout,
 				},
 				handlers: [],
 				mode: "wait",

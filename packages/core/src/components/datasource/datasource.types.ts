@@ -110,15 +110,3 @@ export interface DataSourceOptions<A extends DataSourceAdapter<unknown, unknown>
 	/** Adapter instance for the data store */
 	adapter: A;
 }
-
-// =============================================================================
-// Exec Options
-// =============================================================================
-
-/**
- * Options for exec() operation
- */
-export interface ExecOptions {
-	/** Timeout in milliseconds. Operation fails if exceeded. */
-	timeout?: number;
-}

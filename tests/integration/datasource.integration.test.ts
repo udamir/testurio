@@ -439,14 +439,13 @@ describe("DataSource Integration", () => {
 			});
 
 			const tc = testCase("should timeout", (test) => {
-				test.use(db).exec(
-					"slow operation",
-					async () => {
+				test
+					.use(db)
+					.exec("slow operation", async () => {
 						await new Promise((resolve) => setTimeout(resolve, 200));
 						return "done";
-					},
-					{ timeout: 50 }
-				);
+					})
+					.timeout(50);
 			});
 
 			const result = await scenario.run(tc);

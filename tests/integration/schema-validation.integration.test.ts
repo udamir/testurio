@@ -35,10 +35,7 @@ import {
 } from "testurio";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import {
-	createFakeMQAdapter,
-	createInMemoryBroker,
-} from "../mocks/fakeMQAdapter";
+import { createFakeMQAdapter, createInMemoryBroker } from "../mocks/fakeMQAdapter";
 
 // ============================================================================
 // Port Management
@@ -54,32 +51,40 @@ function getNextPort(): number {
 // ============================================================================
 
 // HTTP schemas must match the full protocol types (HttpRequest/HttpResponse)
-const CreateUserRequestSchema = z.object({
-	method: z.string(),
-	path: z.string(),
-	body: z.object({
-		name: z.string().min(1),
-		email: z.string().email(),
-	}),
-}).passthrough();
+const CreateUserRequestSchema = z
+	.object({
+		method: z.string(),
+		path: z.string(),
+		body: z.object({
+			name: z.string().min(1),
+			email: z.string().email(),
+		}),
+	})
+	.passthrough();
 
-const UserResponseSchema = z.object({
-	code: z.number(),
-	body: z.object({
-		id: z.number(),
-		name: z.string(),
-		email: z.string().email(),
-	}),
-}).passthrough();
+const UserResponseSchema = z
+	.object({
+		code: z.number(),
+		body: z.object({
+			id: z.number(),
+			name: z.string(),
+			email: z.string().email(),
+		}),
+	})
+	.passthrough();
 
-const UsersListResponseSchema = z.object({
-	code: z.number(),
-	body: z.array(z.object({
-		id: z.number(),
-		name: z.string(),
-		email: z.string().email(),
-	})),
-}).passthrough();
+const UsersListResponseSchema = z
+	.object({
+		code: z.number(),
+		body: z.array(
+			z.object({
+				id: z.number(),
+				name: z.string(),
+				email: z.string().email(),
+			})
+		),
+	})
+	.passthrough();
 
 // Async/MQ schemas validate payloads directly
 const OrderEventSchema = z.object({
@@ -320,10 +325,12 @@ describe("Schema Validation", () => {
 			});
 
 			// Schema validates the full HttpResponse
-			const ResponseSchema = z.object({
-				code: z.number(),
-				body: z.object({ id: z.number(), name: z.string() }),
-			}).passthrough();
+			const ResponseSchema = z
+				.object({
+					code: z.number(),
+					body: z.object({ id: z.number(), name: z.string() }),
+				})
+				.passthrough();
 
 			const tc = testCase("validate with explicit schema passes", (test) => {
 				const api = test.use(client);
@@ -336,7 +343,8 @@ describe("Schema Validation", () => {
 					body: { id: 1, name: "Alice" },
 				}));
 
-				api.onResponse("getUser")
+				api
+					.onResponse("getUser")
 					.validate(ResponseSchema)
 					.assert((parsed) => {
 						return typeof parsed === "object" && parsed !== null;
@@ -366,14 +374,16 @@ describe("Schema Validation", () => {
 			});
 
 			// Schema requires email field in body
-			const StrictSchema = z.object({
-				code: z.number(),
-				body: z.object({
-					id: z.number(),
-					name: z.string(),
-					email: z.string().email(),
-				}),
-			}).passthrough();
+			const StrictSchema = z
+				.object({
+					code: z.number(),
+					body: z.object({
+						id: z.number(),
+						name: z.string(),
+						email: z.string().email(),
+					}),
+				})
+				.passthrough();
 
 			const tc = testCase("validate with explicit schema fails", (test) => {
 				const api = test.use(client);
@@ -406,10 +416,12 @@ describe("Schema Validation", () => {
 
 			const httpSchema = {
 				getUser: {
-					response: z.object({
-						code: z.number(),
-						body: z.object({ id: z.number(), name: z.string() }),
-					}).passthrough(),
+					response: z
+						.object({
+							code: z.number(),
+							body: z.object({ id: z.number(), name: z.string() }),
+						})
+						.passthrough(),
 				},
 			};
 
@@ -439,7 +451,8 @@ describe("Schema Validation", () => {
 					body: { id: 1, name: "Bob" },
 				}));
 
-				api.onResponse("getUser")
+				api
+					.onResponse("getUser")
 					.validate()
 					.assert((parsed) => {
 						return typeof parsed === "object" && parsed !== null;
@@ -546,7 +559,7 @@ describe("Schema Validation", () => {
 
 				// Use waitEvent with timeout - event never arrives because server
 				// auto-validation fails and drops the message before handler runs
-				api.waitEvent("ack", { timeout: 1000 });
+				api.waitEvent("ack").timeout(1000);
 			});
 
 			const result = await scenario.run(tc);
@@ -600,7 +613,7 @@ describe("Schema Validation", () => {
 
 				// Use waitEvent with timeout - event never arrives because server
 				// auto-validation of outgoing event fails
-				api.waitEvent("pong", { timeout: 1000 });
+				api.waitEvent("pong").timeout(1000);
 			});
 
 			const result = await scenario.run(tc);
@@ -794,10 +807,14 @@ describe("Schema Validation", () => {
 				}));
 
 				// Schema expects id to be number
-				api.onResponse("getUser").validate(z.object({
-					code: z.number(),
-					body: z.object({ id: z.number(), name: z.string() }),
-				}).passthrough());
+				api.onResponse("getUser").validate(
+					z
+						.object({
+							code: z.number(),
+							body: z.object({ id: z.number(), name: z.string() }),
+						})
+						.passthrough()
+				);
 			});
 
 			const result = await scenario.run(tc);
@@ -848,7 +865,8 @@ describe("Schema Validation", () => {
 					action: "login",
 				}));
 
-				api.onEvent("statusUpdate")
+				api
+					.onEvent("statusUpdate")
 					.validate(EventSchema)
 					.assert((parsed) => {
 						return parsed.userId === "user-1" && parsed.action === "login";
@@ -914,14 +932,16 @@ describe("Schema Validation", () => {
 			// Schema that matches the FakeMessage adapter-level structure.
 			// In a real adapter, the codec decodes the message and only the payload
 			// would be passed. With FakeMQAdapter the full FakeMessage is passed to handlers.
-			const FakeMessageOrderSchema = z.object({
-				topic: z.string(),
-				payload: z.object({
-					orderId: z.string().uuid(),
-					amount: z.number().positive(),
-				}),
-				timestamp: z.number(),
-			}).passthrough();
+			const FakeMessageOrderSchema = z
+				.object({
+					topic: z.string(),
+					payload: z.object({
+						orderId: z.string().uuid(),
+						amount: z.number().positive(),
+					}),
+					timestamp: z.number(),
+				})
+				.passthrough();
 
 			const subscriber = new Subscriber("test-sub", {
 				adapter: createFakeMQAdapter(broker),
@@ -948,7 +968,8 @@ describe("Schema Validation", () => {
 					amount: 99.99,
 				});
 
-				sub.waitMessage("orders.created")
+				sub
+					.waitMessage("orders.created")
 					.validate(FakeMessageOrderSchema)
 					.assert((parsed) => {
 						return typeof parsed.payload.orderId === "string" && parsed.payload.amount > 0;
@@ -1053,7 +1074,7 @@ describe("Schema Validation", () => {
 				const pub = test.use(publisher);
 
 				// Set up subscriber to wait for message
-				sub.waitMessage("orders.created", { timeout: 2000 });
+				sub.waitMessage("orders.created").timeout(2000);
 
 				// Publish invalid data
 				pub.publish("orders.created", {
@@ -1215,7 +1236,7 @@ describe("Schema Validation", () => {
 
 				// Use waitEvent with timeout - event won't arrive because server
 				// auto-validation fails on outgoing event
-				api.waitEvent("welcome", { timeout: 1000 });
+				api.waitEvent("welcome").timeout(1000);
 			});
 
 			const result = await scenario.run(tc);

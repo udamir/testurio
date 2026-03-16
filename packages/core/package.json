@@ -1,6 +1,6 @@
 {
   "name": "testurio",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Declarative E2E/integration testing framework for distributed systems with multi-protocol support (HTTP, gRPC, WebSocket, TCP)",
   "keywords": [
     "testing",
@@ -47,10 +47,10 @@
     "prepublish": "V=$(node -p \"require('../../package.json').version\") && npm pkg set version=$V && pnpm run lint && pnpm run build && cp ../../README.md ./"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.3.11",
-    "@types/node": "^24.10.0",
+    "@biomejs/biome": "^2.4.7",
+    "@types/node": "^25.5.0",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
-    "vitest": "^1.6.0"
+    "vitest": "^4.1.0"
   }
 }

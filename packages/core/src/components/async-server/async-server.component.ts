@@ -25,9 +25,9 @@ import type {
 	Message,
 	TlsConfig,
 } from "../../protocols/base";
-import { ValidationError } from "../../validation";
-import type { AsyncSchemaInput, SchemaLike } from "../../validation";
 import { createDeferred, type Deferred } from "../../utils";
+import type { AsyncSchemaInput, SchemaLike } from "../../validation";
+import { ValidationError } from "../../validation";
 import type { ITestCaseContext } from "../base/base.types";
 import { DropMessageError, sleep } from "../base/base.utils";
 import type { Hook } from "../base/hook.types";
@@ -767,10 +767,12 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 		try {
 			schema.parse(data);
 		} catch (cause) {
-			throw new ValidationError(
-				`Auto-validation failed for ${this.name} '${key}' (${direction})`,
-				{ componentName: this.name, operationId: key, direction, cause },
-			);
+			throw new ValidationError(`Auto-validation failed for ${this.name} '${key}' (${direction})`, {
+				componentName: this.name,
+				operationId: key,
+				direction,
+				cause,
+			});
 		}
 	}
 
@@ -860,20 +862,23 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 
 				const schema = explicitSchema ?? this.lookupSchema(lookupKey, lookupDirection);
 				if (!schema) {
-					throw new ValidationError(
-						`No schema registered for '${lookupKey}' (${lookupDirection})`,
-						{ componentName: this.name, operationId: lookupKey, direction: lookupDirection },
-					);
+					throw new ValidationError(`No schema registered for '${lookupKey}' (${lookupDirection})`, {
+						componentName: this.name,
+						operationId: lookupKey,
+						direction: lookupDirection,
+					});
 				}
 
 				try {
 					return schema.parse(payload);
 				} catch (cause) {
 					if (cause instanceof ValidationError) throw cause;
-					throw new ValidationError(
-						`Validation failed for ${this.name} '${lookupKey}' (${lookupDirection})`,
-						{ componentName: this.name, operationId: lookupKey, direction: lookupDirection, cause },
-					);
+					throw new ValidationError(`Validation failed for ${this.name} '${lookupKey}' (${lookupDirection})`, {
+						componentName: this.name,
+						operationId: lookupKey,
+						direction: lookupDirection,
+						cause,
+					});
 				}
 			}
 

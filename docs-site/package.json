@@ -1,0 +1,13 @@
+{
+  "name": "testurio-docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "cp ../CHANGELOG.md ./changelog.md && vitepress dev",
+    "build": "cp ../CHANGELOG.md ./changelog.md && vitepress build",
+    "preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "vitepress": "^1.6.3"
+  }
+}

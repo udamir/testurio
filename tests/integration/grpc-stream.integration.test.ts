@@ -54,7 +54,7 @@ interface StreamTestService {
 			subscribe: SubscribeMessage;
 			error: ErrorMessage;
 		};
-	}
+	};
 }
 
 // Proto file path for test service

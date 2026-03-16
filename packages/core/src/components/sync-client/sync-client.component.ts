@@ -6,9 +6,15 @@
  * - waitResponse (strict): Error if response arrives before step starts
  */
 
-import type { Address, ISyncClientAdapter, ISyncProtocol, SyncValidationOptions, TlsConfig } from "../../protocols/base";
-import { ValidationError } from "../../validation";
+import type {
+	Address,
+	ISyncClientAdapter,
+	ISyncProtocol,
+	SyncValidationOptions,
+	TlsConfig,
+} from "../../protocols/base";
 import type { SchemaLike, SyncSchemaInput } from "../../validation";
+import { ValidationError } from "../../validation";
 import type { ITestCaseContext } from "../base/base.types";
 import type { Hook } from "../base/hook.types";
 import { ServiceComponent } from "../base/service.component";
@@ -209,20 +215,23 @@ export class Client<P extends ISyncProtocol = ISyncProtocol> extends ServiceComp
 
 				const schema = explicitSchema ?? this.lookupSchema(lookupKey, lookupDirection);
 				if (!schema) {
-					throw new ValidationError(
-						`No schema registered for '${lookupKey}' (${lookupDirection})`,
-						{ componentName: this.name, operationId: lookupKey, direction: lookupDirection },
-					);
+					throw new ValidationError(`No schema registered for '${lookupKey}' (${lookupDirection})`, {
+						componentName: this.name,
+						operationId: lookupKey,
+						direction: lookupDirection,
+					});
 				}
 
 				try {
 					return schema.parse(payload);
 				} catch (cause) {
 					if (cause instanceof ValidationError) throw cause;
-					throw new ValidationError(
-						`Validation failed for ${this.name} '${lookupKey}' (${lookupDirection})`,
-						{ componentName: this.name, operationId: lookupKey, direction: lookupDirection, cause },
-					);
+					throw new ValidationError(`Validation failed for ${this.name} '${lookupKey}' (${lookupDirection})`, {
+						componentName: this.name,
+						operationId: lookupKey,
+						direction: lookupDirection,
+						cause,
+					});
 				}
 			}
 
@@ -259,10 +268,12 @@ export class Client<P extends ISyncProtocol = ISyncProtocol> extends ServiceComp
 		try {
 			schema.parse(data);
 		} catch (cause) {
-			throw new ValidationError(
-				`Auto-validation failed for ${this.name} '${key}' (${direction})`,
-				{ componentName: this.name, operationId: key, direction, cause },
-			);
+			throw new ValidationError(`Auto-validation failed for ${this.name} '${key}' (${direction})`, {
+				componentName: this.name,
+				operationId: key,
+				direction,
+				cause,
+			});
 		}
 	}
 
