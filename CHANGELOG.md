@@ -47,7 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`SyncServerHookBuilder.timeout()`** — Added missing `.timeout(ms)` method to sync server hook builder for consistency
 
 
-## [0.4.1] - 26
+## [0.4.1] - 2026-02-26
  
 ### Added
 
