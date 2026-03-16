@@ -4,7 +4,7 @@
  * Type definitions for TCP protocol.
  */
 
-import type { Codec, Message } from "testurio";
+import type { AsyncSchemaInput, Codec, Message } from "testurio";
 
 // =============================================================================
 // TCP Service Definition
@@ -42,9 +42,9 @@ export interface TcpServiceDefinition {
 /**
  * TCP protocol options
  */
-export interface TcpProtocolOptions {
-	/** Protocol buffer schema path */
-	schema?: string;
+export interface TcpProtocolOptions<S = never> {
+	/** Typed schema for validation and type inference */
+	schema?: S extends AsyncSchemaInput ? S : AsyncSchemaInput;
 	/** Connection timeout in milliseconds */
 	timeout?: number;
 	/** Message delimiter (default: "\n") - only used when lengthFieldLength is 0 */

@@ -103,6 +103,53 @@ The CLI (`@testurio/cli`) generates `.schema.ts` files containing:
 
 See [type-system.md](type-system.md) for details.
 
+## Validation Subsystem
+
+Runtime schema validation operates at the Component layer, using Zod-compatible schemas (any object with a `.parse()` method) registered on protocols or components.
+
+### Schema Sources
+
+| Component Type | Schema Source | Schema Structure |
+|---------------|--------------|------------------|
+| `Client`, `Server` | `protocol.schema` | `SyncSchemaInput` — `{ [operationId]: { request?: SchemaLike, response?: SchemaLike } }` |
+| `AsyncClient`, `AsyncServer` | `protocol.schema` | `AsyncSchemaInput` — `{ clientMessages?: { [type]: SchemaLike }, serverMessages?: { [type]: SchemaLike } }` |
+| `Publisher`, `Subscriber` | `options.schema` (component-level only) | `MQSchemaInput` — `{ [topic]: SchemaLike }` |
+| `DataSource` | N/A | Excluded — native SDK pass-through |
+
+### Validation Flow
+
+```
+Schema Registration:
+  Protocol constructor → protocol.schema field
+  MQ component constructor → options.schema (component-level)
+
+Auto-Validation (at I/O boundaries):
+  Outgoing data → autoValidate() → schema.parse(payload) → send
+  Incoming data → autoValidate() → schema.parse(payload) → deliver to hooks
+
+Explicit Validation (in handler chain):
+  .validate()        → lookup schema from protocol/component registry
+  .validate(schema)  → use provided schema directly
+```
+
+### Key Types
+
+- **`SchemaLike<T>`** — Interface requiring `.parse(data: unknown): T`. Compatible with Zod, Yup, or any validation library.
+- **`ValidationError`** — Extends `Error` with `componentName`, `operationId`, `direction`, and `cause` fields.
+- **`SyncValidationOptions`** — Controls auto-validation for Client/Server: `{ validateRequests?: boolean, validateResponses?: boolean }`.
+- **`AsyncValidationOptions`** — Controls auto-validation for AsyncClient/AsyncServer: `{ validateMessages?: boolean, validateEvents?: boolean }`.
+- **`MQValidationOptions`** — Controls auto-validation for Publisher/Subscriber: `{ validateMessages?: boolean }`.
+
+### Three Typing Modes
+
+Protocols use `S = never` as the generic default, with `Resolve*Type<S>` conditional types:
+
+| Mode | Generic Arg | `schema` Field | Result |
+|------|------------|----------------|--------|
+| Schema-first | None | Provided | Types inferred from schema via `InferSyncService<S>` / `InferAsyncMessages<S>` |
+| Explicit generic | `<ServiceDef>` | None | Types come from explicit generic (no runtime validation) |
+| Loose | None | None | Any string accepted as operation/message type |
+
 ## Test Execution Flow
 
 ```

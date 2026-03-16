@@ -4,6 +4,8 @@
  * Type definitions for protocols.
  */
 
+import type { AsyncSchemaInput, SyncSchemaInput } from "../../validation";
+
 // =============================================================================
 // Network Configuration
 // =============================================================================
@@ -45,13 +47,34 @@ export interface Address {
 // =============================================================================
 
 /**
- * Validation options
+ * Validation options for sync components (Client, Server).
+ * Controls auto-validation of requests and responses.
  */
-export interface ValidationOptions {
+export interface SyncValidationOptions {
+	/** Validate request data (outgoing for Client, incoming for Server). Default: true */
 	validateRequests?: boolean;
+	/** Validate response data (incoming for Client, outgoing for Server). Default: true */
 	validateResponses?: boolean;
-	strict?: boolean;
-	[key: string]: unknown;
+}
+
+/**
+ * Validation options for async components (AsyncClient, AsyncServer).
+ * Controls auto-validation of messages and events.
+ */
+export interface AsyncValidationOptions {
+	/** Validate client→server messages (sendMessage, onMessage). Default: true */
+	validateMessages?: boolean;
+	/** Validate server→client events (sendEvent, onEvent). Default: true */
+	validateEvents?: boolean;
+}
+
+/**
+ * Validation options for MQ components (Publisher, Subscriber).
+ * Controls auto-validation of published/received messages.
+ */
+export interface MQValidationOptions {
+	/** Validate published/received messages. Default: true */
+	validateMessages?: boolean;
 }
 
 /**
@@ -61,7 +84,6 @@ export interface SchemaDefinition {
 	type: "openapi" | "protobuf" | "json-schema" | "custom";
 	content: string | Record<string, unknown>;
 	validate?: boolean;
-	validationOptions?: ValidationOptions;
 }
 
 // =============================================================================
@@ -190,6 +212,9 @@ export interface IBaseProtocol<M = unknown, TServerAdapter = unknown, TClientAda
 
 	/** Phantom type for message type inference */
 	readonly $types: M;
+
+	/** Runtime validation schema (optional) */
+	readonly schema?: SyncSchemaInput | AsyncSchemaInput;
 
 	/** Load schema (optional) */
 	loadSchema?(schemaPath: string | string[]): Promise<unknown>;

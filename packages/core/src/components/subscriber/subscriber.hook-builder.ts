@@ -5,6 +5,7 @@
  * Pure data builder - contains NO execution logic.
  */
 
+import type { SchemaLike } from "../../validation";
 import { BaseHookBuilder } from "../base/hook-builder";
 
 /**
@@ -53,6 +54,30 @@ export class SubscriberHookBuilder<TMessage> extends BaseHookBuilder {
 			type: "transform",
 			description,
 			params: { handler: fn },
+		});
+	}
+
+	/**
+	 * Validate the message payload against a schema.
+	 *
+	 * No-args: looks up schema from component registry at runtime.
+	 * With schema: uses explicit schema and narrows the type.
+	 *
+	 * @param schema - Optional explicit schema (overrides registry lookup)
+	 * @returns hook builder with validated type
+	 */
+	validate(): this;
+	validate<TOutput>(schema: SchemaLike<TOutput>): SubscriberHookBuilder<TOutput>;
+	validate<TOutput = TMessage>(schema?: SchemaLike<TOutput>): SubscriberHookBuilder<TOutput> {
+		const stepParams = this.step.params as Record<string, unknown>;
+		const topics = stepParams.topics as string[] | undefined;
+		return this.addHandler<SubscriberHookBuilder<TOutput>>({
+			type: "validate",
+			params: {
+				schema: schema ?? undefined,
+				lookupKey: topics?.[0],
+				lookupDirection: "message",
+			},
 		});
 	}
 

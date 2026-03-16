@@ -11,7 +11,7 @@
  * @example Loose mode
  * ```typescript
  * const protocol = new GrpcUnaryProtocol({
- *   schema: './greeter.proto',
+ *   protoPath: './greeter.proto',
  * });
  * // client.request('AnyMethod', { payload: { ... } })
  * ```
@@ -22,7 +22,7 @@
  *   SayHello: { request: { name: string }; response: { message: string } };
  * }
  * const protocol = new GrpcUnaryProtocol<GreeterService>({
- *   schema: './greeter.proto',
+ *   protoPath: './greeter.proto',
  * });
  * // client.request('SayHello', { payload: { name: 'World' } })
  * ```
@@ -31,11 +31,13 @@
 import type * as grpc from "@grpc/grpc-js";
 import type {
 	ClientProtocolConfig,
+	InferSyncService,
 	ISyncClientAdapter,
 	ISyncProtocol,
 	ISyncServerAdapter,
 	SchemaDefinition,
 	ServerProtocolConfig,
+	SyncSchemaInput,
 } from "testurio";
 import { BaseSyncProtocol } from "testurio";
 import { GrpcBaseProtocol } from "./grpc-base";
@@ -49,42 +51,54 @@ import type {
 import { GrpcUnaryClientAdapter, GrpcUnaryServerAdapter } from "./unary.adapters";
 
 /**
+ * Resolve gRPC unary protocol type from generic parameter.
+ *
+ * Three cases:
+ * 1. S = never → DefaultGrpcUnaryOperations (loose mode)
+ * 2. S = SyncSchemaInput → InferSyncService<S> (schema inference)
+ * 3. S = explicit type → GrpcUnaryOperations<S> (backward compat with wrapping)
+ */
+type ResolveGrpcUnaryType<S> = [S] extends [never]
+	? DefaultGrpcUnaryOperations
+	: S extends SyncSchemaInput
+		? InferSyncService<S>
+		: GrpcUnaryOperations<S>;
+
+/**
  * gRPC Unary Protocol
  *
  * Implements synchronous request/response pattern for gRPC unary calls.
  *
- * Uses self-referential constraint `T extends GrpcUnaryOperations<T>` which:
- * - Does NOT require T to have an index signature
- * - Allows strict typing with specific operation keys
- * - Falls back to loose mode when T = DefaultGrpcUnaryOperations
- *
- * @template T - Service definition type for type-safe method calls
+ * @template S - Schema input, explicit service type, or never (loose mode)
  *   - If omitted: loose mode (any operation ID accepted)
- *   - If provided: strict mode (only defined operations allowed)
+ *   - If SyncSchemaInput: schema inference mode
+ *   - If explicit type: strict mode (only defined operations allowed)
  *
  * @example Strict mode (specific operations)
  * ```typescript
  * interface MyService {
  *   GetUser: { request: { id: number }; response: { name: string } };
  * }
- * const protocol = new GrpcUnaryProtocol<MyService>({ schema: './service.proto' });
+ * const protocol = new GrpcUnaryProtocol<MyService>({ protoPath: './service.proto' });
  * ```
  */
-export class GrpcUnaryProtocol<T extends GrpcUnaryOperations<T> = DefaultGrpcUnaryOperations>
-	extends BaseSyncProtocol<GrpcUnaryOperations<T>, GrpcOperationRequest, GrpcOperationResponse>
-	implements ISyncProtocol<GrpcUnaryOperations<T>, GrpcOperationRequest, GrpcOperationResponse>
+export class GrpcUnaryProtocol<S = never>
+	extends BaseSyncProtocol<ResolveGrpcUnaryType<S>, GrpcOperationRequest, GrpcOperationResponse>
+	implements ISyncProtocol<ResolveGrpcUnaryType<S>, GrpcOperationRequest, GrpcOperationResponse>
 {
 	readonly type = "grpc-unary";
+	override readonly schema?: SyncSchemaInput;
 
 	/** Protocol options */
-	private protocolOptions: GrpcUnaryProtocolOptions;
+	private protocolOptions: GrpcUnaryProtocolOptions<S>;
 
 	/** Base protocol for shared functionality */
 	private base: GrpcBaseProtocol;
 
-	constructor(options: GrpcUnaryProtocolOptions = {}) {
+	constructor(options: GrpcUnaryProtocolOptions<S> = {} as GrpcUnaryProtocolOptions<S>) {
 		super();
 		this.protocolOptions = options;
+		this.schema = options.schema as SyncSchemaInput | undefined;
 		this.base = new (class extends GrpcBaseProtocol {})();
 	}
 
@@ -120,8 +134,8 @@ export class GrpcUnaryProtocol<T extends GrpcUnaryOperations<T> = DefaultGrpcUna
 	 */
 	async createServer(config: ServerProtocolConfig): Promise<ISyncServerAdapter> {
 		// Auto-load schema from options if not already loaded
-		if (!this.base.getServiceClient("") && this.protocolOptions.schema) {
-			await this.loadSchema(this.protocolOptions.schema);
+		if (!this.base.getServiceClient("") && this.protocolOptions.protoPath) {
+			await this.loadSchema(this.protocolOptions.protoPath);
 		}
 
 		return GrpcUnaryServerAdapter.create(
@@ -138,8 +152,8 @@ export class GrpcUnaryProtocol<T extends GrpcUnaryOperations<T> = DefaultGrpcUna
 	 */
 	async createClient(config: ClientProtocolConfig): Promise<ISyncClientAdapter> {
 		// Auto-load schema from options if not already loaded
-		if (!this.base.getServiceClient("") && this.protocolOptions.schema) {
-			await this.loadSchema(this.protocolOptions.schema);
+		if (!this.base.getServiceClient("") && this.protocolOptions.protoPath) {
+			await this.loadSchema(this.protocolOptions.protoPath);
 		}
 
 		// Get the service client constructor
@@ -176,10 +190,10 @@ export class GrpcUnaryProtocol<T extends GrpcUnaryOperations<T> = DefaultGrpcUna
 /**
  * Create gRPC unary protocol factory
  *
- * @template T - Service definition type (uses self-referential constraint)
+ * @template S - Schema input, explicit service type, or never (loose mode)
  */
-export function createGrpcUnaryProtocol<T extends GrpcUnaryOperations<T> = DefaultGrpcUnaryOperations>(
-	options: GrpcUnaryProtocolOptions = {}
-): GrpcUnaryProtocol<T> {
-	return new GrpcUnaryProtocol<T>(options);
+export function createGrpcUnaryProtocol<S = never>(
+	options: GrpcUnaryProtocolOptions<S> = {} as GrpcUnaryProtocolOptions<S>
+): GrpcUnaryProtocol<S> {
+	return new GrpcUnaryProtocol<S>(options);
 }

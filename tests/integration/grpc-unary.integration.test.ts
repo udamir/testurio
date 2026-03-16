@@ -221,14 +221,14 @@ const TEST_SERVICE = "test.v1.TestService";
 // Helper functions for creating components with typed adapters
 const createMockServer = (name: string, port: number) =>
 	new Server(name, {
-		protocol: new GrpcUnaryProtocol<TestService>({ schema: TEST_PROTO }),
+		protocol: new GrpcUnaryProtocol<TestService>({ protoPath: TEST_PROTO }),
 		listenAddress: { host: "127.0.0.1", port },
 	});
 
 const createClient = (name: string, port: number) =>
 	new Client(name, {
 		protocol: new GrpcUnaryProtocol<TestService>({
-			schema: TEST_PROTO,
+			protoPath: TEST_PROTO,
 			serviceName: TEST_SERVICE,
 		}),
 		targetAddress: { host: "127.0.0.1", port },
@@ -236,7 +236,7 @@ const createClient = (name: string, port: number) =>
 
 const createProxyServer = (name: string, listenPort: number, targetPort: number) =>
 	new Server(name, {
-		protocol: new GrpcUnaryProtocol<TestService>({ schema: TEST_PROTO }),
+		protocol: new GrpcUnaryProtocol<TestService>({ protoPath: TEST_PROTO }),
 		listenAddress: { host: "127.0.0.1", port: listenPort },
 		targetAddress: { host: "127.0.0.1", port: targetPort },
 	});

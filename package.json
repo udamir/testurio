@@ -32,8 +32,8 @@
     "@testcontainers/mongodb": "^10.18.0",
     "@testcontainers/postgresql": "^11.11.0",
     "@testcontainers/rabbitmq": "^11.11.0",
-    "@testcontainers/redpanda": "^11.11.0",
     "@testcontainers/redis": "^11.11.0",
+    "@testcontainers/redpanda": "^11.11.0",
     "@types/node": "^24.10.0",
     "@types/ws": "^8.18.1",
     "@vitest/coverage-v8": "^1.6.0",
@@ -43,6 +43,7 @@
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
     "vite": "^6.4.1",
-    "vitest": "^1.6.0"
+    "vitest": "^1.6.0",
+    "zod": "^3.23.0"
   }
 }

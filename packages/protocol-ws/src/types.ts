@@ -4,7 +4,7 @@
  * Type definitions for WebSocket protocol.
  */
 
-import type { Codec, Message } from "testurio";
+import type { AsyncSchemaInput, Codec, Message } from "testurio";
 
 // =============================================================================
 // WebSocket Service Definition
@@ -42,7 +42,7 @@ export interface WsServiceDefinition {
 /**
  * WebSocket protocol options
  */
-export interface WsProtocolOptions {
+export interface WsProtocolOptions<S = never> {
 	/** Connection timeout in milliseconds */
 	timeout?: number;
 	/** Subprotocols to use */
@@ -59,6 +59,8 @@ export interface WsProtocolOptions {
 	 * ```
 	 */
 	codec?: Codec<string | Uint8Array>;
+	/** Typed schema for validation and type inference */
+	schema?: S extends AsyncSchemaInput ? S : AsyncSchemaInput;
 }
 
 // =============================================================================

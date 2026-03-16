@@ -7,6 +7,9 @@
 
 import type { Codec } from "../../codecs";
 import { defaultJsonCodec } from "../../codecs";
+import type { MQValidationOptions } from "../../protocols/base";
+import { ValidationError } from "../../validation";
+import type { MQSchemaInput, SchemaLike } from "../../validation";
 import { BaseComponent } from "../base/base.component";
 import type { ITestCaseContext } from "../base/base.types";
 import type { Handler, Step } from "../base/step.types";
@@ -20,6 +23,10 @@ export interface PublisherOptions<TOptions = unknown, TBatchMessage = unknown> {
 	 * Defaults to JSON codec.
 	 */
 	codec?: Codec;
+	/** Schema for topic payload validation */
+	schema?: MQSchemaInput;
+	/** Control auto-validation behavior */
+	validation?: MQValidationOptions;
 }
 
 /**
@@ -44,16 +51,24 @@ export class Publisher<
 > extends BaseComponent<PublisherStepBuilder<T, TOptions, TBatchMessage>> {
 	private readonly _adapter: IMQAdapter<unknown, TOptions, TBatchMessage>;
 	private readonly _codec: Codec;
+	private readonly _schema?: MQSchemaInput;
+	private readonly _validation?: MQValidationOptions;
 	private _publisherAdapter?: IMQPublisherAdapter<TOptions, TBatchMessage>;
 
 	constructor(name: string, options: PublisherOptions<TOptions, TBatchMessage>) {
 		super(name);
 		this._adapter = options.adapter;
 		this._codec = options.codec ?? defaultJsonCodec;
+		this._schema = options.schema;
+		this._validation = options.validation;
 	}
 
 	createStepBuilder(context: ITestCaseContext): PublisherStepBuilder<T, TOptions, TBatchMessage> {
 		return new PublisherStepBuilder<T, TOptions, TBatchMessage>(context, this);
+	}
+
+	get validationOptions(): MQValidationOptions | undefined {
+		return this._validation;
 	}
 
 	// =========================================================================
@@ -78,6 +93,11 @@ export class Publisher<
 			options?: TOptions;
 		};
 
+		// Auto-validate outgoing message
+		if (this._validation?.validateMessages !== false) {
+			this.autoValidate(params.topic, params.payload);
+		}
+
 		if (!this._publisherAdapter) {
 			throw new Error(`Publisher ${this.name} is not started`);
 		}
@@ -91,11 +111,48 @@ export class Publisher<
 			messages: TBatchMessage[];
 		};
 
+		// Auto-validate each message in batch
+		if (this._validation?.validateMessages !== false) {
+			for (const message of params.messages) {
+				this.autoValidate(params.topic, message);
+			}
+		}
+
 		if (!this._publisherAdapter) {
 			throw new Error(`Publisher ${this.name} is not started`);
 		}
 
 		await this._publisherAdapter.publishBatch(params.topic, params.messages);
+	}
+
+	// =========================================================================
+	// Schema Lookup
+	// =========================================================================
+
+	/**
+	 * Look up schema for a topic.
+	 * Used by auto-validation.
+	 */
+	lookupSchema(topic: string): SchemaLike | undefined {
+		return this._schema?.[topic];
+	}
+
+	/**
+	 * Auto-validate data against registered schema.
+	 * No-op if no schema is registered for the given topic.
+	 */
+	private autoValidate(topic: string, data: unknown): void {
+		const schema = this.lookupSchema(topic);
+		if (!schema) return;
+
+		try {
+			schema.parse(data);
+		} catch (cause) {
+			throw new ValidationError(
+				`Auto-validation failed for ${this.name} '${topic}' (publish)`,
+				{ componentName: this.name, operationId: topic, direction: "publish", cause },
+			);
+		}
 	}
 
 	// =========================================================================

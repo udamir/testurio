@@ -12,11 +12,12 @@
  */
 
 import type {
+	AsyncSchemaInput,
 	ClientProtocolConfig,
 	IAsyncClientAdapter,
 	IAsyncProtocol,
 	IAsyncServerAdapter,
-	SchemaDefinition,
+	InferAsyncMessages,
 	ServerProtocolConfig,
 } from "testurio";
 import { BaseAsyncProtocol } from "testurio";
@@ -24,16 +25,32 @@ import { TcpClientAdapter, TcpServerAdapter } from "./tcp.adapters";
 import type { TcpProtocolOptions, TcpServiceDefinition } from "./types";
 
 /**
+ * Resolve TCP protocol type from generic parameter.
+ *
+ * Three cases:
+ * 1. S = never → TcpServiceDefinition (loose mode with index signatures)
+ * 2. S = AsyncSchemaInput → InferAsyncMessages<S> (schema inference)
+ * 3. S = explicit type with clientMessages/serverMessages → S as-is (backward compat)
+ */
+type ResolveTcpType<S> = [S] extends [never]
+	? TcpServiceDefinition
+	: S extends AsyncSchemaInput
+		? InferAsyncMessages<S>
+		: S extends TcpServiceDefinition
+			? S
+			: TcpServiceDefinition;
+
+/**
  * TCP Protocol
  *
  * Provides TCP client and server functionality for testing.
  * Uses real TCP servers and sockets for actual network communication.
  *
- * @template S - Service definition with clientMessages/serverMessages
+ * @template S - Schema input, explicit service type, or never (loose mode)
  *
  * @example
  * ```typescript
- * interface MyTcpService extends TcpServiceDefinition {
+ * interface MyTcpService {
  *   clientMessages: {
  *     OrderRequest: { orderId: string; quantity: number };
  *   };
@@ -43,51 +60,35 @@ import type { TcpProtocolOptions, TcpServiceDefinition } from "./types";
  * }
  *
  * const protocol = new TcpProtocol<MyTcpService>();
- *
- * // Server mode
- * await protocol.startServer(config, (connection) => {
- *   connection.onMessage("OrderRequest", undefined, async (payload) => {
- *     await connection.sendEvent("OrderResponse", { orderId: payload.orderId, status: "ok" });
- *   });
- * });
- *
- * // Client mode
- * const connection = await protocol.connect(config);
- * connection.onEvent("OrderResponse", undefined, (payload) => console.log(payload));
- * await connection.sendMessage("OrderRequest", { orderId: "123", quantity: 5 });
  * ```
  */
-export class TcpProtocol<S extends TcpServiceDefinition = TcpServiceDefinition>
-	extends BaseAsyncProtocol<S>
-	implements IAsyncProtocol<S>
+export class TcpProtocol<S = never>
+	extends BaseAsyncProtocol<ResolveTcpType<S>>
+	implements IAsyncProtocol<ResolveTcpType<S>>
 {
 	readonly type = "tcp";
+	override readonly schema?: AsyncSchemaInput;
 
 	/** Protocol options */
-	private protocolOptions: TcpProtocolOptions;
+	private protocolOptions: TcpProtocolOptions<S>;
 
-	constructor(options: TcpProtocolOptions = {}) {
+	constructor(options: TcpProtocolOptions<S> = {} as TcpProtocolOptions<S>) {
 		super();
 		this.protocolOptions = options;
+		this.schema = options.schema as AsyncSchemaInput | undefined;
 	}
 
 	/**
 	 * Get protocol options
 	 */
-	getOptions(): TcpProtocolOptions {
+	getOptions(): TcpProtocolOptions<S> {
 		return this.protocolOptions;
 	}
 
-	/**
-	 * Load Protobuf schema (optional for TCP)
-	 */
-	async loadSchema(schemaPath: string | string[]): Promise<SchemaDefinition> {
-		const paths = Array.isArray(schemaPath) ? schemaPath : [schemaPath];
-		return {
-			type: "protobuf",
-			content: { paths: paths.join(",") },
-			validate: true,
-		};
+	/** Extract transport options (exclude schema which is only for validation) */
+	private getTransportOptions(): TcpProtocolOptions {
+		const { schema: _schema, ...transport } = this.protocolOptions;
+		return transport;
 	}
 
 	/**
@@ -98,7 +99,7 @@ export class TcpProtocol<S extends TcpServiceDefinition = TcpServiceDefinition>
 		return TcpServerAdapter.create(
 			config.listenAddress.host,
 			config.listenAddress.port,
-			this.protocolOptions,
+			this.getTransportOptions(),
 			config.tls
 		);
 	}
@@ -112,7 +113,7 @@ export class TcpProtocol<S extends TcpServiceDefinition = TcpServiceDefinition>
 		const connectionTimeout = config.timeouts?.connectionTimeout ?? this.protocolOptions.timeout;
 
 		return TcpClientAdapter.create(config.targetAddress.host, config.targetAddress.port, {
-			...this.protocolOptions,
+			...this.getTransportOptions(),
 			timeout: connectionTimeout,
 			tls: config.tls?.enabled ?? this.protocolOptions.tls,
 		});
@@ -122,6 +123,6 @@ export class TcpProtocol<S extends TcpServiceDefinition = TcpServiceDefinition>
 /**
  * Create TCP protocol factory
  */
-export function createTcpProtocol<S extends TcpServiceDefinition>(options?: TcpProtocolOptions): TcpProtocol<S> {
+export function createTcpProtocol<S = never>(options?: TcpProtocolOptions<S>): TcpProtocol<S> {
 	return new TcpProtocol<S>(options);
 }

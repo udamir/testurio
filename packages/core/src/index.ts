@@ -52,3 +52,5 @@ export * from "./protocols/http";
 // Recording (Interaction, InteractionRecorder, etc.)
 export * from "./recording";
 export * from "./utils";
+// Validation (SchemaLike, ValidationError, type inference utilities)
+export * from "./validation";

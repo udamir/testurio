@@ -18,12 +18,15 @@
 
 import type {
 	Address,
+	AsyncValidationOptions,
 	IAsyncClientAdapter,
 	IAsyncProtocol,
 	IAsyncServerAdapter,
 	Message,
 	TlsConfig,
 } from "../../protocols/base";
+import { ValidationError } from "../../validation";
+import type { AsyncSchemaInput, SchemaLike } from "../../validation";
 import { createDeferred, type Deferred } from "../../utils";
 import type { ITestCaseContext } from "../base/base.types";
 import { DropMessageError, sleep } from "../base/base.utils";
@@ -53,6 +56,8 @@ export interface AsyncServerOptions<P extends IAsyncProtocol = IAsyncProtocol> {
 	listenAddress: Address;
 	targetAddress?: Address;
 	tls?: TlsConfig;
+	/** Control auto-validation behavior */
+	validation?: AsyncValidationOptions;
 }
 
 export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends ServiceComponent<
@@ -62,6 +67,8 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 	private readonly _listenAddress: Address;
 	private readonly _targetAddress?: Address;
 	private readonly _tls?: TlsConfig;
+	private readonly _schema?: AsyncSchemaInput;
+	private readonly _validation?: AsyncValidationOptions;
 	private _serverAdapter?: IAsyncServerAdapter;
 
 	/** All client connections (mock and proxy modes) */
@@ -87,6 +94,8 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 		this._listenAddress = options.listenAddress;
 		this._targetAddress = options.targetAddress;
 		this._tls = options.tls;
+		this._schema = options.protocol.schema as AsyncSchemaInput | undefined;
+		this._validation = options.validation;
 	}
 
 	static create<P extends IAsyncProtocol>(name: string, options: AsyncServerOptions<P>): AsyncServer<P> {
@@ -99,6 +108,10 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 
 	get isProxy(): boolean {
 		return this._targetAddress !== undefined;
+	}
+
+	get validationOptions(): AsyncValidationOptions | undefined {
+		return this._validation;
 	}
 
 	// =========================================================================
@@ -277,6 +290,11 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 			payload: unknown;
 		};
 
+		// Auto-validate outgoing event
+		if (this._validation?.validateEvents !== false) {
+			this.autoValidate(params.eventType, "serverMessage", params.payload);
+		}
+
 		const message: Message = {
 			type: params.eventType,
 			payload: params.payload,
@@ -300,6 +318,11 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 			eventType: string;
 			payload: unknown;
 		};
+
+		// Auto-validate outgoing broadcast
+		if (this._validation?.validateEvents !== false) {
+			this.autoValidate(params.eventType, "serverMessage", params.payload);
+		}
 
 		const message: Message = {
 			type: params.eventType,
@@ -338,6 +361,11 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 	 * Called by connection.onMessage callback.
 	 */
 	private async handleIncomingMessage(message: Message, connection: IAsyncClientAdapter): Promise<void> {
+		// Auto-validate incoming client message
+		if (this._validation?.validateMessages !== false) {
+			this.autoValidate(message.type, "clientMessage", message.payload);
+		}
+
 		const incomingMessage: IncomingMessage = {
 			type: message.type,
 			payload: message.payload,
@@ -714,6 +742,39 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 	}
 
 	// =========================================================================
+	// Schema Lookup
+	// =========================================================================
+
+	/**
+	 * Look up schema for a message type by key and direction.
+	 * Used by validate handler and auto-validation.
+	 */
+	lookupSchema(key: string, direction: string): SchemaLike | undefined {
+		if (!this._schema) return undefined;
+		if (direction === "clientMessage") return this._schema.clientMessages?.[key];
+		if (direction === "serverMessage") return this._schema.serverMessages?.[key];
+		return undefined;
+	}
+
+	/**
+	 * Auto-validate data against registered schema.
+	 * No-op if no schema is registered for the given key/direction.
+	 */
+	private autoValidate(key: string, direction: string, data: unknown): void {
+		const schema = this.lookupSchema(key, direction);
+		if (!schema) return;
+
+		try {
+			schema.parse(data);
+		} catch (cause) {
+			throw new ValidationError(
+				`Auto-validation failed for ${this.name} '${key}' (${direction})`,
+				{ componentName: this.name, operationId: key, direction, cause },
+			);
+		}
+	}
+
+	// =========================================================================
 	// Handler Execution
 	// =========================================================================
 
@@ -765,6 +826,11 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 				const eventHandler = params.handler as (p: unknown) => unknown | Promise<unknown>;
 				const eventPayload = await eventHandler(payload);
 
+				// Auto-validate outgoing mock event
+				if (this._validation?.validateEvents !== false) {
+					this.autoValidate(eventType, "serverMessage", eventPayload);
+				}
+
 				if (serverContext?.connectionId) {
 					const connection = this._connections.get(serverContext.connectionId);
 					if (connection) {
@@ -785,6 +851,30 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 					this.linkConnection(serverContext.connectionId, linkId);
 				}
 				return undefined;
+			}
+
+			case "validate": {
+				const explicitSchema = params.schema as SchemaLike | undefined;
+				const lookupKey = params.lookupKey as string;
+				const lookupDirection = params.lookupDirection as string;
+
+				const schema = explicitSchema ?? this.lookupSchema(lookupKey, lookupDirection);
+				if (!schema) {
+					throw new ValidationError(
+						`No schema registered for '${lookupKey}' (${lookupDirection})`,
+						{ componentName: this.name, operationId: lookupKey, direction: lookupDirection },
+					);
+				}
+
+				try {
+					return schema.parse(payload);
+				} catch (cause) {
+					if (cause instanceof ValidationError) throw cause;
+					throw new ValidationError(
+						`Validation failed for ${this.name} '${lookupKey}' (${lookupDirection})`,
+						{ componentName: this.name, operationId: lookupKey, direction: lookupDirection, cause },
+					);
+				}
 			}
 
 			default:

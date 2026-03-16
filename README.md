@@ -20,7 +20,7 @@ A declarative E2E/integration testing framework for distributed systems with mul
 - **Type-Safe** - Full TypeScript support with automatic type inference
 - **Flow Testing** - Test complete request flows through your distributed system
 - **Flexible Mocking** - Mock responses, add delays, drop messages, or proxy through
-- **Schema Generation CLI** - Auto-generate Zod schemas and service interfaces from OpenAPI and `.proto` files
+- **Schema Generation CLI** - Auto-generate Zod schema and service interfaces from OpenAPI and `.proto` files
 
 ## Installation
 
@@ -172,10 +172,10 @@ export interface UserService {
   - [x] OpenAPI → HTTP service definitions + Zod schemas
   - [x] Protobuf → gRPC service definitions + Zod schemas (unary & streaming)
   - [ ] AsyncAPI → WebSocket/async service definitions
-- [ ] **Runtime Schema Validation** - Validate payloads at runtime using Zod-compatible schemas
-  - [ ] Schema-first protocol design — TypeScript infers generic types automatically from zod schema
-  - [ ] Auto-validation of outgoing requests/messages and incoming responses/events at I/O boundaries
-  - [ ] Supported across all protocols: HTTP, gRPC, WebSocket, TCP, Kafka, Redis Pub/Sub
+- [x] **Runtime Schema Validation** - Validate payloads at runtime using Zod-compatible schemas
+  - [x] Schema-first protocol design — TypeScript infers generic types automatically from zod schema
+  - [x] Auto-validation of outgoing requests/messages and incoming responses/events at I/O boundaries
+  - [x] Supported across all protocols: HTTP, gRPC, WebSocket, TCP, Kafka, Redis Pub/Sub
 - [x] **Message Queue Support** - Integration with message brokers
   - [x] RabbitMQ (`@testurio/adapter-rabbitmq`)
   - [x] Kafka (`@testurio/adapter-kafka`)
@@ -195,12 +195,12 @@ import { GrpcUnaryProtocol } from '@testurio/protocol-grpc';
 
 // Define gRPC components with proto schema
 const grpcClient = new Client('api', {
-  protocol: new GrpcUnaryProtocol({ schema: 'user.proto', serviceName: 'UserService' }),
+  protocol: new GrpcUnaryProtocol({ protoPath: 'user.proto', serviceName: 'UserService' }),
   targetAddress: { host: 'localhost', port: 5000 },
 });
 
 const grpcServer = new Server('backend', {
-  protocol: new GrpcUnaryProtocol({ schema: 'user.proto' }),
+  protocol: new GrpcUnaryProtocol({ protoPath: 'user.proto' }),
   listenAddress: { host: 'localhost', port: 5000 },
 });
 
@@ -550,6 +550,139 @@ const tcpProtocol = new TcpProtocol({
 ```
 
 See [examples/custom-codecs](./examples/custom-codecs/) for MessagePack and Protobuf codec examples.
+
+### Runtime Schema Validation
+
+Testurio supports runtime payload validation using Zod-compatible schemas (any object with a `.parse()` method). Schemas serve dual purpose: **TypeScript type inference** (eliminating manual generic parameters) and **runtime validation** at I/O boundaries.
+
+#### Schema-First Protocols
+
+Pass a schema to the protocol constructor — TypeScript infers all types automatically:
+
+```typescript
+import { z } from 'zod';
+import { Client, Server, HttpProtocol, testCase } from 'testurio';
+
+// Define Zod schemas for each operation
+const userApiSchema = {
+  getUsers: {
+    request: z.object({ method: z.literal('GET'), path: z.literal('/users') }),
+    response: z.object({
+      code: z.literal(200),
+      body: z.array(z.object({ id: z.number(), name: z.string() })),
+    }),
+  },
+};
+
+// Types are inferred from schema — no manual generic needed
+const client = new Client('api', {
+  protocol: new HttpProtocol({ schema: userApiSchema }),
+  targetAddress: { host: 'localhost', port: 3000 },
+});
+
+const server = new Server('mock', {
+  protocol: new HttpProtocol({ schema: userApiSchema }),
+  listenAddress: { host: 'localhost', port: 3000 },
+});
+```
+
+This works across all protocols:
+
+```typescript
+import { WebSocketProtocol } from '@testurio/protocol-ws';
+
+// Async protocol with schema
+const wsSchema = {
+  clientMessages: {
+    ping: z.object({ seq: z.number() }),
+  },
+  serverMessages: {
+    pong: z.object({ seq: z.number(), timestamp: z.number() }),
+  },
+};
+
+const wsClient = new AsyncClient('ws', {
+  protocol: new WebSocketProtocol({ schema: wsSchema }),
+  targetAddress: { host: 'localhost', port: 4000 },
+});
+```
+
+#### Auto-Validation
+
+When schemas are registered, outgoing requests and incoming responses are automatically validated. Invalid payloads throw a `ValidationError` with context about the component, operation, and direction.
+
+```typescript
+// Auto-validation is ON by default
+const client = new Client('api', {
+  protocol: new HttpProtocol({ schema: userApiSchema }),
+  targetAddress: { host: 'localhost', port: 3000 },
+});
+
+// Disable auto-validation selectively
+const client = new Client('api', {
+  protocol: new HttpProtocol({ schema: userApiSchema }),
+  targetAddress: { host: 'localhost', port: 3000 },
+  validation: {
+    validateRequests: false,   // Skip outgoing request validation
+    validateResponses: false,  // Skip incoming response validation
+  },
+});
+```
+
+#### Explicit `.validate()` Builder Method
+
+Use `.validate()` on hook builders for explicit per-step validation:
+
+```typescript
+const tc = testCase('Validate response schema', (test) => {
+  const api = test.use(client);
+  const mock = test.use(server);
+
+  api.request('getUsers', { method: 'GET', path: '/users' });
+  mock.onRequest('getUsers').mockResponse(() => ({
+    code: 200,
+    body: [{ id: 1, name: 'Alice' }],
+  }));
+
+  // Validate using protocol-registered schema (no args)
+  api.onResponse('getUsers').validate();
+
+  // Or validate with an explicit schema
+  const UserListSchema = z.array(z.object({ id: z.number(), name: z.string() }));
+  api.onResponse('getUsers').validate(UserListSchema);
+});
+```
+
+#### Message Queue Validation
+
+Publisher and Subscriber components support topic-based schemas:
+
+```typescript
+import { Publisher, Subscriber } from 'testurio';
+import { KafkaAdapter } from '@testurio/adapter-kafka';
+
+const orderSchema = {
+  'order-created': z.object({ orderId: z.string(), amount: z.number() }),
+};
+
+const publisher = new Publisher('pub', {
+  adapter: new KafkaAdapter({ brokers: ['localhost:9092'] }),
+  schema: orderSchema,  // Topic-based validation
+});
+
+const subscriber = new Subscriber('sub', {
+  adapter: new KafkaAdapter({ brokers: ['localhost:9092'], groupId: 'test' }),
+  schema: orderSchema,
+});
+```
+
+#### Three Typing Modes
+
+| Mode                 | Usage                                     | Runtime Validation               |
+| -------------------- | ----------------------------------------- | -------------------------------- |
+| **Schema-first**     | `new HttpProtocol({ schema: zodSchema })` | Yes — types inferred from schema |
+| **Explicit generic** | `new HttpProtocol<ServiceDef>()`          | No — compile-time types only     |
+| **Loose**            | `new HttpProtocol()`                      | No — any string accepted         |
 
 ```typescript
 // Sync protocols: createServer() / createClient() return adapters

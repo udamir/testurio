@@ -5,6 +5,7 @@
  * Provides common functionality while enforcing type safety at compile time.
  */
 
+import type { AsyncSchemaInput, SyncSchemaInput } from "../../validation/validation.types";
 import type { AsyncMessages, Operations, SyncOperations } from "./base.types";
 
 /**
@@ -17,6 +18,9 @@ export abstract class BaseProtocol<T extends Operations = Operations> {
 	abstract readonly type: string;
 
 	declare readonly $types: T;
+
+	/** Runtime schema for validation. Stored by concrete protocols. */
+	readonly schema?: SyncSchemaInput | AsyncSchemaInput;
 }
 
 /**

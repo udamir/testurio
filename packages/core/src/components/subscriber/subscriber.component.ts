@@ -10,6 +10,9 @@
 
 import type { Codec } from "../../codecs";
 import { defaultJsonCodec } from "../../codecs";
+import type { MQValidationOptions } from "../../protocols/base";
+import { ValidationError } from "../../validation";
+import type { MQSchemaInput, SchemaLike } from "../../validation";
 import { BaseComponent } from "../base/base.component";
 import type { ITestCaseContext } from "../base/base.types";
 import type { Hook } from "../base/hook.types";
@@ -34,6 +37,10 @@ export interface SubscriberOptions<TMessage = unknown> {
 	 * Defaults to JSON codec.
 	 */
 	codec?: Codec;
+	/** Schema for topic payload validation */
+	schema?: MQSchemaInput;
+	/** Control auto-validation behavior */
+	validation?: MQValidationOptions;
 }
 
 /**
@@ -54,16 +61,24 @@ export class Subscriber<T extends Topics<T> = DefaultTopics, TMessage = unknown>
 > {
 	private readonly _adapter: IMQAdapter<TMessage>;
 	private readonly _codec: Codec;
+	private readonly _schema?: MQSchemaInput;
+	private readonly _validation?: MQValidationOptions;
 	private _subscriberAdapter?: IMQSubscriberAdapter<TMessage>;
 
 	constructor(name: string, options: SubscriberOptions<TMessage>) {
 		super(name);
 		this._adapter = options.adapter;
 		this._codec = options.codec ?? defaultJsonCodec;
+		this._schema = options.schema;
+		this._validation = options.validation;
 	}
 
 	createStepBuilder(context: ITestCaseContext): SubscriberStepBuilder<T, TMessage> {
 		return new SubscriberStepBuilder<T, TMessage>(context, this);
+	}
+
+	get validationOptions(): MQValidationOptions | undefined {
+		return this._validation;
 	}
 
 	// =========================================================================
@@ -168,6 +183,16 @@ export class Subscriber<T extends Topics<T> = DefaultTopics, TMessage = unknown>
 	 * Topic is passed separately from adapter-specific message.
 	 */
 	private handleIncomingMessage(topic: string, message: TMessage): void {
+		// Auto-validate incoming message
+		if (this._validation?.validateMessages !== false) {
+			try {
+				this.autoValidate(topic, message);
+			} catch (error) {
+				this.trackUnhandledError(error instanceof Error ? error : new Error(String(error)));
+				return;
+			}
+		}
+
 		const hook = this.findMatchingHookForMessage(topic, message);
 		if (!hook?.step) {
 			return; // No matching hook - ignore
@@ -202,6 +227,36 @@ export class Subscriber<T extends Topics<T> = DefaultTopics, TMessage = unknown>
 			}
 		}
 		return null;
+	}
+
+	// =========================================================================
+	// Schema Lookup
+	// =========================================================================
+
+	/**
+	 * Look up schema for a topic.
+	 * Used by validate handler and auto-validation.
+	 */
+	lookupSchema(topic: string): SchemaLike | undefined {
+		return this._schema?.[topic];
+	}
+
+	/**
+	 * Auto-validate data against registered schema.
+	 * No-op if no schema is registered for the given topic.
+	 */
+	private autoValidate(topic: string, data: unknown): void {
+		const schema = this.lookupSchema(topic);
+		if (!schema) return;
+
+		try {
+			schema.parse(data);
+		} catch (cause) {
+			throw new ValidationError(
+				`Auto-validation failed for ${this.name} '${topic}' (subscribe)`,
+				{ componentName: this.name, operationId: topic, direction: "subscribe", cause },
+			);
+		}
 	}
 
 	// =========================================================================
@@ -268,6 +323,30 @@ export class Subscriber<T extends Topics<T> = DefaultTopics, TMessage = unknown>
 
 			case "drop": {
 				throw new DropMessageError();
+			}
+
+			case "validate": {
+				const explicitSchema = params.schema as SchemaLike | undefined;
+				const lookupKey = params.lookupKey as string;
+				const lookupDirection = params.lookupDirection as string;
+
+				const schema = explicitSchema ?? this.lookupSchema(lookupKey);
+				if (!schema) {
+					throw new ValidationError(
+						`No schema registered for '${lookupKey}' (${lookupDirection})`,
+						{ componentName: this.name, operationId: lookupKey, direction: lookupDirection },
+					);
+				}
+
+				try {
+					return schema.parse(payload);
+				} catch (cause) {
+					if (cause instanceof ValidationError) throw cause;
+					throw new ValidationError(
+						`Validation failed for ${this.name} '${lookupKey}' (${lookupDirection})`,
+						{ componentName: this.name, operationId: lookupKey, direction: lookupDirection, cause },
+					);
+				}
 			}
 
 			default:

@@ -16,8 +16,11 @@ import type {
 	ISyncProtocol,
 	ISyncServerAdapter,
 	MessageMatcher,
+	SyncValidationOptions,
 	TlsConfig,
 } from "../../protocols/base";
+import { ValidationError } from "../../validation";
+import type { SchemaLike, SyncSchemaInput } from "../../validation";
 import type { ITestCaseContext } from "../base/base.types";
 import { DropMessageError, sleep } from "../base/base.utils";
 import type { Hook } from "../base/hook.types";
@@ -30,12 +33,16 @@ export interface ServerOptions<P extends ISyncProtocol = ISyncProtocol> {
 	listenAddress: Address;
 	targetAddress?: Address;
 	tls?: TlsConfig;
+	/** Control auto-validation behavior */
+	validation?: SyncValidationOptions;
 }
 
 export class Server<P extends ISyncProtocol = ISyncProtocol> extends ServiceComponent<P, SyncServerStepBuilder<P>> {
 	private readonly _listenAddress: Address;
 	private readonly _targetAddress?: Address;
 	private readonly _tls?: TlsConfig;
+	private readonly _schema?: SyncSchemaInput;
+	private readonly _validation?: SyncValidationOptions;
 	private _serverAdapter?: ISyncServerAdapter;
 	private _clientAdapter?: ISyncClientAdapter;
 
@@ -44,6 +51,8 @@ export class Server<P extends ISyncProtocol = ISyncProtocol> extends ServiceComp
 		this._listenAddress = options.listenAddress;
 		this._targetAddress = options.targetAddress;
 		this._tls = options.tls;
+		this._schema = options.protocol.schema as SyncSchemaInput | undefined;
+		this._validation = options.validation;
 	}
 
 	static create<P extends ISyncProtocol>(name: string, options: ServerOptions<P>): Server<P> {
@@ -56,6 +65,10 @@ export class Server<P extends ISyncProtocol = ISyncProtocol> extends ServiceComp
 
 	get isProxy(): boolean {
 		return this._targetAddress !== undefined;
+	}
+
+	get validationOptions(): SyncValidationOptions | undefined {
+		return this._validation;
 	}
 
 	// =========================================================================
@@ -121,6 +134,11 @@ export class Server<P extends ISyncProtocol = ISyncProtocol> extends ServiceComp
 	// =========================================================================
 
 	async handleIncomingRequest(messageType: string, request: P["$request"]): Promise<P["$response"] | null> {
+		// Auto-validate incoming request
+		if (this._validation?.validateRequests !== false) {
+			this.autoValidate(messageType, "request", request);
+		}
+
 		const message = { type: messageType, payload: request };
 
 		const hook = this.findMatchingHook(message);
@@ -254,11 +272,79 @@ export class Server<P extends ISyncProtocol = ISyncProtocol> extends ServiceComp
 			case "mockResponse": {
 				const responseHandler = params.handler as (p: unknown) => unknown | Promise<unknown>;
 				const response = await responseHandler(payload);
+
+				// Auto-validate outgoing mock response
+				if (this._validation?.validateResponses !== false) {
+					const ctx = _context as { type: string } | undefined;
+					if (ctx?.type) {
+						this.autoValidate(ctx.type, "response", response);
+					}
+				}
+
 				return { type: "response", payload: response };
+			}
+
+			case "validate": {
+				const explicitSchema = params.schema as SchemaLike | undefined;
+				const lookupKey = params.lookupKey as string;
+				const lookupDirection = params.lookupDirection as string;
+
+				const schema = explicitSchema ?? this.lookupSchema(lookupKey, lookupDirection);
+				if (!schema) {
+					throw new ValidationError(
+						`No schema registered for '${lookupKey}' (${lookupDirection})`,
+						{ componentName: this.name, operationId: lookupKey, direction: lookupDirection },
+					);
+				}
+
+				try {
+					return schema.parse(payload);
+				} catch (cause) {
+					if (cause instanceof ValidationError) throw cause;
+					throw new ValidationError(
+						`Validation failed for ${this.name} '${lookupKey}' (${lookupDirection})`,
+						{ componentName: this.name, operationId: lookupKey, direction: lookupDirection, cause },
+					);
+				}
 			}
 
 			default:
 				return undefined;
+		}
+	}
+
+	// =========================================================================
+	// Schema Lookup
+	// =========================================================================
+
+	/**
+	 * Look up schema for an operation by key and direction.
+	 * Used by validate handler and auto-validation.
+	 */
+	lookupSchema(key: string, direction: string): SchemaLike | undefined {
+		if (!this._schema) return undefined;
+		const opSchema = this._schema[key];
+		if (!opSchema) return undefined;
+		if (direction === "request") return opSchema.request;
+		if (direction === "response") return opSchema.response;
+		return undefined;
+	}
+
+	/**
+	 * Auto-validate data against registered schema.
+	 * No-op if no schema is registered for the given key/direction.
+	 */
+	private autoValidate(key: string, direction: string, data: unknown): void {
+		const schema = this.lookupSchema(key, direction);
+		if (!schema) return;
+
+		try {
+			schema.parse(data);
+		} catch (cause) {
+			throw new ValidationError(
+				`Auto-validation failed for ${this.name} '${key}' (${direction})`,
+				{ componentName: this.name, operationId: key, direction, cause },
+			);
 		}
 	}
 

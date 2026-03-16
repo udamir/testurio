@@ -7,6 +7,7 @@
  * - Proxy servers (real HTTP proxy)
  */
 
+import type { InferSyncService, SyncSchemaInput } from "../../validation/validation.types";
 import type {
 	ClientProtocolConfig,
 	ISyncClientAdapter,
@@ -20,7 +21,6 @@ import { BaseSyncProtocol } from "../base";
 import { HttpClientAdapter, HttpServerAdapter } from "./http.adapters";
 import type {
 	DefaultHttpOperations,
-	HttpOperations,
 	HttpRequest,
 	HttpResponse,
 	TransformHttpService,
@@ -29,10 +29,26 @@ import type {
 /**
  * HTTP protocol options
  */
-export interface HttpProtocolOptions {
+export interface HttpProtocolOptions<S = never> {
 	/** OpenAPI schema path for validation */
-	schema?: string | string[];
+	protoPath?: string | string[];
+	/** Typed schema for validation and type inference */
+	schema?: S extends SyncSchemaInput ? S : SyncSchemaInput;
 }
+
+/**
+ * Resolve HTTP protocol type from generic parameter.
+ *
+ * Three cases:
+ * 1. S = never → TransformHttpService<DefaultHttpOperations> (loose mode)
+ * 2. S = SyncSchemaInput → InferSyncService<S> (schema inference)
+ * 3. S = explicit type → TransformHttpService<S> (backward compat with path expansion)
+ */
+type ResolveHttpType<S> = [S] extends [never]
+	? TransformHttpService<DefaultHttpOperations>
+	: S extends SyncSchemaInput
+		? InferSyncService<S>
+		: TransformHttpService<S>;
 
 /**
  * HTTP Protocol
@@ -46,23 +62,25 @@ export interface HttpProtocolOptions {
  *
  * This keeps component types protocol-agnostic while providing type-safe paths.
  *
- * @template T - HTTP service definition (operation ID → { request, response })
+ * @template S - Schema input, explicit service type, or never (loose mode)
  */
-export class HttpProtocol<T extends HttpOperations<T> = DefaultHttpOperations>
-	extends BaseSyncProtocol<TransformHttpService<T>, HttpRequest, HttpResponse>
-	implements ISyncProtocol<TransformHttpService<T>, HttpRequest, HttpResponse>
+export class HttpProtocol<S = never>
+	extends BaseSyncProtocol<ResolveHttpType<S>, HttpRequest, HttpResponse>
+	implements ISyncProtocol<ResolveHttpType<S>, HttpRequest, HttpResponse>
 {
 	readonly type = "http";
+	override readonly schema?: SyncSchemaInput;
 	private routes: Array<{ method: string; path: string }> = [];
 
-	constructor(private options: HttpProtocolOptions = {}) {
+	constructor(private options: HttpProtocolOptions<S> = {} as HttpProtocolOptions<S>) {
 		super();
+		this.schema = options.schema as SyncSchemaInput | undefined;
 	}
 
 	/**
 	 * Get protocol options
 	 */
-	getOptions(): HttpProtocolOptions {
+	getOptions(): HttpProtocolOptions<S> {
 		return this.options;
 	}
 

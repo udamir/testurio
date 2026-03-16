@@ -10,10 +10,10 @@
  * import { GrpcUnaryProtocol, GrpcStreamProtocol } from '@testurio/protocol-grpc';
  *
  * // Unary protocol for request/response
- * const unaryProtocol = new GrpcUnaryProtocol({ schema: 'service.proto' });
+ * const unaryProtocol = new GrpcUnaryProtocol({ protoPath: 'service.proto' });
  *
  * // Stream protocol for bidirectional streaming
- * const streamProtocol = new GrpcStreamProtocol({ schema: 'stream.proto' });
+ * const streamProtocol = new GrpcStreamProtocol({ protoPath: 'stream.proto' });
  * ```
  */
 

@@ -11,7 +11,7 @@
  * @example Loose mode
  * ```typescript
  * const protocol = new GrpcStreamProtocol({
- *   schema: './chat.proto',
+ *   protoPath: './chat.proto',
  *   methodName: 'Chat',
  * });
  * // client.send('Chat', { type: 'message', payload: { ... } })
@@ -24,7 +24,7 @@
  *   serverMessages: { reply: { text: string; timestamp: number } };
  * }
  * const protocol = new GrpcStreamProtocol<ChatService>({
- *   schema: './chat.proto',
+ *   protoPath: './chat.proto',
  *   methodName: 'Chat',
  * });
  * // client.send('message', { type: 'message', payload: { text: 'Hello' } })
@@ -33,41 +33,62 @@
 
 import type * as grpc from "@grpc/grpc-js";
 import type {
+	AsyncSchemaInput,
 	ClientProtocolConfig,
 	IAsyncClientAdapter,
 	IAsyncProtocol,
 	IAsyncServerAdapter,
+	InferAsyncMessages,
 	SchemaDefinition,
 	ServerProtocolConfig,
 } from "testurio";
 import { BaseAsyncProtocol } from "testurio";
 import { GrpcBaseProtocol } from "./grpc-base";
 import { GrpcStreamClientAdapter, GrpcStreamServerAdapter } from "./stream.adapters";
-import type { DefaultGrpcStreamMessages, GrpcStreamMessagesConstraint, GrpcStreamProtocolOptions } from "./types";
+import type { DefaultGrpcStreamMessages, GrpcStreamProtocolOptions } from "./types";
+
+/**
+ * Resolve gRPC stream protocol type from generic parameter.
+ *
+ * Three cases:
+ * 1. S = never → DefaultGrpcStreamMessages (loose mode)
+ * 2. S = AsyncSchemaInput → InferAsyncMessages<S> (schema inference)
+ * 3. S = explicit type → S as-is (backward compat)
+ */
+type ResolveGrpcStreamType<S> = [S] extends [never]
+	? DefaultGrpcStreamMessages
+	: S extends AsyncSchemaInput
+		? InferAsyncMessages<S>
+		: S extends DefaultGrpcStreamMessages
+			? S
+			: DefaultGrpcStreamMessages;
 
 /**
  * gRPC Stream Protocol
  *
  * Implements asynchronous bidirectional streaming for gRPC.
  *
- * @template T - Stream service definition type with clientMessages/serverMessages
+ * @template S - Schema input, explicit messages type, or never (loose mode)
  *   - If omitted: loose mode (any message type accepted)
- *   - If provided: strict mode (only defined message types allowed)
+ *   - If AsyncSchemaInput: schema inference mode
+ *   - If explicit type: strict mode (only defined message types allowed)
  */
-export class GrpcStreamProtocol<T extends GrpcStreamMessagesConstraint = DefaultGrpcStreamMessages>
-	extends BaseAsyncProtocol<T>
-	implements IAsyncProtocol<T>
+export class GrpcStreamProtocol<S = never>
+	extends BaseAsyncProtocol<ResolveGrpcStreamType<S>>
+	implements IAsyncProtocol<ResolveGrpcStreamType<S>>
 {
 	readonly type = "grpc-stream";
+	override readonly schema?: AsyncSchemaInput;
 
 	private base: GrpcBaseProtocol;
 
 	/** Protocol options */
-	private protocolOptions: GrpcStreamProtocolOptions;
+	private protocolOptions: GrpcStreamProtocolOptions<S>;
 
-	constructor(options: GrpcStreamProtocolOptions = {}) {
+	constructor(options: GrpcStreamProtocolOptions<S> = {} as GrpcStreamProtocolOptions<S>) {
 		super();
 		this.protocolOptions = options;
+		this.schema = options.schema as AsyncSchemaInput | undefined;
 		this.base = new (class extends GrpcBaseProtocol {})();
 	}
 
@@ -102,8 +123,8 @@ export class GrpcStreamProtocol<T extends GrpcStreamMessagesConstraint = Default
 	 */
 	async createServer(config: ServerProtocolConfig): Promise<IAsyncServerAdapter> {
 		// Auto-load schema from options if not already loaded
-		if (!this.base.getServiceClient("") && this.protocolOptions.schema) {
-			await this.loadSchema(this.protocolOptions.schema);
+		if (!this.base.getServiceClient("") && this.protocolOptions.protoPath) {
+			await this.loadSchema(this.protocolOptions.protoPath);
 		}
 
 		return GrpcStreamServerAdapter.create(
@@ -120,8 +141,8 @@ export class GrpcStreamProtocol<T extends GrpcStreamMessagesConstraint = Default
 	 */
 	async createClient(config: ClientProtocolConfig): Promise<IAsyncClientAdapter> {
 		// Auto-load schema from options if not already loaded
-		if (!this.base.getServiceClient("") && this.protocolOptions.schema) {
-			await this.loadSchema(this.protocolOptions.schema);
+		if (!this.base.getServiceClient("") && this.protocolOptions.protoPath) {
+			await this.loadSchema(this.protocolOptions.protoPath);
 		}
 
 		const serviceName = this.protocolOptions.serviceName;
@@ -158,8 +179,8 @@ export class GrpcStreamProtocol<T extends GrpcStreamMessagesConstraint = Default
 /**
  * Create gRPC stream protocol factory
  */
-export function createGrpcStreamProtocol<T extends GrpcStreamMessagesConstraint = DefaultGrpcStreamMessages>(
-	options: GrpcStreamProtocolOptions = {}
-): GrpcStreamProtocol<T> {
-	return new GrpcStreamProtocol<T>(options);
+export function createGrpcStreamProtocol<S = never>(
+	options: GrpcStreamProtocolOptions<S> = {} as GrpcStreamProtocolOptions<S>
+): GrpcStreamProtocol<S> {
+	return new GrpcStreamProtocol<S>(options);
 }

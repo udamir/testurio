@@ -57,7 +57,7 @@ const SERVICE_NAME = "user.v1.UserService";
 // Explicit generic approach (no runtime validation):
 const grpcServer = new Server("grpc-backend", {
 	protocol: new GrpcUnaryProtocol<UserService>({
-		schema: PROTO_PATH,
+		protoPath: PROTO_PATH,
 		serviceName: SERVICE_NAME,
 	}),
 	listenAddress: { host: "localhost", port: 50051 },
@@ -65,7 +65,7 @@ const grpcServer = new Server("grpc-backend", {
 
 const grpcClient = new Client("grpc-client", {
 	protocol: new GrpcUnaryProtocol<UserService>({
-		schema: PROTO_PATH,
+		protoPath: PROTO_PATH,
 		serviceName: SERVICE_NAME,
 	}),
 	targetAddress: { host: "localhost", port: 50051 },

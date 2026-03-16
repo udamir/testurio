@@ -9,6 +9,7 @@
  * - All execution logic is in the Component
  */
 
+import type { SchemaLike } from "../../validation";
 import { BaseHookBuilder } from "../base/hook-builder";
 
 /**
@@ -62,6 +63,29 @@ export class SyncClientHookBuilder<TResponse = unknown> extends BaseHookBuilder 
 			type: "transform",
 			description,
 			params: { handler: fn },
+		});
+	}
+
+	/**
+	 * Validate the response payload against a schema.
+	 *
+	 * No-args: looks up schema from protocol/component registry at runtime.
+	 * With schema: uses explicit schema and narrows the type.
+	 *
+	 * @param schema - Optional explicit schema (overrides registry lookup)
+	 * @returns hook builder with validated type
+	 */
+	validate(): this;
+	validate<TOutput>(schema: SchemaLike<TOutput>): SyncClientHookBuilder<TOutput>;
+	validate<TOutput = TResponse>(schema?: SchemaLike<TOutput>): SyncClientHookBuilder<TOutput> {
+		const stepParams = this.step.params as Record<string, unknown>;
+		return this.addHandler<SyncClientHookBuilder<TOutput>>({
+			type: "validate",
+			params: {
+				schema: schema ?? undefined,
+				lookupKey: stepParams.messageType,
+				lookupDirection: "response",
+			},
 		});
 	}
 

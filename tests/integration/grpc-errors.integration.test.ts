@@ -38,7 +38,7 @@ describe("gRPC Error Scenarios Integration Tests", () => {
 		it("should handle connection refused error", async () => {
 			const client = new Client("api", {
 				protocol: new GrpcUnaryProtocol<TestService>({
-					schema: TEST_PROTO,
+					protoPath: TEST_PROTO,
 					serviceName: TEST_SERVICE,
 				}),
 				targetAddress: { host: "127.0.0.1", port: getNextPort() },
@@ -70,7 +70,7 @@ describe("gRPC Error Scenarios Integration Tests", () => {
 			// by catching them and reporting test failure rather than crashing
 			const client = new Client("api", {
 				protocol: new GrpcUnaryProtocol<TestService>({
-					schema: TEST_PROTO,
+					protoPath: TEST_PROTO,
 					serviceName: TEST_SERVICE,
 				}),
 				targetAddress: { host: "127.0.0.1", port: getNextPort() },

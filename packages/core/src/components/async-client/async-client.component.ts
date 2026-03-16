@@ -10,7 +10,9 @@
  * - Passes connectionId to protocol adapter at runtime
  */
 
-import type { Address, IAsyncClientAdapter, IAsyncProtocol, Message, TlsConfig } from "../../protocols/base";
+import type { Address, AsyncValidationOptions, IAsyncClientAdapter, IAsyncProtocol, Message, TlsConfig } from "../../protocols/base";
+import { ValidationError } from "../../validation";
+import type { AsyncSchemaInput, SchemaLike } from "../../validation";
 import { generateId } from "../../utils";
 import type { ITestCaseContext } from "../base/base.types";
 import type { Hook } from "../base/hook.types";
@@ -27,6 +29,8 @@ export interface AsyncClientOptions<P extends IAsyncProtocol = IAsyncProtocol> {
 	protocol: P;
 	targetAddress: Address;
 	tls?: TlsConfig;
+	/** Control auto-validation behavior */
+	validation?: AsyncValidationOptions;
 }
 
 export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends ServiceComponent<
@@ -35,6 +39,8 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 > {
 	private readonly _targetAddress: Address;
 	private readonly _tls?: TlsConfig;
+	private readonly _schema?: AsyncSchemaInput;
+	private readonly _validation?: AsyncValidationOptions;
 	private _connection?: IAsyncClientAdapter;
 
 	/**
@@ -48,6 +54,8 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 		super(name, options.protocol);
 		this._targetAddress = options.targetAddress;
 		this._tls = options.tls;
+		this._schema = options.protocol.schema as AsyncSchemaInput | undefined;
+		this._validation = options.validation;
 		this.connectionId = generateId("conn_");
 	}
 
@@ -61,6 +69,10 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 
 	get targetAddress(): Address {
 		return this._targetAddress;
+	}
+
+	get validationOptions(): AsyncValidationOptions | undefined {
+		return this._validation;
 	}
 
 	// =========================================================================
@@ -138,6 +150,11 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 			payload: unknown;
 		};
 
+		// Auto-validate outgoing message
+		if (this._validation?.validateMessages !== false) {
+			this.autoValidate(params.messageType, "clientMessage", params.payload);
+		}
+
 		if (!this._connection) {
 			throw new Error(`AsyncClient ${this.name} is not connected`);
 		}
@@ -193,6 +210,16 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 	 * Called by adapter.onMessage callback.
 	 */
 	private handleIncomingEvent(message: Message): void {
+		// Auto-validate incoming event
+		if (this._validation?.validateEvents !== false) {
+			try {
+				this.autoValidate(message.type, "serverMessage", message.payload);
+			} catch (error) {
+				this.trackUnhandledError(error instanceof Error ? error : new Error(String(error)));
+				return;
+			}
+		}
+
 		const eventMessage: EventMessage = {
 			type: message.type,
 			payload: message.payload,
@@ -279,8 +306,65 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 				return await transformFn(payload);
 			}
 
+			case "validate": {
+				const explicitSchema = params.schema as SchemaLike | undefined;
+				const lookupKey = params.lookupKey as string;
+				const lookupDirection = params.lookupDirection as string;
+
+				const schema = explicitSchema ?? this.lookupSchema(lookupKey, lookupDirection);
+				if (!schema) {
+					throw new ValidationError(
+						`No schema registered for '${lookupKey}' (${lookupDirection})`,
+						{ componentName: this.name, operationId: lookupKey, direction: lookupDirection },
+					);
+				}
+
+				try {
+					return schema.parse(payload);
+				} catch (cause) {
+					if (cause instanceof ValidationError) throw cause;
+					throw new ValidationError(
+						`Validation failed for ${this.name} '${lookupKey}' (${lookupDirection})`,
+						{ componentName: this.name, operationId: lookupKey, direction: lookupDirection, cause },
+					);
+				}
+			}
+
 			default:
 				return undefined;
+		}
+	}
+
+	// =========================================================================
+	// Schema Lookup
+	// =========================================================================
+
+	/**
+	 * Look up schema for a message type by key and direction.
+	 * Used by validate handler and auto-validation.
+	 */
+	lookupSchema(key: string, direction: string): SchemaLike | undefined {
+		if (!this._schema) return undefined;
+		if (direction === "clientMessage") return this._schema.clientMessages?.[key];
+		if (direction === "serverMessage") return this._schema.serverMessages?.[key];
+		return undefined;
+	}
+
+	/**
+	 * Auto-validate data against registered schema.
+	 * No-op if no schema is registered for the given key/direction.
+	 */
+	private autoValidate(key: string, direction: string, data: unknown): void {
+		const schema = this.lookupSchema(key, direction);
+		if (!schema) return;
+
+		try {
+			schema.parse(data);
+		} catch (cause) {
+			throw new ValidationError(
+				`Auto-validation failed for ${this.name} '${key}' (${direction})`,
+				{ componentName: this.name, operationId: key, direction, cause },
+			);
 		}
 	}
 

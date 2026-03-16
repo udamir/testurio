@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-03-16
+
+### Added
+
+- **Runtime Schema Validation** — Validate request/response/message payloads at runtime using Zod-compatible schemas (any object with a `.parse()` method)
+  - **Schema-first protocols** — Pass schemas to protocol constructors for automatic TypeScript type inference (`new HttpProtocol({ schema: zodSchemas })`). No manual generic parameters needed.
+  - **Auto-validation** — Outgoing requests/messages and incoming responses/events are validated automatically at I/O boundaries when schemas are registered. Controlled via `validation: { validateRequests, validateResponses }` options.
+  - **`.validate()` builder method** — Explicit per-step validation on hook builders. Supports no-arg (protocol schema lookup) and explicit schema overloads.
+  - **`ValidationError` class** — Structured error with `componentName`, `operationId`, `direction`, and `cause` fields for clear diagnostics.
+  - **`SchemaLike<T>` interface** — Framework-agnostic schema contract requiring only `.parse(data): T`. Compatible with Zod, Yup, or any validation library.
+  - Supported across all component types: Client, Server, AsyncClient, AsyncServer, Publisher, Subscriber
+  - Three typing modes: schema-first (runtime + compile-time), explicit generic (compile-time only), loose (any string)
+
+- **Protocol generic restructuring** — All protocols now use `S = never` default generic with `Resolve*Type<S>` conditional types to support schema inference, explicit generics, and loose mode in a single generic parameter.
+
+### Breaking Changes
+
+- **`schema` renamed to `protoPath`** on all protocol options that accepted file paths (proto files, OpenAPI specs). The `schema` field now accepts typed Zod-compatible schema maps for runtime validation.
+
+  **Migration:**
+  ```typescript
+  // Before
+  new GrpcUnaryProtocol({ schema: 'user.proto', serviceName: 'UserService' })
+  new GrpcStreamProtocol({ schema: 'chat.proto' })
+  new TcpProtocol({ schema: 'protocol.proto' })
+
+  // After
+  new GrpcUnaryProtocol({ protoPath: 'user.proto', serviceName: 'UserService' })
+  new GrpcStreamProtocol({ protoPath: 'chat.proto' })
+  new TcpProtocol({ protoPath: 'protocol.proto' })
+  ```
+
+  `HttpProtocol` and `WebSocketProtocol` did not previously have a `schema` file path field and are unaffected by the rename.
+
 ## [0.4.1] - 26
  
 ### Added

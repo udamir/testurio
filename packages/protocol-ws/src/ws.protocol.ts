@@ -12,10 +12,12 @@
  */
 
 import type {
+	AsyncSchemaInput,
 	ClientProtocolConfig,
 	IAsyncClientAdapter,
 	IAsyncProtocol,
 	IAsyncServerAdapter,
+	InferAsyncMessages,
 	SchemaDefinition,
 	ServerProtocolConfig,
 } from "testurio";
@@ -24,16 +26,32 @@ import type { WsProtocolOptions, WsServiceDefinition } from "./types";
 import { WsClientAdapter, WsServerAdapter } from "./ws.adapters";
 
 /**
+ * Resolve WebSocket protocol type from generic parameter.
+ *
+ * Three cases:
+ * 1. S = never → WsServiceDefinition (loose mode with index signatures)
+ * 2. S = AsyncSchemaInput → InferAsyncMessages<S> (schema inference)
+ * 3. S = explicit type → S as-is (backward compat)
+ */
+type ResolveWsType<S> = [S] extends [never]
+	? WsServiceDefinition
+	: S extends AsyncSchemaInput
+		? InferAsyncMessages<S>
+		: S extends WsServiceDefinition
+			? S
+			: WsServiceDefinition;
+
+/**
  * WebSocket Protocol
  *
  * Provides WebSocket client and server functionality for testing.
  * Uses real WebSocket servers and connections for actual network communication.
  *
- * @template S - Service definition with clientMessages/serverMessages
+ * @template S - Schema input, explicit service type, or never (loose mode)
  *
  * @example
  * ```typescript
- * interface MyWsService extends WsServiceDefinition {
+ * interface MyWsService {
  *   clientMessages: {
  *     ping: { seq: number };
  *     subscribe: { channel: string };
@@ -45,34 +63,24 @@ import { WsClientAdapter, WsServerAdapter } from "./ws.adapters";
  * }
  *
  * const protocol = new WebSocketProtocol<MyWsService>();
- *
- * // Server mode
- * await protocol.startServer(config, (connection) => {
- *   connection.onMessage("ping", undefined, (payload) => {
- *     connection.sendEvent("pong", { seq: payload.seq });
- *   });
- * });
- *
- * // Client mode
- * const connection = await protocol.connect(config);
- * connection.onEvent("pong", undefined, (payload) => console.log(payload));
- * await connection.sendMessage("ping", { seq: 1 });
  * ```
  */
-export class WebSocketProtocol<S extends WsServiceDefinition = WsServiceDefinition>
-	extends BaseAsyncProtocol<S>
-	implements IAsyncProtocol<S>
+export class WebSocketProtocol<S = never>
+	extends BaseAsyncProtocol<ResolveWsType<S>>
+	implements IAsyncProtocol<ResolveWsType<S>>
 {
 	readonly type = "websocket";
+	override readonly schema?: AsyncSchemaInput;
 
-	constructor(private _options: WsProtocolOptions = {}) {
+	constructor(private _options: WsProtocolOptions<S> = {} as WsProtocolOptions<S>) {
 		super();
+		this.schema = _options.schema as AsyncSchemaInput | undefined;
 	}
 
 	/**
 	 * Get protocol options
 	 */
-	getOptions(): WsProtocolOptions {
+	getOptions(): WsProtocolOptions<S> {
 		return this._options;
 	}
 
@@ -118,8 +126,8 @@ export class WebSocketProtocol<S extends WsServiceDefinition = WsServiceDefiniti
 /**
  * Create WebSocket protocol factory
  */
-export function createWebSocketProtocol<S extends WsServiceDefinition>(
-	options?: WsProtocolOptions
+export function createWebSocketProtocol<S = never>(
+	options?: WsProtocolOptions<S>
 ): WebSocketProtocol<S> {
 	return new WebSocketProtocol<S>(options);
 }

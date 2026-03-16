@@ -9,6 +9,7 @@
  * - All execution logic is in the Component
  */
 
+import type { SchemaLike } from "../../validation";
 import { BaseHookBuilder } from "../base/hook-builder";
 
 /**
@@ -111,6 +112,29 @@ export class AsyncServerHookBuilder<TPayload = unknown> extends BaseHookBuilder 
 			type: "proxy",
 			description,
 			params: { handler: fn },
+		});
+	}
+
+	/**
+	 * Validate the message/event payload against a schema.
+	 *
+	 * No-args: looks up schema from protocol/component registry at runtime.
+	 * With schema: uses explicit schema and narrows the type.
+	 *
+	 * @param schema - Optional explicit schema (overrides registry lookup)
+	 * @returns hook builder with validated type
+	 */
+	validate(): this;
+	validate<TOutput>(schema: SchemaLike<TOutput>): AsyncServerHookBuilder<TOutput>;
+	validate<TOutput = TPayload>(schema?: SchemaLike<TOutput>): AsyncServerHookBuilder<TOutput> {
+		const stepParams = this.step.params as Record<string, unknown>;
+		return this.addHandler<AsyncServerHookBuilder<TOutput>>({
+			type: "validate",
+			params: {
+				schema: schema ?? undefined,
+				lookupKey: stepParams.messageType ?? stepParams.eventType,
+				lookupDirection: "clientMessage",
+			},
 		});
 	}
 

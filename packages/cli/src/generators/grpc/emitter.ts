@@ -227,7 +227,7 @@ export function emitGrpcSchema(
 			interfaceLines.push(` *`);
 			interfaceLines.push(` * Current usage (explicit generic, no runtime validation):`);
 			interfaceLines.push(
-				` *   new GrpcUnaryProtocol<${svc.name}>({ schema: '${protoSource}', serviceName: '${svc.fullName}' })`
+				` *   new GrpcUnaryProtocol<${svc.name}>({ protoPath: '${protoSource}', serviceName: '${svc.fullName}' })`
 			);
 			if (unaryMethods.some((m) => m.requiredHeaders.length > 0)) {
 				interfaceLines.push(` *`);
@@ -282,7 +282,7 @@ export function emitGrpcSchema(
 			interfaceLines.push(` *`);
 			interfaceLines.push(` * Current usage (explicit generic, no runtime validation):`);
 			interfaceLines.push(` *   new GrpcStreamProtocol<${streamSvcName}['MethodName']>({`);
-			interfaceLines.push(` *     schema: '${protoSource}',`);
+			interfaceLines.push(` *     protoPath: '${protoSource}',`);
 			interfaceLines.push(` *     serviceName: '${svc.fullName}',`);
 			interfaceLines.push(` *     methodName: 'MethodName',`);
 			interfaceLines.push(` *   })`);
@@ -338,7 +338,7 @@ export function emitGrpcSchema(
 			protocolSchemaLines.push(` *`);
 			protocolSchemaLines.push(` * Current usage (explicit generic, no runtime validation):`);
 			protocolSchemaLines.push(
-				` *   new GrpcUnaryProtocol<${svc.name}>({ schema: '${protoSource}', serviceName: '${svc.fullName}' })`
+				` *   new GrpcUnaryProtocol<${svc.name}>({ protoPath: '${protoSource}', serviceName: '${svc.fullName}' })`
 			);
 			protocolSchemaLines.push(` */`);
 			protocolSchemaLines.push(`export const ${unarySchemaName} = {\n${unaryEntries.join(",\n")},\n};`);
@@ -385,7 +385,7 @@ export function emitGrpcSchema(
 			const streamSvcTypeName = unaryMethods.length > 0 ? `${svc.name}Streams` : svc.name;
 			protocolSchemaLines.push(` * Current usage (explicit generic, no runtime validation):`);
 			protocolSchemaLines.push(` *   new GrpcStreamProtocol<${streamSvcTypeName}['MethodName']>({`);
-			protocolSchemaLines.push(` *     schema: '${protoSource}',`);
+			protocolSchemaLines.push(` *     protoPath: '${protoSource}',`);
 			protocolSchemaLines.push(` *     serviceName: '${svc.fullName}',`);
 			protocolSchemaLines.push(` *     methodName: 'MethodName',`);
 			protocolSchemaLines.push(` *   })`);

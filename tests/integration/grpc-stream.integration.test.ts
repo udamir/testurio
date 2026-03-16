@@ -65,14 +65,14 @@ const STREAM_METHOD = "DeliveryMessage";
 // Helper functions for creating components with typed adapters
 const createMockServer = (name: string, port: number) =>
 	new AsyncServer(name, {
-		protocol: new GrpcStreamProtocol<StreamTestService["DeliveryMessage"]>({ schema: TEST_PROTO }),
+		protocol: new GrpcStreamProtocol<StreamTestService["DeliveryMessage"]>({ protoPath: TEST_PROTO }),
 		listenAddress: { host: "127.0.0.1", port },
 	});
 
 const createClient = (name: string, port: number) =>
 	new AsyncClient(name, {
 		protocol: new GrpcStreamProtocol<StreamTestService["DeliveryMessage"]>({
-			schema: TEST_PROTO,
+			protoPath: TEST_PROTO,
 			serviceName: STREAM_SERVICE,
 			methodName: STREAM_METHOD,
 		}),
@@ -81,7 +81,7 @@ const createClient = (name: string, port: number) =>
 
 const createProxyServer = (name: string, listenPort: number, targetPort: number) =>
 	new AsyncServer(name, {
-		protocol: new GrpcStreamProtocol<StreamTestService["DeliveryMessage"]>({ schema: TEST_PROTO }),
+		protocol: new GrpcStreamProtocol<StreamTestService["DeliveryMessage"]>({ protoPath: TEST_PROTO }),
 		listenAddress: { host: "127.0.0.1", port: listenPort },
 		targetAddress: { host: "127.0.0.1", port: targetPort },
 	});

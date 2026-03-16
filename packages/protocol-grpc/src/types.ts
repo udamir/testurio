@@ -7,7 +7,7 @@
  * @example Loose Mode (any operation ID)
  * ```typescript
  * const client = new Client('api', {
- *   protocol: new GrpcUnaryProtocol({ schema: 'service.proto' }),
+ *   protocol: new GrpcUnaryProtocol({ protoPath: 'service.proto' }),
  *   targetAddress: { host: 'localhost', port: 50051 },
  * });
  *
@@ -25,7 +25,7 @@
  * }
  *
  * const client = new Client('api', {
- *   protocol: new GrpcUnaryProtocol<MyGrpcService>({ schema: 'service.proto' }),
+ *   protocol: new GrpcUnaryProtocol<MyGrpcService>({ protoPath: 'service.proto' }),
  *   targetAddress: { host: 'localhost', port: 50051 },
  * });
  *
@@ -35,7 +35,7 @@
  */
 
 import type * as grpc from "@grpc/grpc-js";
-import type { Message, SyncRequestOptions } from "testurio";
+import type { AsyncSchemaInput, Message, SyncRequestOptions, SyncSchemaInput } from "testurio";
 
 // =============================================================================
 // Protocol Options
@@ -44,9 +44,11 @@ import type { Message, SyncRequestOptions } from "testurio";
 /**
  * gRPC Unary protocol options
  */
-export interface GrpcUnaryProtocolOptions {
+export interface GrpcUnaryProtocolOptions<S = never> {
 	/** Path to .proto file(s) */
-	schema?: string | string[];
+	protoPath?: string | string[];
+	/** Typed schema for validation and type inference */
+	schema?: S extends SyncSchemaInput ? S : SyncSchemaInput;
 	/** Service name to use for client calls */
 	serviceName?: string;
 	/** Request timeout in milliseconds */
@@ -56,9 +58,11 @@ export interface GrpcUnaryProtocolOptions {
 /**
  * gRPC Stream protocol options
  */
-export interface GrpcStreamProtocolOptions {
+export interface GrpcStreamProtocolOptions<S = never> {
 	/** Path to .proto file(s) */
-	schema?: string | string[];
+	protoPath?: string | string[];
+	/** Typed schema for validation and type inference */
+	schema?: S extends AsyncSchemaInput ? S : AsyncSchemaInput;
 	/** Service name to use for client calls */
 	serviceName?: string;
 	/** Method name for streaming */
