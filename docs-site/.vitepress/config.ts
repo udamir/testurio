@@ -121,7 +121,7 @@ export default defineConfig({
       provider: 'local'
     },
     editLink: {
-      pattern: 'https://github.com/udamir/testurio/edit/main/docs-site/:path',
+      pattern: 'https://github.com/udamir/testurio/edit/master/docs-site/:path',
       text: 'Edit this page on GitHub'
     },
     footer: {
