@@ -45,7 +45,7 @@ import type {
 import { BaseAsyncProtocol } from "testurio";
 import { GrpcBaseProtocol } from "./grpc-base";
 import { GrpcStreamClientAdapter, GrpcStreamServerAdapter } from "./stream.adapters";
-import type { DefaultGrpcStreamMessages, GrpcStreamProtocolOptions } from "./types";
+import type { DefaultGrpcStreamMessages, GrpcStreamConnectParams, GrpcStreamProtocolOptions } from "./types";
 
 /**
  * Resolve gRPC stream protocol type from generic parameter.
@@ -74,8 +74,8 @@ type ResolveGrpcStreamType<S> = [S] extends [never]
  *   - If explicit type: strict mode (only defined message types allowed)
  */
 export class GrpcStreamProtocol<S = never>
-	extends BaseAsyncProtocol<ResolveGrpcStreamType<S>>
-	implements IAsyncProtocol<ResolveGrpcStreamType<S>>
+	extends BaseAsyncProtocol<ResolveGrpcStreamType<S>, GrpcStreamConnectParams>
+	implements IAsyncProtocol<ResolveGrpcStreamType<S>, GrpcStreamConnectParams>
 {
 	readonly type = "grpc-stream";
 	override readonly schema?: AsyncSchemaInput;
@@ -166,12 +166,15 @@ export class GrpcStreamProtocol<S = never>
 			throw new Error(`Service ${serviceName || "any"} not found. Make sure to load schema first.`);
 		}
 
+		const grpcParams = config.connectParams as GrpcStreamConnectParams | undefined;
+
 		return GrpcStreamClientAdapter.create(
 			config.targetAddress.host,
 			config.targetAddress.port,
 			ServiceClient,
 			methodName,
-			config.tls
+			config.tls,
+			grpcParams?.metadata
 		);
 	}
 }

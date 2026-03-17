@@ -145,6 +145,7 @@ describe("Component Types Integration", () => {
 			});
 
 			const wsClient = AsyncClient.create("ws-client", {
+				autoConnect: true,
 				protocol: new WebSocketProtocol<WsTestMessages>(),
 				targetAddress: { host: "127.0.0.1", port: 8100 },
 			});
@@ -199,6 +200,7 @@ describe("Component Types Integration", () => {
 			});
 
 			const wsClient = AsyncClient.create("ws-subscriber", {
+				autoConnect: true,
 				protocol: new WebSocketProtocol<WsTestMessages>(),
 				targetAddress: { host: "127.0.0.1", port: 8101 },
 			});

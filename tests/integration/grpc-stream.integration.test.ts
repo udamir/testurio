@@ -71,6 +71,7 @@ const createMockServer = (name: string, port: number) =>
 
 const createClient = (name: string, port: number) =>
 	new AsyncClient(name, {
+		autoConnect: true,
 		protocol: new GrpcStreamProtocol<StreamTestService["DeliveryMessage"]>({
 			protoPath: TEST_PROTO,
 			serviceName: STREAM_SERVICE,

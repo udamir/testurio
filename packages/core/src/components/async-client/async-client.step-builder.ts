@@ -14,7 +14,12 @@
  * - All execution logic is in the Component
  */
 
-import type { AsyncClientMessageType, AsyncServerMessageType, IAsyncProtocol } from "../../protocols/base";
+import type {
+	AsyncClientMessageType,
+	AsyncServerMessageType,
+	IAsyncProtocol,
+	ProtocolConnectParams,
+} from "../../protocols/base";
 import { BaseStepBuilder } from "../base/step-builder";
 import { AsyncClientHookBuilder } from "./async-client.hook-builder";
 import type { ExtractEventPayload, ExtractMessagePayload } from "./async-client.types";
@@ -28,6 +33,29 @@ import type { ExtractEventPayload, ExtractMessagePayload } from "./async-client.
  * @template P - Protocol type (IAsyncProtocol) - contains message definitions
  */
 export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> extends BaseStepBuilder {
+	/**
+	 * Connect to server (action step).
+	 * Use when autoConnect is false (default), or to reconnect after disconnect().
+	 *
+	 * @param paramsOrFactory - Protocol-specific connection params or factory function.
+	 *   Static: connect({ headers: { Authorization: 'Bearer token' } })
+	 *   Dynamic: connect(() => ({ headers: { Authorization: `Bearer ${token}` } }))
+	 *
+	 * Type is inferred from the protocol:
+	 *   WebSocket → WsConnectParams (headers, query, path, protocols)
+	 *   gRPC Stream → GrpcStreamConnectParams (metadata)
+	 *   TCP → no params
+	 */
+	connect(paramsOrFactory?: ProtocolConnectParams<P> | (() => ProtocolConnectParams<P>)): void {
+		this.registerStep({
+			type: "connect",
+			description: "Connect",
+			params: { connectParams: paramsOrFactory },
+			handlers: [],
+			mode: "action",
+		});
+	}
+
 	/**
 	 * Send a message to server (action step)
 	 *

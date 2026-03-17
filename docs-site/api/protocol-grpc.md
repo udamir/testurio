@@ -91,6 +91,20 @@ const protocol = new GrpcStreamProtocol({
 | `serviceName` | `string` | gRPC service name |
 | `schema` | `AsyncSchemaInput` | _(optional)_ Zod schemas for runtime validation |
 
+### GrpcStreamConnectParams
+
+Connection parameters passed via `connect()` during stream establishment:
+
+```typescript
+stream.connect({
+  metadata: { authorization: 'Bearer token' },
+});
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `metadata` | `Record<string, string \| string[]>` | gRPC metadata for auth and routing |
+
 ### Usage
 
 ```typescript

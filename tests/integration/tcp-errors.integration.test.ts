@@ -34,6 +34,7 @@ describe("TCP Error Scenarios Integration Tests", () => {
 		it("should handle connection refused error", async () => {
 			// Try to connect to a port with no server
 			const client = new AsyncClient("api", {
+				autoConnect: true,
 				protocol: new TcpProtocol<TcpTestService>(),
 				targetAddress: { host: "127.0.0.1", port: 18999 },
 			});
@@ -59,6 +60,7 @@ describe("TCP Error Scenarios Integration Tests", () => {
 
 		it("should handle connection with short timeout", async () => {
 			const client = new AsyncClient("api", {
+				autoConnect: true,
 				protocol: new TcpProtocol<TcpTestService>({ timeout: 100 }),
 				targetAddress: { host: "127.0.0.1", port: 18998 },
 			});
@@ -90,6 +92,7 @@ describe("TCP Error Scenarios Integration Tests", () => {
 			});
 
 			const client = new AsyncClient("api", {
+				autoConnect: true,
 				protocol: new TcpProtocol<TcpTestService>(),
 				targetAddress: { host: "localhost", port: 18001 },
 			});
@@ -128,6 +131,7 @@ describe("TCP Error Scenarios Integration Tests", () => {
 			});
 
 			const client = new AsyncClient("api", {
+				autoConnect: true,
 				protocol: new TcpProtocol<TcpTestService>(),
 				targetAddress: { host: "localhost", port: 18002 },
 			});
@@ -160,6 +164,7 @@ describe("TCP Error Scenarios Integration Tests", () => {
 			});
 
 			const client = new AsyncClient("api", {
+				autoConnect: true,
 				protocol: new TcpProtocol<TcpTestService>({ delimiter: "\r\n" }),
 				targetAddress: { host: "localhost", port: 18003 },
 			});
@@ -191,6 +196,7 @@ describe("TCP Error Scenarios Integration Tests", () => {
 			});
 
 			const client = new AsyncClient("api", {
+				autoConnect: true,
 				protocol: new TcpProtocol<TcpTestService>({ lengthFieldLength: 4 }),
 				targetAddress: { host: "localhost", port: 18004 },
 			});
@@ -224,6 +230,7 @@ describe("TCP Error Scenarios Integration Tests", () => {
 			});
 
 			const client = new AsyncClient("api", {
+				autoConnect: true,
 				protocol: new TcpProtocol<TcpTestService>(),
 				targetAddress: { host: "localhost", port: 18005 },
 			});

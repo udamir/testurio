@@ -119,6 +119,7 @@ const createMockServer = (name: string, port: number) =>
 
 const createClient = (name: string, port: number) =>
 	new AsyncClient(name, {
+		autoConnect: true,
 		protocol: new WebSocketProtocol<WsMessages>(),
 		targetAddress: { host: "127.0.0.1", port },
 	});

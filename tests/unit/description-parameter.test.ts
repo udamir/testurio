@@ -297,6 +297,7 @@ describe("Description Parameter", () => {
 			});
 
 			const wsClient = new AsyncClient("ws-client", {
+				autoConnect: true,
 				protocol: new WebSocketProtocol<WsMessages>(),
 				targetAddress: { host: "localhost", port: PORT },
 			});
@@ -332,6 +333,7 @@ describe("Description Parameter", () => {
 			});
 
 			const wsClient = new AsyncClient("ws-client", {
+				autoConnect: true,
 				protocol: new WebSocketProtocol<WsMessages>(),
 				targetAddress: { host: "localhost", port: PORT + 1 },
 			});
@@ -375,6 +377,7 @@ describe("Description Parameter", () => {
 			});
 
 			const wsClient = new AsyncClient("ws-client", {
+				autoConnect: true,
 				protocol: new WebSocketProtocol<WsMessages>(),
 				targetAddress: { host: "localhost", port: PORT },
 			});
@@ -413,6 +416,7 @@ describe("Description Parameter", () => {
 			});
 
 			const wsClient = new AsyncClient("ws-client", {
+				autoConnect: true,
 				protocol: new WebSocketProtocol<WsMessages>(),
 				targetAddress: { host: "localhost", port: PORT + 1 },
 			});

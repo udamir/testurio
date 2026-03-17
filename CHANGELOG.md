@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **AsyncClient Connection Control** — Explicit connection lifecycle management for async protocols
+  - **`autoConnect` option** — New option on `AsyncClientOptions` (default: `false`). Set to `true` or pass protocol-typed params for automatic connection on start.
+  - **`connect()` builder step** — New action step on `AsyncClientStepBuilder` for explicit connection with optional protocol-typed params. Accepts static params or factory function for dynamic params (e.g., auth tokens from earlier steps).
+  - **Reconnection support** — `connect()` after `disconnect()` creates a fresh connection, enabling reconnection flow testing.
+  - **Protocol-typed connect params** — Each async protocol declares its own connect params type:
+    - `WsConnectParams` — `headers`, `query`, `path`, `protocols` for WebSocket handshake
+    - `GrpcStreamConnectParams` — `metadata` for gRPC stream auth
+    - TCP — no protocol-specific params
+  - **`ProtocolConnectParams<P>` type extractor** — Extract connect params type from protocol for type-safe `connect()` calls
+
+### Breaking Changes
+
+- **`AsyncClient` no longer auto-connects by default** — `autoConnect` defaults to `false`. Existing tests using `AsyncClient` must either add `autoConnect: true` to the options or add an explicit `connect()` step. This enables testing deferred connections, auth-gated connections, and reconnection flows.
+
 ## [0.5.0] - 2026-03-16
 
 ### Added

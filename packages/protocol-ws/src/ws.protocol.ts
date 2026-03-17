@@ -22,7 +22,7 @@ import type {
 	ServerProtocolConfig,
 } from "testurio";
 import { BaseAsyncProtocol } from "testurio";
-import type { WsProtocolOptions, WsServiceDefinition } from "./types";
+import type { WsConnectParams, WsProtocolOptions, WsServiceDefinition } from "./types";
 import { WsClientAdapter, WsServerAdapter } from "./ws.adapters";
 
 /**
@@ -66,8 +66,8 @@ type ResolveWsType<S> = [S] extends [never]
  * ```
  */
 export class WebSocketProtocol<S = never>
-	extends BaseAsyncProtocol<ResolveWsType<S>>
-	implements IAsyncProtocol<ResolveWsType<S>>
+	extends BaseAsyncProtocol<ResolveWsType<S>, WsConnectParams>
+	implements IAsyncProtocol<ResolveWsType<S>, WsConnectParams>
 {
 	readonly type = "websocket";
 	override readonly schema?: AsyncSchemaInput;
@@ -111,14 +111,19 @@ export class WebSocketProtocol<S = never>
 	async createClient(config: ClientProtocolConfig): Promise<IAsyncClientAdapter> {
 		// Connection timeout: config overrides protocol options
 		const connectionTimeout = config.timeouts?.connectionTimeout ?? this._options.timeout;
+		const wsParams = config.connectParams as WsConnectParams | undefined;
+
+		// connectParams.path overrides targetAddress.path
+		const path = wsParams?.path ?? config.targetAddress.path;
 
 		return WsClientAdapter.create(
 			config.targetAddress.host,
 			config.targetAddress.port,
-			config.targetAddress.path,
+			path,
 			config.tls?.enabled,
 			connectionTimeout,
-			this._options.codec
+			this._options.codec,
+			wsParams
 		);
 	}
 }

@@ -151,7 +151,7 @@ new Server(name: string, options: ServerOptions)
 
 ## AsyncClient
 
-Sends messages over persistent connections.
+Sends messages over persistent connections. Connection can be deferred with `autoConnect: false` (default) and established explicitly via `connect()`.
 
 ```typescript
 new AsyncClient(name: string, options: AsyncClientOptions)
@@ -162,14 +162,17 @@ new AsyncClient(name: string, options: AsyncClientOptions)
 | `protocol` | `IAsyncProtocol` | Async protocol instance |
 | `targetAddress` | `Address` | Server address |
 | `validation` | `AsyncValidationOptions` | _(optional)_ Auto-validation settings |
+| `autoConnect` | `boolean \| ProtocolConnectParams<P>` | _(optional)_ Connection control. `false` (default): requires explicit `connect()` step. `true`: auto-connect without params. Object: auto-connect with protocol-typed params (e.g., `{ headers: { ... } }` for WS, `{ metadata: { ... } }` for gRPC) |
 
 ### Step Builder Methods
 
 | Method | Mode | Description |
 |--------|------|-------------|
+| `connect(params?)` | action | Establish connection. Accepts protocol-typed params or factory function |
 | `sendMessage(messageType, data, traceId?)` | action | Send a message |
 | `onEvent(messageType, matcher?)` | hook | Non-blocking event handler |
 | `waitEvent(messageType, options?)` | wait | Block until event arrives |
+| `disconnect()` | action | Close the connection |
 | `waitDisconnect()` | wait | Block until connection closes |
 
 ## AsyncServer

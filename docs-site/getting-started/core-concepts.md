@@ -112,7 +112,7 @@ Every step has a **mode** that controls when and how it executes:
 
 | Mode | Behavior | Examples |
 |------|----------|---------|
-| `action` | Executes immediately (sends a request, publishes a message) | `request()`, `sendMessage()`, `publish()`, `exec()` |
+| `action` | Executes immediately (sends a request, publishes a message) | `request()`, `connect()`, `sendMessage()`, `disconnect()`, `publish()`, `exec()` |
 | `hook` | Registers a handler that fires when a matching message arrives. Does not block. | `onRequest()`, `onResponse()`, `onMessage()` |
 | `wait` | Blocks execution until a matching message arrives or times out. | `waitResponse()`, `waitMessage()`, `waitConnection()` |
 

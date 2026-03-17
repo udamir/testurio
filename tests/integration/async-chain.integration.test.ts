@@ -201,6 +201,7 @@ const createMockServer = (name: string, port: number) =>
 
 const createClient = (name: string, port: number) =>
 	new AsyncClient(name, {
+		autoConnect: true,
 		protocol: new TcpProtocol<AsyncTcpService>(),
 		targetAddress: { host: "localhost", port },
 	});

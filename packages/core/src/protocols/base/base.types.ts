@@ -149,6 +149,7 @@ export type ClientProtocolConfig = {
 	tls?: TlsConfig; // TLS configuration
 	timeouts?: TimeoutConfig; // Timeout configuration
 	connectionId?: string; // Pre-assigned connection ID (for async protocols)
+	connectParams?: unknown; // Protocol-specific connection parameters (typed at builder level)
 };
 
 /**
@@ -306,9 +307,15 @@ export interface ISyncClientAdapter {
 
 /**
  * Async protocol interface for bidirectional message protocols
+ *
+ * @template M - Messages definition type
+ * @template TConnectParams - Protocol-specific connection parameters type
  */
-export interface IAsyncProtocol<M extends AsyncMessages = AsyncMessages>
-	extends IBaseProtocol<M, IAsyncServerAdapter, IAsyncClientAdapter> {}
+export interface IAsyncProtocol<M extends AsyncMessages = AsyncMessages, TConnectParams = unknown>
+	extends IBaseProtocol<M, IAsyncServerAdapter, IAsyncClientAdapter> {
+	/** Phantom type for connection parameters inference */
+	readonly $connectParams?: TConnectParams;
+}
 
 /**
  * Server adapter for async protocols
@@ -392,6 +399,17 @@ export type ProtocolRequestOptions<A> = A extends { $request: infer R }
 	? R extends Record<string, unknown>
 		? R
 		: Record<string, unknown>
+	: Record<string, unknown>;
+
+/**
+ * Extract connect params type from async protocol.
+ * Falls back to Record<string, unknown> for protocols without $connectParams.
+ * @template P - Protocol type
+ */
+export type ProtocolConnectParams<P> = P extends { $connectParams?: infer C }
+	? unknown extends C
+		? Record<string, unknown>
+		: C
 	: Record<string, unknown>;
 
 // =============================================================================

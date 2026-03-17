@@ -16,6 +16,7 @@ import type {
 	IAsyncClientAdapter,
 	IAsyncProtocol,
 	Message,
+	ProtocolConnectParams,
 	TlsConfig,
 } from "../../protocols/base";
 import { generateId } from "../../utils";
@@ -38,6 +39,22 @@ export interface AsyncClientOptions<P extends IAsyncProtocol = IAsyncProtocol> {
 	tls?: TlsConfig;
 	/** Control auto-validation behavior */
 	validation?: AsyncValidationOptions;
+	/**
+	 * Connection control.
+	 * - `false` / omitted: No auto-connect — requires explicit connect() step (default)
+	 * - `true`: Auto-connect on start without params
+	 * - `ProtocolConnectParams<P>`: Auto-connect on start with protocol-typed params
+	 *
+	 * @example Auto-connect without params
+	 * autoConnect: true
+	 *
+	 * @example Auto-connect with WebSocket headers
+	 * autoConnect: { headers: { Authorization: 'Bearer token' } }
+	 *
+	 * @example Auto-connect with gRPC metadata
+	 * autoConnect: { metadata: { authorization: 'Bearer token' } }
+	 */
+	autoConnect?: boolean | ProtocolConnectParams<P>;
 }
 
 export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends ServiceComponent<
@@ -48,6 +65,8 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 	private readonly _tls?: TlsConfig;
 	private readonly _schema?: AsyncSchemaInput;
 	private readonly _validation?: AsyncValidationOptions;
+	private readonly _autoConnect: boolean;
+	private readonly _connectParams?: unknown;
 	private _connection?: IAsyncClientAdapter;
 
 	/**
@@ -63,6 +82,8 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 		this._tls = options.tls;
 		this._schema = options.protocol.schema as AsyncSchemaInput | undefined;
 		this._validation = options.validation;
+		this._autoConnect = !!options.autoConnect;
+		this._connectParams = typeof options.autoConnect === 'object' ? options.autoConnect : undefined;
 		this.connectionId = generateId("conn_");
 	}
 
@@ -97,6 +118,8 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 
 	async executeStep(step: Step): Promise<void> {
 		switch (step.type) {
+			case "connect":
+				return this.executeConnect(step);
 			case "sendMessage":
 				return this.executeSendMessage(step);
 			case "disconnect":
@@ -111,6 +134,19 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 			default:
 				throw new Error(`Unknown step type: ${step.type} for AsyncClient ${this.name}`);
 		}
+	}
+
+	private async executeConnect(step: Step): Promise<void> {
+		const params = step.params as {
+			connectParams?: unknown | (() => unknown);
+		};
+
+		const connectParams =
+			typeof params.connectParams === "function"
+				? (params.connectParams as () => unknown)()
+				: params.connectParams;
+
+		await this.establishConnection(connectParams);
 	}
 
 	private async executeDisconnect(): Promise<void> {
@@ -404,28 +440,41 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 	// =========================================================================
 
 	protected async doStart(): Promise<void> {
+		if (this._autoConnect) {
+			await this.establishConnection(this._connectParams);
+		}
+	}
+
+	private async establishConnection(connectParams?: unknown): Promise<void> {
+		// Close existing connection if any (reconnect case)
+		if (this._connection) {
+			await this._connection.close();
+			this._connection = undefined;
+		}
+
 		this._connection = await this.protocol.createClient({
 			targetAddress: this._targetAddress,
 			tls: this._tls,
 			connectionId: this.connectionId,
+			connectParams,
 		});
 
-		// Set up message handler
+		this.setupConnectionHandlers();
+	}
+
+	private setupConnectionHandlers(): void {
+		if (!this._connection) return;
+
 		this._connection.onMessage((message) => {
 			this.handleIncomingEvent(message);
 		});
 
-		// Set up error handler
 		this._connection.onError((error) => {
 			this.trackUnhandledError(error);
 		});
 
-		// Set up close handler
 		this._connection.onClose(() => {
-			// Handle waitDisconnect steps first
 			this.handleWaitDisconnectSteps();
-
-			// Connection closed - reject any remaining pending hooks
 			for (const hook of this.hooks) {
 				if (hook.pending && !hook.resolved) {
 					this.rejectHook(hook, new Error(`Connection closed while waiting for event (step: ${hook.stepId})`));

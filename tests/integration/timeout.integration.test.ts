@@ -114,6 +114,7 @@ describe("Timeout Integration Tests", () => {
 		it("should fail when connecting to non-existent server", async () => {
 			// Use a port that's guaranteed not to have a server
 			const client = new AsyncClient("api", {
+				autoConnect: true,
 				protocol: new WebSocketProtocol<TimeoutWsService>(),
 				targetAddress: { host: "127.0.0.1", port: 17999 },
 			});
@@ -147,6 +148,7 @@ describe("Timeout Integration Tests", () => {
 			});
 
 			const client = new AsyncClient("api", {
+				autoConnect: true,
 				protocol: new WebSocketProtocol<TimeoutWsService>(),
 				targetAddress: { host: "127.0.0.1", port: 17003 },
 			});
@@ -180,6 +182,7 @@ describe("Timeout Integration Tests", () => {
 			});
 
 			const client = new AsyncClient("api", {
+				autoConnect: true,
 				protocol: new WebSocketProtocol<TimeoutWsService>(),
 				targetAddress: { host: "127.0.0.1", port: 17004 },
 			});
@@ -213,6 +216,7 @@ describe("Timeout Integration Tests", () => {
 
 			// No explicit timeout - should use default
 			const client = new AsyncClient("api", {
+				autoConnect: true,
 				protocol: new WebSocketProtocol<TimeoutWsService>(),
 				targetAddress: { host: "127.0.0.1", port: 17005 },
 			});

@@ -114,6 +114,8 @@ const tc = testCase('example', (test) => {
 
 Sends messages over persistent connections. Used with WebSocket, TCP, and gRPC streaming protocols.
 
+By default, `autoConnect` is `false` — you must call `connect()` explicitly before sending messages. Set `autoConnect: true` for automatic connection on start, or pass an object with protocol-typed connect params to auto-connect with parameters.
+
 ```typescript
 import { AsyncClient } from 'testurio';
 import { WebSocketProtocol } from '@testurio/protocol-ws';
@@ -121,18 +123,22 @@ import { WebSocketProtocol } from '@testurio/protocol-ws';
 const ws = new AsyncClient('ws-client', {
   protocol: new WebSocketProtocol<ChatService>(),
   targetAddress: { host: 'localhost', port: 8080 },
+  // autoConnect: false (default) — must call connect() explicitly
 });
 ```
 
 **Options:**
 - `protocol` — An async protocol instance (`WebSocketProtocol`, `TcpProtocol`, `GrpcStreamProtocol`)
 - `targetAddress` — Server address to connect to
+- `autoConnect` — _(optional)_ Connection control. `false` (default): requires explicit `connect()`. `true`: auto-connect without params. Object: auto-connect with protocol-typed params (e.g., `{ headers: { ... } }` for WS)
 
 **Step builder methods:**
 
 | Method | Mode | Description |
 |--------|------|-------------|
+| `connect(params?)` | action | Establish connection (accepts protocol-typed params or factory) |
 | `sendMessage(messageType, data)` | action | Send a message |
+| `disconnect()` | action | Close the connection |
 | `onEvent(messageType)` | hook | Register a non-blocking event handler |
 | `waitEvent(messageType, options?)` | wait | Block until event arrives |
 | `waitDisconnect()` | wait | Block until connection closes |
@@ -141,9 +147,53 @@ const ws = new AsyncClient('ws-client', {
 const tc = testCase('ping pong', (test) => {
   const ws = test.use(wsClient);
 
+  ws.connect(); // Required when autoConnect: false (default)
   ws.sendMessage('ping', { seq: 1 });
   ws.waitEvent('pong').timeout(2000).assert((msg) => msg.seq === 1);
 });
+```
+
+### Auto-Connect with Parameters
+
+When connection parameters are known at construction time, pass them directly to `autoConnect`:
+
+```typescript
+// WebSocket with auth headers — no connect() step needed
+const ws = new AsyncClient('ws-client', {
+  protocol: new WebSocketProtocol<ChatService>(),
+  targetAddress: { host: 'localhost', port: 8080 },
+  autoConnect: { headers: { Authorization: 'Bearer token' } },
+});
+
+// gRPC stream with metadata
+const grpc = new AsyncClient('grpc-client', {
+  protocol: new GrpcStreamProtocol<StreamService>({ ... }),
+  targetAddress: { host: 'localhost', port: 50051 },
+  autoConnect: { metadata: { authorization: 'Bearer token' } },
+});
+```
+
+### Dynamic Connection Parameters
+
+Use a factory function to pass parameters determined at execution time:
+
+```typescript
+ws.connect(() => ({
+  headers: { Authorization: `Bearer ${authToken}` },
+  query: { version: '2' },
+}));
+```
+
+### Reconnection
+
+Call `connect()` after `disconnect()` to create a fresh connection:
+
+```typescript
+ws.connect();
+ws.sendMessage('subscribe', { channel: 'updates' });
+ws.disconnect();
+ws.connect(); // Fresh connection
+ws.sendMessage('subscribe', { channel: 'updates' });
 ```
 
 ## AsyncServer

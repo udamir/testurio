@@ -487,6 +487,19 @@ export type ExtractGrpcStreamResponse<S, K> =
 			: GrpcMessagePayload;
 
 // =============================================================================
+// gRPC Stream Connection Parameters
+// =============================================================================
+
+/**
+ * gRPC stream connection parameters.
+ * Metadata applied during stream establishment.
+ */
+export interface GrpcStreamConnectParams {
+	/** gRPC metadata for auth and routing */
+	metadata?: Record<string, string | string[]>;
+}
+
+// =============================================================================
 // Protocol Type Markers
 // =============================================================================
 

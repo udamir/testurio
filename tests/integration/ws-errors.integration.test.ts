@@ -41,6 +41,7 @@ describe("WebSocket Error Scenarios Integration Tests", () => {
 		it("should handle connection refused error", async () => {
 			// Try to connect to a port with no server
 			const client = new AsyncClient("api", {
+				autoConnect: true,
 				protocol: new WebSocketProtocol<WsTestService>(),
 				targetAddress: { host: "127.0.0.1", port: 19999 },
 			});
@@ -66,6 +67,7 @@ describe("WebSocket Error Scenarios Integration Tests", () => {
 
 		it("should handle connection timeout", async () => {
 			const client = new AsyncClient("api", {
+				autoConnect: true,
 				protocol: new WebSocketProtocol<WsTestService>(),
 				targetAddress: { host: "10.255.255.1", port: 19998 }, // Non-routable IP for timeout
 			});
@@ -98,6 +100,7 @@ describe("WebSocket Error Scenarios Integration Tests", () => {
 			});
 
 			const client = new AsyncClient("api", {
+				autoConnect: true,
 				protocol: new WebSocketProtocol<WsTestService>(),
 				targetAddress: { host: "localhost", port },
 			});
@@ -136,6 +139,7 @@ describe("WebSocket Error Scenarios Integration Tests", () => {
 			});
 
 			const client = new AsyncClient("api", {
+				autoConnect: true,
 				protocol: new WebSocketProtocol<WsTestService>(),
 				targetAddress: { host: "localhost", port },
 			});
@@ -169,6 +173,7 @@ describe("WebSocket Error Scenarios Integration Tests", () => {
 			});
 
 			const client = new AsyncClient("api", {
+				autoConnect: true,
 				protocol: new WebSocketProtocol<WsTestService>(),
 				targetAddress: { host: "localhost", port },
 			});
@@ -201,6 +206,7 @@ describe("WebSocket Error Scenarios Integration Tests", () => {
 			});
 
 			const client = new AsyncClient("api", {
+				autoConnect: true,
 				protocol: new WebSocketProtocol<WsTestService>(),
 				targetAddress: { host: "localhost", port },
 			});
@@ -236,11 +242,13 @@ describe("WebSocket Error Scenarios Integration Tests", () => {
 			});
 
 			const client1 = new AsyncClient("client1", {
+				autoConnect: true,
 				protocol: new WebSocketProtocol<WsTestService>(),
 				targetAddress: { host: "localhost", port },
 			});
 
 			const client2 = new AsyncClient("client2", {
+				autoConnect: true,
 				protocol: new WebSocketProtocol<WsTestService>(),
 				targetAddress: { host: "localhost", port },
 			});
@@ -293,6 +301,7 @@ describe("WebSocket Error Scenarios Integration Tests", () => {
 			});
 
 			const client = new AsyncClient("api", {
+				autoConnect: true,
 				protocol: new WebSocketProtocol<WsTestService>(),
 				targetAddress: { host: "localhost", port },
 			});

@@ -64,6 +64,25 @@ export interface WsProtocolOptions<S = never> {
 }
 
 // =============================================================================
+// WebSocket Connection Parameters
+// =============================================================================
+
+/**
+ * WebSocket connection parameters.
+ * HTTP-level params applied during the WebSocket handshake.
+ */
+export interface WsConnectParams {
+	/** HTTP headers for WebSocket handshake (e.g., Authorization) */
+	headers?: Record<string, string>;
+	/** URL query parameters appended to connection URL */
+	query?: Record<string, string>;
+	/** URL path override (overrides targetAddress.path) */
+	path?: string;
+	/** WebSocket subprotocols */
+	protocols?: string[];
+}
+
+// =============================================================================
 // Internal Types
 // =============================================================================
 

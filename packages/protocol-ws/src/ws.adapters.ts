@@ -7,6 +7,7 @@
 import type { Codec, IAsyncClientAdapter, IAsyncServerAdapter, Message } from "testurio";
 import { CodecError, defaultJsonCodec } from "testurio";
 import { WebSocket, WebSocketServer } from "ws";
+import type { WsConnectParams } from "./types";
 
 /**
  * WebSocket Server Adapter
@@ -195,6 +196,7 @@ export class WsClientAdapter implements IAsyncClientAdapter {
 	 * @param tls - Use secure WebSocket (wss)
 	 * @param connectionTimeout - Connection timeout in ms (default: 5000)
 	 * @param codec - Optional codec for message encoding/decoding
+	 * @param connectParams - Optional protocol-specific connection parameters
 	 */
 	static async create(
 		host: string,
@@ -202,15 +204,20 @@ export class WsClientAdapter implements IAsyncClientAdapter {
 		path?: string,
 		tls?: boolean,
 		connectionTimeout?: number,
-		codec?: Codec<string | Uint8Array>
+		codec?: Codec<string | Uint8Array>,
+		connectParams?: WsConnectParams
 	): Promise<WsClientAdapter> {
 		const protocol = tls ? "wss" : "ws";
 		const urlPath = path || "";
-		const url = `${protocol}://${host}:${port}${urlPath}`;
+		const query = connectParams?.query;
+		const queryString = query ? "?" + new URLSearchParams(query).toString() : "";
+		const url = `${protocol}://${host}:${port}${urlPath}${queryString}`;
 		const timeout = connectionTimeout ?? 5000;
 
 		return new Promise((resolve, reject) => {
-			const socket = new WebSocket(url);
+			const socket = new WebSocket(url, connectParams?.protocols, {
+				headers: connectParams?.headers,
+			});
 			let timeoutId: NodeJS.Timeout | undefined;
 
 			// Setup connection timeout

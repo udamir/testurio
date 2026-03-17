@@ -130,6 +130,7 @@ describe("Schema Validation", () => {
 			});
 
 			const client = new AsyncClient("chat-client", {
+				autoConnect: true,
 				protocol: new WebSocketProtocol({ schema: wsSchema }),
 				targetAddress: { host: "127.0.0.1", port },
 			});
@@ -539,6 +540,7 @@ describe("Schema Validation", () => {
 			});
 
 			const client = new AsyncClient("ws-client", {
+				autoConnect: true,
 				protocol: new WebSocketProtocol(),
 				targetAddress: { host: "127.0.0.1", port },
 			});
@@ -590,6 +592,7 @@ describe("Schema Validation", () => {
 			});
 
 			const client = new AsyncClient("ws-client", {
+				autoConnect: true,
 				protocol: new WebSocketProtocol(),
 				targetAddress: { host: "127.0.0.1", port },
 			});
@@ -840,6 +843,7 @@ describe("Schema Validation", () => {
 			});
 
 			const client = new AsyncClient("ws-client", {
+				autoConnect: true,
 				protocol: new WebSocketProtocol(),
 				targetAddress: { host: "127.0.0.1", port },
 			});
@@ -886,6 +890,7 @@ describe("Schema Validation", () => {
 			});
 
 			const client = new AsyncClient("ws-client", {
+				autoConnect: true,
 				protocol: new WebSocketProtocol(),
 				targetAddress: { host: "127.0.0.1", port },
 			});
@@ -1127,6 +1132,7 @@ describe("Schema Validation", () => {
 			});
 
 			const client = new AsyncClient("ws-client", {
+				autoConnect: true,
 				protocol: new WebSocketProtocol({ schema: wsSchema }),
 				targetAddress: { host: "127.0.0.1", port },
 			});
@@ -1167,6 +1173,7 @@ describe("Schema Validation", () => {
 			});
 
 			const client = new AsyncClient("ws-client", {
+				autoConnect: true,
 				protocol: new WebSocketProtocol({ schema: wsSchema }),
 				targetAddress: { host: "127.0.0.1", port },
 			});
@@ -1213,6 +1220,7 @@ describe("Schema Validation", () => {
 			});
 
 			const client = new AsyncClient("ws-client", {
+				autoConnect: true,
 				protocol: new WebSocketProtocol(),
 				targetAddress: { host: "127.0.0.1", port },
 			});

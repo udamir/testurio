@@ -328,7 +328,8 @@ export class GrpcStreamClientAdapter implements IAsyncClientAdapter {
 		port: number,
 		ServiceClient: grpc.ServiceClientConstructor,
 		methodName: string,
-		tls?: TlsConfig
+		tls?: TlsConfig,
+		metadata?: Record<string, string | string[]>
 	): Promise<GrpcStreamClientAdapter> {
 		const credentials = createClientCredentials(tls);
 		const client = new ServiceClient(`${host}:${port}`, credentials);
@@ -341,9 +342,24 @@ export class GrpcStreamClientAdapter implements IAsyncClientAdapter {
 			throw new Error(`Method ${methodName} not found on service`);
 		}
 
+		// Build gRPC metadata if provided
+		let grpcMetadata: grpc.Metadata | undefined;
+		if (metadata) {
+			grpcMetadata = new grpc.Metadata();
+			for (const [key, value] of Object.entries(metadata)) {
+				if (Array.isArray(value)) {
+					for (const v of value) {
+						grpcMetadata.add(key, v);
+					}
+				} else {
+					grpcMetadata.set(key, value);
+				}
+			}
+		}
+
 		// Cast to stream method type and call with proper this binding
 		const streamMethod = method as GrpcStreamClientMethod;
-		const call = streamMethod.call(client);
+		const call = streamMethod.call(client, grpcMetadata);
 
 		return new GrpcStreamClientAdapter(call, `grpc-client-${Date.now()}`, methodName);
 	}

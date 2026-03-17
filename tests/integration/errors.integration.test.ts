@@ -84,6 +84,7 @@ const createWsMock = (name: string, port: number) =>
 
 const createWsClient = (name: string, port: number) =>
 	new AsyncClient(name, {
+		autoConnect: true,
 		protocol: new WebSocketProtocol<ErrorWsService>(),
 		targetAddress: { host: "127.0.0.1", port },
 	});

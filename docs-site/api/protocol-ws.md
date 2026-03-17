@@ -60,11 +60,33 @@ interface ChatService {
 ### Features
 
 - Full-duplex communication
-- Connection lifecycle events (`waitConnection`, `waitDisconnect`)
-- Path-based routing via `targetAddress.path`
+- Connection lifecycle events (`waitDisconnect`)
+- Manual connection control via `autoConnect: false` and `connect()` step
+- Protocol-typed connect params (`WsConnectParams`): `headers`, `query`, `path`, `protocols`
+- Path-based routing via `targetAddress.path` or `connect({ path })` override
 - Custom codec support (JSON by default)
 - Proxy mode support
 - Schema-first runtime validation
+
+### WsConnectParams
+
+Connection parameters passed via `connect()` during the WebSocket handshake:
+
+```typescript
+ws.connect({
+  headers: { Authorization: 'Bearer token' },
+  query: { version: '2' },
+  path: '/ws/v2',
+  protocols: ['graphql-ws'],
+});
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `headers` | `Record<string, string>` | HTTP headers for WebSocket handshake |
+| `query` | `Record<string, string>` | URL query parameters |
+| `path` | `string` | URL path override (overrides `targetAddress.path`) |
+| `protocols` | `string[]` | WebSocket subprotocols |
 
 ### Typing Modes
 

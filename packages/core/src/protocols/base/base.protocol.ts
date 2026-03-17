@@ -53,6 +53,12 @@ export abstract class BaseSyncProtocol<
  * Provides common functionality for bidirectional message protocols.
  * Subclasses implement transport-specific operations.
  *
- * @template M - Message definition type
+ * @template T - Message definition type
+ * @template TConnectParams - Protocol-specific connection parameters type
  */
-export abstract class BaseAsyncProtocol<T extends AsyncMessages = AsyncMessages> extends BaseProtocol<T> {}
+export abstract class BaseAsyncProtocol<
+	T extends AsyncMessages = AsyncMessages,
+	TConnectParams = unknown,
+> extends BaseProtocol<T> {
+	declare readonly $connectParams?: TConnectParams;
+}
