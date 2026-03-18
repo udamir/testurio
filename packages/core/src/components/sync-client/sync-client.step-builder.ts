@@ -16,6 +16,7 @@
 
 import type { ISyncProtocol, SyncOperationId } from "../../protocols/base";
 import { BaseStepBuilder } from "../base/step-builder";
+import type { ValueOrFactory } from "../base/step.types";
 import { SyncClientHookBuilder } from "./sync-client.hook-builder";
 import type { ExtractClientResponse, ExtractRequestData } from "./sync-client.types";
 
@@ -86,7 +87,7 @@ export class SyncClientStepBuilder<P extends ISyncProtocol = ISyncProtocol> exte
 	 */
 	request<K extends SyncOperationId<P>>(
 		messageType: K,
-		data: ExtractRequestData<P, K>,
+		data: ValueOrFactory<ExtractRequestData<P, K>>,
 		traceId?: string
 	): SyncClientRequestBuilder<P, K> {
 		this.registerStep({

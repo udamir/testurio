@@ -23,6 +23,32 @@ import type { Component } from "./base.types";
 export type StepMode = "action" | "hook" | "wait";
 
 // =============================================================================
+// Value or Factory
+// =============================================================================
+
+/**
+ * A value that can be static or a factory function resolved at execution time.
+ * Factory functions are called with no arguments — use closure variables for dynamic data.
+ *
+ * @example
+ * ```typescript
+ * let userId: string;
+ * api.request("getUser", () => ({ method: "GET", path: `/users/${userId}` }));
+ * ```
+ */
+export type ValueOrFactory<T> = T | (() => T);
+
+/**
+ * Resolve a ValueOrFactory to its concrete value.
+ * If the value is a function, call it. Otherwise return as-is.
+ */
+export function resolveValue<T>(valueOrFactory: ValueOrFactory<T>): T {
+	return typeof valueOrFactory === "function"
+		? (valueOrFactory as () => T)()
+		: valueOrFactory;
+}
+
+// =============================================================================
 // Handler
 // =============================================================================
 

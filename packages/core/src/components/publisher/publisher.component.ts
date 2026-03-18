@@ -12,7 +12,8 @@ import type { MQSchemaInput, SchemaLike } from "../../validation";
 import { ValidationError } from "../../validation";
 import { BaseComponent } from "../base/base.component";
 import type { ITestCaseContext } from "../base/base.types";
-import type { Handler, Step } from "../base/step.types";
+import type { Handler, Step, ValueOrFactory } from "../base/step.types";
+import { resolveValue } from "../base/step.types";
 import type { DefaultTopics, IMQAdapter, IMQPublisherAdapter, Topics } from "../mq.base";
 import { PublisherStepBuilder } from "./publisher.step-builder";
 
@@ -89,31 +90,35 @@ export class Publisher<
 	private async executePublish(step: Step): Promise<void> {
 		const params = step.params as {
 			topic: string;
-			payload: unknown;
+			payload: ValueOrFactory<unknown>;
 			options?: TOptions;
 		};
 
+		const payload = resolveValue(params.payload);
+
 		// Auto-validate outgoing message
 		if (this._validation?.validateMessages !== false) {
-			this.autoValidate(params.topic, params.payload);
+			this.autoValidate(params.topic, payload);
 		}
 
 		if (!this._publisherAdapter) {
 			throw new Error(`Publisher ${this.name} is not started`);
 		}
 
-		await this._publisherAdapter.publish(params.topic, params.payload, params.options);
+		await this._publisherAdapter.publish(params.topic, payload, params.options);
 	}
 
 	private async executePublishBatch(step: Step): Promise<void> {
 		const params = step.params as {
 			topic: string;
-			messages: TBatchMessage[];
+			messages: ValueOrFactory<TBatchMessage[]>;
 		};
+
+		const messages = resolveValue(params.messages);
 
 		// Auto-validate each message in batch
 		if (this._validation?.validateMessages !== false) {
-			for (const message of params.messages) {
+			for (const message of messages) {
 				this.autoValidate(params.topic, message);
 			}
 		}
@@ -122,7 +127,7 @@ export class Publisher<
 			throw new Error(`Publisher ${this.name} is not started`);
 		}
 
-		await this._publisherAdapter.publishBatch(params.topic, params.messages);
+		await this._publisherAdapter.publishBatch(params.topic, messages);
 	}
 
 	// =========================================================================

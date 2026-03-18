@@ -21,6 +21,7 @@ import type {
 	ProtocolConnectParams,
 } from "../../protocols/base";
 import { BaseStepBuilder } from "../base/step-builder";
+import type { ValueOrFactory } from "../base/step.types";
 import { AsyncClientHookBuilder } from "./async-client.hook-builder";
 import type { ExtractEventPayload, ExtractMessagePayload } from "./async-client.types";
 
@@ -62,7 +63,7 @@ export class AsyncClientStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> e
 	 * @param messageType - Message type identifier
 	 * @param payload - Message payload
 	 */
-	sendMessage<K extends AsyncClientMessageType<P>>(messageType: K, payload: ExtractMessagePayload<P, K>): void {
+	sendMessage<K extends AsyncClientMessageType<P>>(messageType: K, payload: ValueOrFactory<ExtractMessagePayload<P, K>>): void {
 		this.registerStep({
 			type: "sendMessage",
 			description: `Send ${messageType}`,

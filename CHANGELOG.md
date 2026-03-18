@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Factory Step Parameters** — Action step methods now accept `T | (() => T)` factory functions in addition to static values. This allows step parameters to be resolved at execution time, enabling multi-step flows where data from one step (e.g., a token or session ID) is used by a later step.
+  - `client.request('getProfile', () => ({ method: 'GET', path: '/profile', headers: { Authorization: `Bearer ${token}` } }))`
+  - `ws.sendMessage('join', () => ({ room: 'general', sessionId }))`
+  - `server.sendEvent('conn', 'authResult', () => ({ success: true, sessionId: extractedId }))`
+  - `publisher.publish('orders', () => ({ orderId, status: 'confirmed' }))`
+  - New exported types: `ValueOrFactory<T>`, `resolveValue<T>()`
+
 ### Fixed
 
 - **AsyncServer `validate()` direction** — `onEvent().validate()` now correctly uses `"serverMessage"` direction for schema lookup instead of hardcoded `"clientMessage"`. Previously, event validation would fail with "No schema registered" or validate against the wrong schema.

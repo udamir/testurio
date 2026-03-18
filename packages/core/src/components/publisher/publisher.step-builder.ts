@@ -6,6 +6,7 @@
  */
 
 import { BaseStepBuilder } from "../base/step-builder";
+import type { ValueOrFactory } from "../base/step.types";
 import type { DefaultTopics, Payload, Topic, Topics } from "../mq.base";
 
 /**
@@ -34,7 +35,7 @@ export class PublisherStepBuilder<
 	 * @param payload - Message payload (typed per topic)
 	 * @param options - Adapter-specific publish options
 	 */
-	publish<K extends Topic<T>>(topic: K, payload: Payload<T, K>, options?: TOptions): void {
+	publish<K extends Topic<T>>(topic: K, payload: ValueOrFactory<Payload<T, K>>, options?: TOptions): void {
 		this.registerStep({
 			type: "publish",
 			description: `Publish to ${topic}`,
@@ -54,7 +55,7 @@ export class PublisherStepBuilder<
 	 * @param topic - Topic name
 	 * @param messages - Adapter-specific batch messages
 	 */
-	publishBatch<K extends Topic<T>>(topic: K, messages: TBatchMessage[]): void {
+	publishBatch<K extends Topic<T>>(topic: K, messages: ValueOrFactory<TBatchMessage[]>): void {
 		this.registerStep({
 			type: "publishBatch",
 			description: `Publish batch to ${topic}`,

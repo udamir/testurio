@@ -25,7 +25,8 @@ import { ValidationError } from "../../validation";
 import type { ITestCaseContext } from "../base/base.types";
 import type { Hook } from "../base/hook.types";
 import { ServiceComponent } from "../base/service.component";
-import type { Handler, Step } from "../base/step.types";
+import type { Handler, Step, ValueOrFactory } from "../base/step.types";
+import { resolveValue } from "../base/step.types";
 import { AsyncClientStepBuilder } from "./async-client.step-builder";
 
 interface EventMessage {
@@ -188,12 +189,14 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 	private async executeSendMessage(step: Step): Promise<void> {
 		const params = step.params as {
 			messageType: string;
-			payload: unknown;
+			payload: ValueOrFactory<unknown>;
 		};
+
+		const payload = resolveValue(params.payload);
 
 		// Auto-validate outgoing message
 		if (this._validation?.validateMessages !== false) {
-			this.autoValidate(params.messageType, "clientMessage", params.payload);
+			this.autoValidate(params.messageType, "clientMessage", payload);
 		}
 
 		if (!this._connection) {
@@ -202,7 +205,7 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 
 		const message: Message = {
 			type: params.messageType,
-			payload: params.payload,
+			payload,
 		};
 
 		await this._connection.send(message);

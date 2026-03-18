@@ -32,7 +32,8 @@ import type { ITestCaseContext } from "../base/base.types";
 import { DropMessageError, sleep } from "../base/base.utils";
 import type { Hook } from "../base/hook.types";
 import { ServiceComponent } from "../base/service.component";
-import type { Handler, Step } from "../base/step.types";
+import type { Handler, Step, ValueOrFactory } from "../base/step.types";
+import { resolveValue } from "../base/step.types";
 import { AsyncServerStepBuilder } from "./async-server.step-builder";
 import type { ServerHandlerContext } from "./async-server.types";
 
@@ -287,17 +288,19 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 		const params = step.params as {
 			linkId: string;
 			eventType: string;
-			payload: unknown;
+			payload: ValueOrFactory<unknown>;
 		};
+
+		const payload = resolveValue(params.payload);
 
 		// Auto-validate outgoing event
 		if (this._validation?.validateEvents !== false) {
-			this.autoValidate(params.eventType, "serverMessage", params.payload);
+			this.autoValidate(params.eventType, "serverMessage", payload);
 		}
 
 		const message: Message = {
 			type: params.eventType,
-			payload: params.payload,
+			payload,
 		};
 
 		// Resolve linkId to connectionId
@@ -316,17 +319,19 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 	private async executeBroadcast(step: Step): Promise<void> {
 		const params = step.params as {
 			eventType: string;
-			payload: unknown;
+			payload: ValueOrFactory<unknown>;
 		};
+
+		const payload = resolveValue(params.payload);
 
 		// Auto-validate outgoing broadcast
 		if (this._validation?.validateEvents !== false) {
-			this.autoValidate(params.eventType, "serverMessage", params.payload);
+			this.autoValidate(params.eventType, "serverMessage", payload);
 		}
 
 		const message: Message = {
 			type: params.eventType,
-			payload: params.payload,
+			payload,
 		};
 
 		// Send to all connections

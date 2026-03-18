@@ -137,7 +137,7 @@ const ws = new AsyncClient('ws-client', {
 | Method | Mode | Description |
 |--------|------|-------------|
 | `connect(params?)` | action | Establish connection (accepts protocol-typed params or factory) |
-| `sendMessage(messageType, data)` | action | Send a message |
+| `sendMessage(messageType, data)` | action | Send a message (accepts static data or factory) |
 | `disconnect()` | action | Close the connection |
 | `onEvent(messageType)` | hook | Register a non-blocking event handler |
 | `waitEvent(messageType, options?)` | wait | Block until event arrives |
@@ -194,6 +194,48 @@ ws.sendMessage('subscribe', { channel: 'updates' });
 ws.disconnect();
 ws.connect(); // Fresh connection
 ws.sendMessage('subscribe', { channel: 'updates' });
+```
+
+## Factory Parameters
+
+Action step methods (`request`, `sendMessage`, `sendEvent`, `broadcast`, `publish`, `publishBatch`) accept either a static value or a factory function `() => T`. Factory functions are resolved at execution time, allowing data from earlier steps to flow into later steps.
+
+```typescript
+let token: string;
+
+const tc = testCase('multi-step flow', (test) => {
+  const api = test.use(client);
+  const mock = test.use(server);
+
+  // Step 1: Login with static params
+  api.request('login', { method: 'POST', path: '/login', body: { user: 'admin' } });
+  mock.onRequest('login', { method: 'POST', path: '/login' })
+    .mockResponse(() => ({ code: 200, body: { token: 'tok-secret' } }));
+
+  // Extract token at execution time
+  api.onResponse('login').transform((res) => {
+    token = res.body.token;
+    return res;
+  });
+
+  // Step 2: Use token via factory — resolved at execution time
+  api.request('getProfile', () => ({
+    method: 'GET' as const,
+    path: '/profile',
+    headers: { Authorization: `Bearer ${token}` },
+  }));
+});
+```
+
+This works the same way for WebSocket and other async protocols:
+
+```typescript
+let sessionId: string;
+
+ws.sendMessage('join', () => ({
+  room: 'general',
+  sessionId, // Read at execution time from earlier step
+}));
 ```
 
 ## AsyncServer
