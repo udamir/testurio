@@ -1,6 +1,6 @@
 {
   "name": "@testurio/protocol-tcp",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "TCP protocol for testurio - custom protocol support",
   "keywords": [
     "testurio",
@@ -39,7 +39,7 @@
     "prepublish": "V=$(node -p \"require('../../package.json').version\") && npm pkg set version=$V peerDependencies.testurio=^$V && pnpm run lint && pnpm run build"
   },
   "peerDependencies": {
-    "testurio": "^0.5.0"
+    "testurio": "^0.6.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.7",

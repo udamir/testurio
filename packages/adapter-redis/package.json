@@ -1,6 +1,6 @@
 {
   "name": "@testurio/adapter-redis",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Redis adapter for testurio DataSource",
   "keywords": [
     "testurio",
@@ -42,7 +42,7 @@
     "ioredis": "^5.10.0"
   },
   "peerDependencies": {
-    "testurio": "^0.5.0"
+    "testurio": "^0.6.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.7",

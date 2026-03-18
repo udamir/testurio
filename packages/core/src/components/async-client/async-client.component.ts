@@ -83,7 +83,7 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 		this._schema = options.protocol.schema as AsyncSchemaInput | undefined;
 		this._validation = options.validation;
 		this._autoConnect = !!options.autoConnect;
-		this._connectParams = typeof options.autoConnect === 'object' ? options.autoConnect : undefined;
+		this._connectParams = typeof options.autoConnect === "object" ? options.autoConnect : undefined;
 		this.connectionId = generateId("conn_");
 	}
 
@@ -142,9 +142,7 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 		};
 
 		const connectParams =
-			typeof params.connectParams === "function"
-				? (params.connectParams as () => unknown)()
-				: params.connectParams;
+			typeof params.connectParams === "function" ? (params.connectParams as () => unknown)() : params.connectParams;
 
 		await this.establishConnection(connectParams);
 	}

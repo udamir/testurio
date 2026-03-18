@@ -1,6 +1,6 @@
 {
   "name": "@testurio/adapter-rabbitmq",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "RabbitMQ adapter for testurio Publisher/Subscriber",
   "keywords": [
     "testurio",
@@ -44,7 +44,7 @@
     "amqplib": "^0.10.5"
   },
   "peerDependencies": {
-    "testurio": "^0.5.0"
+    "testurio": "^0.6.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.7",

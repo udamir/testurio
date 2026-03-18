@@ -85,10 +85,13 @@ describe("AsyncClient Connection Control", () => {
 				ws.connect();
 				ws.sendMessage("ping", { seq: 1 });
 
-				mock.waitMessage("ping").timeout(3000).assert((payload) => {
-					received = true;
-					return payload.seq === 1;
-				});
+				mock
+					.waitMessage("ping")
+					.timeout(3000)
+					.assert((payload) => {
+						received = true;
+						return payload.seq === 1;
+					});
 			});
 
 			const result = await scenario.run(tc);
@@ -122,10 +125,13 @@ describe("AsyncClient Connection Control", () => {
 				// No connect() needed — connected automatically
 				ws.sendMessage("ping", { seq: 2 });
 
-				mock.waitMessage("ping").timeout(3000).assert((payload) => {
-					received = true;
-					return payload.seq === 2;
-				});
+				mock
+					.waitMessage("ping")
+					.timeout(3000)
+					.assert((payload) => {
+						received = true;
+						return payload.seq === 2;
+					});
 			});
 
 			const result = await scenario.run(tc);
@@ -167,10 +173,13 @@ describe("AsyncClient Connection Control", () => {
 
 				ws.sendMessage("ping", { seq: 3 });
 
-				mock.waitMessage("ping").timeout(3000).assert((payload) => {
-					received = true;
-					return payload.seq === 3;
-				});
+				mock
+					.waitMessage("ping")
+					.timeout(3000)
+					.assert((payload) => {
+						received = true;
+						return payload.seq === 3;
+					});
 			});
 
 			const result = await scenario.run(tc);
@@ -206,7 +215,8 @@ describe("AsyncClient Connection Control", () => {
 				ws.connect();
 				ws.sendMessage("ping", { seq: 10 });
 
-				mock.waitMessage("ping", { matcher: (p) => p.seq === 10 })
+				mock
+					.waitMessage("ping", { matcher: (p) => p.seq === 10 })
 					.timeout(3000)
 					.assert((payload) => {
 						firstMessageReceived = true;
@@ -220,7 +230,8 @@ describe("AsyncClient Connection Control", () => {
 				ws.connect();
 				ws.sendMessage("ping", { seq: 20 });
 
-				mock.waitMessage("ping", { matcher: (p) => p.seq === 20 })
+				mock
+					.waitMessage("ping", { matcher: (p) => p.seq === 20 })
 					.timeout(3000)
 					.assert((payload) => {
 						secondMessageReceived = true;
@@ -262,10 +273,13 @@ describe("AsyncClient Connection Control", () => {
 				// No connect() needed — connected automatically with headers
 				ws.sendMessage("ping", { seq: 6 });
 
-				mock.waitMessage("ping").timeout(3000).assert((payload) => {
-					received = true;
-					return payload.seq === 6;
-				});
+				mock
+					.waitMessage("ping")
+					.timeout(3000)
+					.assert((payload) => {
+						received = true;
+						return payload.seq === 6;
+					});
 			});
 
 			const result = await scenario.run(tc);
@@ -332,10 +346,13 @@ describe("AsyncClient Connection Control", () => {
 				tcp.connect();
 				tcp.sendMessage("ping", { seq: 1 });
 
-				mock.waitMessage("ping").timeout(3000).assert((payload) => {
-					received = true;
-					return payload.seq === 1;
-				});
+				mock
+					.waitMessage("ping")
+					.timeout(3000)
+					.assert((payload) => {
+						received = true;
+						return payload.seq === 1;
+					});
 			});
 
 			const result = await scenario.run(tc);
@@ -368,10 +385,13 @@ describe("AsyncClient Connection Control", () => {
 
 				tcp.sendMessage("ping", { seq: 2 });
 
-				mock.waitMessage("ping").timeout(3000).assert((payload) => {
-					received = true;
-					return payload.seq === 2;
-				});
+				mock
+					.waitMessage("ping")
+					.timeout(3000)
+					.assert((payload) => {
+						received = true;
+						return payload.seq === 2;
+					});
 			});
 
 			const result = await scenario.run(tc);
@@ -405,7 +425,8 @@ describe("AsyncClient Connection Control", () => {
 				tcp.connect();
 				tcp.sendMessage("ping", { seq: 10 });
 
-				mock.waitMessage("ping", { matcher: (p) => p.seq === 10 })
+				mock
+					.waitMessage("ping", { matcher: (p) => p.seq === 10 })
 					.timeout(3000)
 					.assert((payload) => {
 						firstMessageReceived = true;
@@ -417,7 +438,8 @@ describe("AsyncClient Connection Control", () => {
 				tcp.connect();
 				tcp.sendMessage("ping", { seq: 20 });
 
-				mock.waitMessage("ping", { matcher: (p) => p.seq === 20 })
+				mock
+					.waitMessage("ping", { matcher: (p) => p.seq === 20 })
 					.timeout(3000)
 					.assert((payload) => {
 						secondMessageReceived = true;
@@ -456,10 +478,13 @@ describe("AsyncClient Connection Control", () => {
 				tcp.connect(); // No params — TCP has no protocol-specific params
 				tcp.sendMessage("ping", { seq: 42 });
 
-				mock.waitMessage("ping").timeout(3000).assert((payload) => {
-					received = true;
-					return payload.seq === 42;
-				});
+				mock
+					.waitMessage("ping")
+					.timeout(3000)
+					.assert((payload) => {
+						received = true;
+						return payload.seq === 42;
+					});
 			});
 
 			const result = await scenario.run(tc);
@@ -505,10 +530,13 @@ describe("AsyncClient Connection Control", () => {
 					ping: { timestamp: Date.now() },
 				});
 
-				mock.waitMessage("ping").timeout(3000).assert((payload) => {
-					received = true;
-					return payload.request_id === "REQ-001";
-				});
+				mock
+					.waitMessage("ping")
+					.timeout(3000)
+					.assert((payload) => {
+						received = true;
+						return payload.request_id === "REQ-001";
+					});
 			});
 
 			const result = await scenario.run(tc);
@@ -548,10 +576,13 @@ describe("AsyncClient Connection Control", () => {
 					ping: { timestamp: Date.now() },
 				});
 
-				mock.waitMessage("ping").timeout(3000).assert((payload) => {
-					received = true;
-					return payload.request_id === "REQ-002";
-				});
+				mock
+					.waitMessage("ping")
+					.timeout(3000)
+					.assert((payload) => {
+						received = true;
+						return payload.request_id === "REQ-002";
+					});
 			});
 
 			const result = await scenario.run(tc);
@@ -599,10 +630,13 @@ describe("AsyncClient Connection Control", () => {
 					ping: { timestamp: Date.now() },
 				});
 
-				mock.waitMessage("ping").timeout(3000).assert((payload) => {
-					received = true;
-					return payload.request_id === "REQ-003";
-				});
+				mock
+					.waitMessage("ping")
+					.timeout(3000)
+					.assert((payload) => {
+						received = true;
+						return payload.request_id === "REQ-003";
+					});
 			});
 
 			const result = await scenario.run(tc);
@@ -646,10 +680,13 @@ describe("AsyncClient Connection Control", () => {
 					ping: { timestamp: Date.now() },
 				});
 
-				mock.waitMessage("ping").timeout(3000).assert((payload) => {
-					received = true;
-					return payload.request_id === "REQ-005";
-				});
+				mock
+					.waitMessage("ping")
+					.timeout(3000)
+					.assert((payload) => {
+						received = true;
+						return payload.request_id === "REQ-005";
+					});
 			});
 
 			const result = await scenario.run(tc);
@@ -690,7 +727,8 @@ describe("AsyncClient Connection Control", () => {
 					ping: { timestamp: Date.now() },
 				});
 
-				mock.waitMessage("ping", { matcher: (p) => p.request_id === "REQ-FIRST" })
+				mock
+					.waitMessage("ping", { matcher: (p) => p.request_id === "REQ-FIRST" })
 					.timeout(3000)
 					.assert((payload) => {
 						firstMessageReceived = true;
@@ -705,7 +743,8 @@ describe("AsyncClient Connection Control", () => {
 					ping: { timestamp: Date.now() },
 				});
 
-				mock.waitMessage("ping", { matcher: (p) => p.request_id === "REQ-SECOND" })
+				mock
+					.waitMessage("ping", { matcher: (p) => p.request_id === "REQ-SECOND" })
 					.timeout(3000)
 					.assert((payload) => {
 						secondMessageReceived = true;

@@ -210,7 +210,7 @@ export class WsClientAdapter implements IAsyncClientAdapter {
 		const protocol = tls ? "wss" : "ws";
 		const urlPath = path || "";
 		const query = connectParams?.query;
-		const queryString = query ? "?" + new URLSearchParams(query).toString() : "";
+		const queryString = query ? `?${new URLSearchParams(query).toString()}` : "";
 		const url = `${protocol}://${host}:${port}${urlPath}${queryString}`;
 		const timeout = connectionTimeout ?? 5000;
 
