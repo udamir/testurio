@@ -133,7 +133,7 @@ export class AsyncServerHookBuilder<TPayload = unknown> extends BaseHookBuilder 
 			params: {
 				schema: schema ?? undefined,
 				lookupKey: stepParams.messageType ?? stepParams.eventType,
-				lookupDirection: "clientMessage",
+				lookupDirection: stepParams.eventType ? "serverMessage" : "clientMessage",
 			},
 		});
 	}
