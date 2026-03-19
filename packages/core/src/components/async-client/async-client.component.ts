@@ -214,6 +214,7 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 	private async executeWaitEvent(step: Step): Promise<void> {
 		const params = step.params as {
 			eventType: string;
+			matcher?: (payload: unknown) => boolean;
 			timeout?: number;
 		};
 		const timeout = params.timeout ?? 5000;
@@ -223,12 +224,13 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 			throw new Error(`No hook found for waitEvent: ${params.eventType}`);
 		}
 
-		// Strict ordering check for waitEvent
-		if (hook.resolved) {
+		// Strict ordering check — only when no matcher is provided.
+		// With a matcher, pre-resolved hooks are expected (batch send + filtered wait pattern).
+		if (hook.resolved && !params.matcher) {
 			throw new Error(
 				`Strict ordering violation: Event arrived before waitEvent started. ` +
 					`Step: ${step.id}, eventType: ${params.eventType}. ` +
-					`Use onEvent() if ordering doesn't matter.`
+					`Use onEvent() if ordering doesn't matter, or add a matcher for filtered wait.`
 			);
 		}
 

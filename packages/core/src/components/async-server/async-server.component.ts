@@ -196,6 +196,7 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 	private async executeWaitMessage(step: Step): Promise<void> {
 		const params = step.params as {
 			messageType: string;
+			matcher?: (payload: unknown) => boolean;
 			timeout?: number;
 		};
 		const timeout = params.timeout ?? 5000;
@@ -205,12 +206,13 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 			throw new Error(`No hook found for waitMessage: ${params.messageType}`);
 		}
 
-		// Strict ordering check for waitMessage
-		if (hook.resolved) {
+		// Strict ordering check — only when no matcher is provided.
+		// With a matcher, pre-resolved hooks are expected (batch send + filtered wait pattern).
+		if (hook.resolved && !params.matcher) {
 			throw new Error(
 				`Strict ordering violation: Message arrived before waitMessage started. ` +
 					`Step: ${step.id}, messageType: ${params.messageType}. ` +
-					`Use onMessage() if ordering doesn't matter.`
+					`Use onMessage() if ordering doesn't matter, or add a matcher for filtered wait.`
 			);
 		}
 
@@ -293,6 +295,7 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 	private async executeWaitEvent(step: Step): Promise<void> {
 		const params = step.params as {
 			eventType: string;
+			matcher?: (payload: unknown) => boolean;
 			timeout?: number;
 		};
 		const timeout = params.timeout ?? 5000;
@@ -302,12 +305,13 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 			throw new Error(`No hook found for waitEvent: ${params.eventType}`);
 		}
 
-		// Strict ordering check for waitEvent
-		if (hook.resolved) {
+		// Strict ordering check — only when no matcher is provided.
+		// With a matcher, pre-resolved hooks are expected (batch send + filtered wait pattern).
+		if (hook.resolved && !params.matcher) {
 			throw new Error(
 				`Strict ordering violation: Event arrived before waitEvent started. ` +
 					`Step: ${step.id}, eventType: ${params.eventType}. ` +
-					`Use onEvent() if ordering doesn't matter.`
+					`Use onEvent() if ordering doesn't matter, or add a matcher for filtered wait.`
 			);
 		}
 
@@ -605,6 +609,7 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 		connectionId: string
 	): ReturnType<typeof this.findMatchingHook> {
 		for (const hook of this.hooks) {
+			if (hook.resolved) continue;
 			// Check linkId filter if specified in step params
 			const params = hook.step?.params as { linkId?: string } | undefined;
 			if (params?.linkId) {

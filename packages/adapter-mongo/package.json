@@ -1,6 +1,6 @@
 {
   "name": "@testurio/adapter-mongo",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "MongoDB adapter for Testurio DataSource",
   "keywords": [
     "testurio",
@@ -43,7 +43,7 @@
     "mongodb": "^7.1.0"
   },
   "peerDependencies": {
-    "testurio": "^0.6.0"
+    "testurio": "^0.6.1"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.7",

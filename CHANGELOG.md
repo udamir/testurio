@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Wait Event Correlation** — Parallel send + filtered wait pattern for async components. Send multiple messages and correlate responses using matchers, regardless of arrival order:
+  ```typescript
+  api.sendMessage('new_order', { price: 1.9, amount: 4000 });
+  api.sendMessage('new_order', { price: 0.99, amount: 7000 });
+  api.waitEvent('order_confirm', { matcher: (r) => r.price === 1.9 }).assert(...);
+  api.waitEvent('order_confirm', { matcher: (r) => r.price === 0.99 }).assert(...);
+  ```
+  Works for both `AsyncClient.waitEvent()` and `AsyncServer.waitMessage()`.
+
 - **AsyncServer `waitEvent()`** — Added strict `waitEvent()` step to `AsyncServer` for proxy mode. This is the strict counterpart to `onEvent()`: it blocks until a matching backend event arrives and throws a strict ordering violation if the event arrives before the step starts. Supports the full handler chain (assert, transform, proxy, drop, timeout, matcher).
 
 - **Factory Step Parameters** — Action step methods now accept `T | (() => T)` factory functions in addition to static values. This allows step parameters to be resolved at execution time, enabling multi-step flows where data from one step (e.g., a token or session ID) is used by a later step.
@@ -21,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **AsyncServer `validate()` direction** — `onEvent().validate()` now correctly uses `"serverMessage"` direction for schema lookup instead of hardcoded `"clientMessage"`. Previously, event validation would fail with "No schema registered" or validate against the wrong schema.
+
+- **Hook matching skips resolved hooks** — `findMatchingHook` and `findMatchingHookWithConnection` now skip already-resolved hooks. Previously, when two hooks matched the same message type, the second event would re-match the first (already-resolved) hook instead of routing to the second. This fix enables correct FIFO ordering for same-type waits.
 
 ## [0.6.0] - 2026-03-18
 

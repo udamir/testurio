@@ -293,13 +293,10 @@ describe("AsyncServer waitEvent (Proxy Mode)", () => {
 				// Backend proactively sends Pong event to proxy (before waitEvent step runs)
 				test.use(backend).sendEvent("b1", "Pong", { timestamp: 99 });
 
-				// Client sends Ping to proxy (proxy forwards via default proxy behavior)
-				test.use(client).sendMessage("Ping", { timestamp: 1 });
-
-				// Proxy waits for client Ping (blocks, yielding to event loop).
-				// During this await, both the Pong (sent earlier) and Ping I/O callbacks fire.
-				// The Pong callback resolves the waitEvent("Pong") hook via handleBackendEvent.
-				test.use(proxy).waitMessage("Ping").timeout(2000);
+				// Client waits for forwarded Pong — this guarantees the proxy has fully
+				// processed the backend event (found the waitEvent hook, resolved it,
+				// and forwarded the message to the client) before we proceed.
+				test.use(client).waitEvent("Pong").timeout(2000);
 
 				// Proxy tries waitEvent but the hook was already resolved
 				// → strict ordering violation

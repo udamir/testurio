@@ -199,6 +199,7 @@ export abstract class BaseComponent<TStepBuilder = unknown> implements Component
 
 	protected findMatchingHook(message: unknown): Hook | null {
 		for (const hook of this.hooks) {
+			if (hook.resolved) continue;
 			try {
 				if (hook.isMatch(message)) {
 					return hook;

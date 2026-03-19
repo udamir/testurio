@@ -238,6 +238,35 @@ ws.sendMessage('join', () => ({
 }));
 ```
 
+### Parallel Send + Filtered Wait
+
+When multiple requests of the same type are in-flight, use matchers to correlate responses by payload content instead of relying on arrival order:
+
+```typescript
+const tc = testCase('batch orders', (test) => {
+  const api = test.use(wsClient);
+
+  // Batch sends — all executed before any waits
+  api.sendMessage('new_order', { price: 1.9, amount: 4000 });
+  api.sendMessage('new_order', { price: 0.99, amount: 7000 });
+  api.sendMessage('new_order', { price: 0.85, amount: 8000 });
+
+  // Filtered waits — each matcher routes to the correct response
+  api.waitEvent('order_confirm', { matcher: (r) => r.price === 1.9 })
+    .assert((r) => expect(r.order_id).toBeDefined());
+  api.waitEvent('order_confirm', { matcher: (r) => r.price === 0.99 })
+    .assert((r) => expect(r.order_id).toBeDefined());
+  api.waitEvent('order_confirm', { matcher: (r) => r.price === 0.85 })
+    .assert((r) => expect(r.order_id).toBeDefined());
+});
+```
+
+Without matchers, multiple `waitEvent` of the same type consume events in FIFO order (first registered hook gets first event). With matchers, events are routed based on payload content regardless of arrival order.
+
+::: tip
+The `matcher` option works on both `waitEvent()` (AsyncClient) and `waitMessage()` (AsyncServer). When a matcher is provided, the strict ordering check is relaxed — pre-resolved hooks are allowed because events may arrive before the wait step executes in the batch pattern.
+:::
+
 ## AsyncServer
 
 Acts as a mock async server or proxy for persistent connections.
