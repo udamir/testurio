@@ -194,3 +194,42 @@ const tc = testCase('async transform', (test) => {
   });
 });
 ```
+
+### Backend Event Interception (Async)
+
+In async proxy mode, events from the backend flow back through the proxy to the client. Use `onEvent` (non-strict) or `waitEvent` (strict) to intercept and transform these events:
+
+```typescript
+const tc = testCase('intercept backend events', (test) => {
+  const api = test.use(client);
+  const px = test.use(proxy);
+  const be = test.use(backend);
+
+  // Backend responds with event
+  be.onMessage('GetData').mockEvent('DataResponse', (p) => ({
+    id: p.id,
+    status: 'pending',
+    value: 50,
+  }));
+
+  // Client sends request (must come before waitEvent since it blocks)
+  api.sendMessage('GetData', { id: 'req-1' });
+
+  // Proxy intercepts backend event with strict ordering and transforms it
+  px.waitEvent('DataResponse')
+    .timeout(2000)
+    .assert((p) => p.status === 'pending')
+    .proxy((p) => ({
+      ...p,
+      status: 'completed',
+      value: p.value * 2,
+    }));
+
+  // Client receives the transformed event
+  api.onEvent('DataResponse').assert((p) => {
+    return p.status === 'completed' && p.value === 100;
+  });
+});
+```
+
+Use `onEvent` when timing doesn't matter, and `waitEvent` when you want to enforce that the proxy is actively waiting before the event arrives.

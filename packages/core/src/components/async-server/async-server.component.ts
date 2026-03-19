@@ -120,7 +120,11 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 	// =========================================================================
 
 	async registerHook(step: Step): Promise<Hook> {
-		const withPending = step.type === "waitMessage" || step.type === "waitConnection" || step.type === "waitDisconnect";
+		const withPending =
+			step.type === "waitMessage" ||
+			step.type === "waitConnection" ||
+			step.type === "waitDisconnect" ||
+			step.type === "waitEvent";
 		return super.registerHook(step, withPending);
 	}
 
@@ -176,6 +180,8 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 				return this.executeWaitConnection(step);
 			case "waitDisconnect":
 				return this.executeWaitDisconnect(step);
+			case "waitEvent":
+				return this.executeWaitEvent(step);
 			case "sendEvent":
 				return this.executeSendEvent(step);
 			case "broadcast":
@@ -277,6 +283,36 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 
 			// Execute handlers (e.g., assert)
 			await this.executeHandlers(step, undefined);
+		} finally {
+			if (!hook.persistent) {
+				this.removeHook(hook.id);
+			}
+		}
+	}
+
+	private async executeWaitEvent(step: Step): Promise<void> {
+		const params = step.params as {
+			eventType: string;
+			timeout?: number;
+		};
+		const timeout = params.timeout ?? 5000;
+
+		const hook = this.findHookByStepId(step.id);
+		if (!hook) {
+			throw new Error(`No hook found for waitEvent: ${params.eventType}`);
+		}
+
+		// Strict ordering check for waitEvent
+		if (hook.resolved) {
+			throw new Error(
+				`Strict ordering violation: Event arrived before waitEvent started. ` +
+					`Step: ${step.id}, eventType: ${params.eventType}. ` +
+					`Use onEvent() if ordering doesn't matter.`
+			);
+		}
+
+		try {
+			await this.awaitHook(hook, timeout);
 		} finally {
 			if (!hook.persistent) {
 				this.removeHook(hook.id);
@@ -468,10 +504,16 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 			return;
 		}
 
+		const isWaitStep = step.type === "waitEvent";
 		const context: ServerHandlerContext = { connectionId: clientConnectionId };
 
 		try {
 			const result = await this.executeServerHandlers(step, eventMessage, context);
+
+			// Notify wait step that handling is complete
+			if (isWaitStep) {
+				this.resolveHook(hook, undefined);
+			}
 
 			// If result is null (dropped), don't forward
 			if (result === null) {
@@ -481,6 +523,11 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 			// Forward transformed event to client
 			await pair.client.send({ type: result.type, payload: result.payload });
 		} catch (error) {
+			// Notify wait step of error
+			if (isWaitStep) {
+				this.rejectHook(hook, error instanceof Error ? error : new Error(String(error)));
+			}
+
 			if (error instanceof DropMessageError) {
 				return;
 			}
@@ -717,7 +764,12 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 	}
 
 	protected createHookMatcher(step: Step): (message: unknown) => boolean {
-		if (step.type !== "onMessage" && step.type !== "waitMessage" && step.type !== "onEvent") {
+		if (
+			step.type !== "onMessage" &&
+			step.type !== "waitMessage" &&
+			step.type !== "onEvent" &&
+			step.type !== "waitEvent"
+		) {
 			return () => false;
 		}
 

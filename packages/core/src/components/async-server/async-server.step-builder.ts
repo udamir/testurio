@@ -21,8 +21,8 @@
  */
 
 import type { AsyncClientMessageType, AsyncServerMessageType, IAsyncProtocol } from "../../protocols/base";
-import { BaseStepBuilder } from "../base/step-builder";
 import type { ValueOrFactory } from "../base/step.types";
+import { BaseStepBuilder } from "../base/step-builder";
 import type { AsyncServer } from "./async-server.component";
 import { AsyncServerHookBuilder } from "./async-server.hook-builder";
 import type { ExtractEventPayload, ExtractMessagePayload } from "./async-server.types";
@@ -249,7 +249,10 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> e
 	 * @param eventType - Event type to send
 	 * @param payload - Event payload
 	 */
-	broadcast<K extends AsyncServerMessageType<P>>(eventType: K, payload: ValueOrFactory<ExtractEventPayload<P, K>>): void {
+	broadcast<K extends AsyncServerMessageType<P>>(
+		eventType: K,
+		payload: ValueOrFactory<ExtractEventPayload<P, K>>
+	): void {
 		this.registerStep({
 			type: "broadcast",
 			description: `Broadcast event ${eventType}`,
@@ -299,6 +302,34 @@ export class AsyncServerStepBuilder<P extends IAsyncProtocol = IAsyncProtocol> e
 				},
 				handlers: [],
 				mode: "hook",
+			},
+			AsyncServerHookBuilder<TPayload>
+		);
+	}
+
+	/**
+	 * Wait for event from backend (PROXY MODE, STRICT).
+	 *
+	 * Must be waiting when event arrives - error if event arrives before step starts.
+	 * Only applicable when server is in proxy mode (has targetAddress).
+	 *
+	 * @param eventType - Event type to match
+	 * @param options.matcher - Optional filter by payload content
+	 */
+	waitEvent<K extends AsyncServerMessageType<P>, TPayload = ExtractEventPayload<P, K>>(
+		eventType: K,
+		options?: { matcher?: (payload: TPayload) => boolean }
+	): AsyncServerHookBuilder<TPayload> {
+		return this.registerStep(
+			{
+				type: "waitEvent",
+				description: `Wait for backend event ${eventType}`,
+				params: {
+					eventType,
+					matcher: options?.matcher,
+				},
+				handlers: [],
+				mode: "wait",
 			},
 			AsyncServerHookBuilder<TPayload>
 		);

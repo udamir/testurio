@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **AsyncServer `waitEvent()`** — Added strict `waitEvent()` step to `AsyncServer` for proxy mode. This is the strict counterpart to `onEvent()`: it blocks until a matching backend event arrives and throws a strict ordering violation if the event arrives before the step starts. Supports the full handler chain (assert, transform, proxy, drop, timeout, matcher).
+
 - **Factory Step Parameters** — Action step methods now accept `T | (() => T)` factory functions in addition to static values. This allows step parameters to be resolved at execution time, enabling multi-step flows where data from one step (e.g., a token or session ID) is used by a later step.
   - `client.request('getProfile', () => ({ method: 'GET', path: '/profile', headers: { Authorization: `Bearer ${token}` } }))`
   - `ws.sendMessage('join', () => ({ room: 'general', sessionId }))`

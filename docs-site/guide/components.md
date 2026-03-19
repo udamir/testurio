@@ -11,25 +11,25 @@ The `Server` and `AsyncServer` components serve **two distinct roles** depending
 
 Combined with `Client` / `AsyncClient` (which always sends requests to a target), these form the three roles at the heart of every Testurio test:
 
-| Role | Component | Configuration |
-|------|-----------|---------------|
-| **Client** | `Client`, `AsyncClient` | `targetAddress` only |
-| **Mock** | `Server`, `AsyncServer` | `listenAddress` only |
-| **Proxy** | `Server`, `AsyncServer` | `listenAddress` + `targetAddress` |
+| Role       | Component               | Configuration                     |
+| ---------- | ----------------------- | --------------------------------- |
+| **Client** | `Client`, `AsyncClient` | `targetAddress` only              |
+| **Mock**   | `Server`, `AsyncServer` | `listenAddress` only              |
+| **Proxy**  | `Server`, `AsyncServer` | `listenAddress` + `targetAddress` |
 
 This model works identically across all protocols — HTTP, gRPC, WebSocket, and TCP.
 
 ## Component Overview
 
-| Component | Protocol Type | Role |
-|-----------|---------------|------|
-| `Client` | Sync (HTTP, gRPC Unary) | Sends requests to a target server |
-| `Server` | Sync | Mock server or proxy |
+| Component     | Protocol Type                       | Role                                       |
+| ------------- | ----------------------------------- | ------------------------------------------ |
+| `Client`      | Sync (HTTP, gRPC Unary)             | Sends requests to a target server          |
+| `Server`      | Sync                                | Mock server or proxy                       |
 | `AsyncClient` | Async (WebSocket, TCP, gRPC Stream) | Sends messages over persistent connections |
-| `AsyncServer` | Async | Mock async server or proxy |
-| `Publisher` | MQ Adapter | Publishes messages to topics |
-| `Subscriber` | MQ Adapter | Subscribes to and asserts on messages |
-| `DataSource` | Direct SDK | Executes operations on databases/caches |
+| `AsyncServer` | Async                               | Mock async server or proxy                 |
+| `Publisher`   | MQ Adapter                          | Publishes messages to topics               |
+| `Subscriber`  | MQ Adapter                          | Subscribes to and asserts on messages      |
+| `DataSource`  | Direct SDK                          | Executes operations on databases/caches    |
 
 ## Client
 
@@ -50,11 +50,11 @@ const client = new Client('api', {
 
 **Step builder methods:**
 
-| Method | Mode | Description |
-|--------|------|-------------|
-| `request(operationId, data)` | action | Send a request |
-| `onResponse(operationId)` | hook | Register a non-blocking response handler |
-| `waitResponse(operationId)` | wait | Block until the response arrives |
+| Method                       | Mode   | Description                              |
+| ---------------------------- | ------ | ---------------------------------------- |
+| `request(operationId, data)` | action | Send a request                           |
+| `onResponse(operationId)`    | hook   | Register a non-blocking response handler |
+| `waitResponse(operationId)`  | wait   | Block until the response arrives         |
 
 ```typescript
 const tc = testCase('example', (test) => {
@@ -93,9 +93,9 @@ const proxy = new Server('gateway', {
 
 **Step builder methods:**
 
-| Method | Mode | Description |
-|--------|------|-------------|
-| `onRequest(operationId, matcher?)` | hook | Handle incoming request |
+| Method                               | Mode | Description                 |
+| ------------------------------------ | ---- | --------------------------- |
+| `onRequest(operationId, matcher?)`   | hook | Handle incoming request     |
 | `waitRequest(operationId, matcher?)` | wait | Block until request arrives |
 
 ```typescript
@@ -134,14 +134,14 @@ const ws = new AsyncClient('ws-client', {
 
 **Step builder methods:**
 
-| Method | Mode | Description |
-|--------|------|-------------|
-| `connect(params?)` | action | Establish connection (accepts protocol-typed params or factory) |
-| `sendMessage(messageType, data)` | action | Send a message (accepts static data or factory) |
-| `disconnect()` | action | Close the connection |
-| `onEvent(messageType)` | hook | Register a non-blocking event handler |
-| `waitEvent(messageType, options?)` | wait | Block until event arrives |
-| `waitDisconnect()` | wait | Block until connection closes |
+| Method                             | Mode   | Description                                                     |
+| ---------------------------------- | ------ | --------------------------------------------------------------- |
+| `connect(params?)`                 | action | Establish connection (accepts protocol-typed params or factory) |
+| `sendMessage(messageType, data)`   | action | Send a message (accepts static data or factory)                 |
+| `disconnect()`                     | action | Close the connection                                            |
+| `onEvent(messageType)`             | hook   | Register a non-blocking event handler                           |
+| `waitEvent(messageType, options?)` | wait   | Block until event arrives                                       |
+| `waitDisconnect()`                 | wait   | Block until connection closes                                   |
 
 ```typescript
 const tc = testCase('ping pong', (test) => {
@@ -259,12 +259,19 @@ const wsMock = new AsyncServer('ws-server', {
 
 **Step builder methods:**
 
-| Method | Mode | Description |
-|--------|------|-------------|
-| `onMessage(messageType)` | hook | Handle incoming message |
-| `waitMessage(messageType)` | wait | Block until message arrives |
-| `waitConnection()` | wait | Block until a client connects |
-| `waitDisconnect()` | wait | Block until a client disconnects |
+| Method                                  | Mode   | Description                                    |
+| --------------------------------------- | ------ | ---------------------------------------------- |
+| `onConnection(linkId, options?)`        | hook   | Link connection when it arrives                |
+| `waitConnection(linkId, options?)`      | wait   | Block until client connects                    |
+| `onMessage(messageType, options?)`      | hook   | Handle incoming message                        |
+| `waitMessage(messageType, options?)`    | wait   | Block until message arrives                    |
+| `onEvent(eventType)`                    | hook   | Handle backend event (proxy mode)              |
+| `waitEvent(eventType, options?)`        | wait   | Block until backend event arrives (proxy mode) |
+| `sendEvent(linkId, eventType, payload)` | action | Send event to linked connection                |
+| `broadcast(eventType, payload)`         | action | Send event to all connections                  |
+| `disconnect(linkId)`                    | action | Disconnect a linked connection                 |
+| `onDisconnect(linkId, handler)`         | hook   | Handle linked connection disconnect            |
+| `waitDisconnect(linkId)`                | wait   | Block until client disconnects                 |
 
 ```typescript
 const tc = testCase('echo', (test) => {
@@ -296,10 +303,10 @@ const pub = new Publisher<OrderTopics>('order-pub', {
 
 **Step builder methods:**
 
-| Method | Mode | Description |
-|--------|------|-------------|
+| Method                           | Mode   | Description                  |
+| -------------------------------- | ------ | ---------------------------- |
 | `publish(topic, data, options?)` | action | Publish a message to a topic |
-| `publishBatch(topic, messages)` | action | Publish multiple messages |
+| `publishBatch(topic, messages)`  | action | Publish multiple messages    |
 
 ```typescript
 const tc = testCase('publish order', (test) => {
@@ -331,10 +338,10 @@ const sub = new Subscriber<OrderTopics>('order-sub', {
 
 **Step builder methods:**
 
-| Method | Mode | Description |
-|--------|------|-------------|
-| `onMessage(topic)` | hook | Register a non-blocking message handler |
-| `waitMessage(topic, options?)` | wait | Block until a message arrives |
+| Method                         | Mode | Description                             |
+| ------------------------------ | ---- | --------------------------------------- |
+| `onMessage(topic)`             | hook | Register a non-blocking message handler |
+| `waitMessage(topic, options?)` | wait | Block until a message arrives           |
 
 ```typescript
 const tc = testCase('receive order', (test) => {
@@ -363,8 +370,8 @@ const redis = new DataSource('cache', {
 
 **Step builder methods:**
 
-| Method | Mode | Description |
-|--------|------|-------------|
+| Method                  | Mode   | Description                          |
+| ----------------------- | ------ | ------------------------------------ |
 | `exec(description, fn)` | action | Execute operations on the data store |
 
 ```typescript

@@ -15,8 +15,8 @@
  */
 
 import type { ISyncProtocol, SyncOperationId } from "../../protocols/base";
-import { BaseStepBuilder } from "../base/step-builder";
 import type { ValueOrFactory } from "../base/step.types";
+import { BaseStepBuilder } from "../base/step-builder";
 import { SyncClientHookBuilder } from "./sync-client.hook-builder";
 import type { ExtractClientResponse, ExtractRequestData } from "./sync-client.types";
 

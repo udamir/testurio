@@ -43,9 +43,7 @@ export type ValueOrFactory<T> = T | (() => T);
  * If the value is a function, call it. Otherwise return as-is.
  */
 export function resolveValue<T>(valueOrFactory: ValueOrFactory<T>): T {
-	return typeof valueOrFactory === "function"
-		? (valueOrFactory as () => T)()
-		: valueOrFactory;
+	return typeof valueOrFactory === "function" ? (valueOrFactory as () => T)() : valueOrFactory;
 }
 
 // =============================================================================
