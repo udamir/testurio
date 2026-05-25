@@ -5,9 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.6.2]
 
 ### Added
+
+- **ClickHouse DataSource adapter** — New `@testurio/adapter-clickhouse` package exposing a thin `query`/`insert`/`command`/`ping`/`raw` wrapper over the official `@clickhouse/client` HTTP client. Lifecycle managed by `TestScenario`
 
 - **Wait Event Correlation** — Parallel send + filtered wait pattern for async components. Send multiple messages and correlate responses using matchers, regardless of arrival order:
   ```typescript

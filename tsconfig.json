@@ -28,6 +28,7 @@
       "@testurio/protocol-grpc": ["./packages/protocol-grpc/src"],
       "@testurio/protocol-ws": ["./packages/protocol-ws/src"],
       "@testurio/protocol-tcp": ["./packages/protocol-tcp/src"],
+      "@testurio/adapter-clickhouse": ["./packages/adapter-clickhouse/src"],
       "@testurio/adapter-kafka": ["./packages/adapter-kafka/src"],
       "@testurio/adapter-mongo": ["./packages/adapter-mongo/src"],
       "@testurio/adapter-pg": ["./packages/adapter-pg/src"],

@@ -1,13 +1,24 @@
 {
-  "name": "@testurio/cli",
+  "name": "@testurio/adapter-clickhouse",
   "version": "0.6.1",
-  "description": "CLI for Testurio - Generate type-safe schemas from OpenAPI and gRPC specs",
+  "description": "ClickHouse adapter for Testurio DataSource",
+  "keywords": [
+    "testurio",
+    "clickhouse",
+    "adapter",
+    "testing",
+    "e2e"
+  ],
+  "author": "Damir Yusipov",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/udamir/testurio.git",
+    "directory": "packages/adapter-clickhouse"
+  },
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
-  "bin": {
-    "testurio": "dist/bin.js"
-  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -22,21 +33,13 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "build": "tsup src/index.ts src/bin.ts --format cjs,esm --dts --sourcemap --clean",
+    "build": "tsup src/index.ts --format cjs,esm --dts --sourcemap --clean",
     "test": "vitest run",
     "lint": "biome check src",
-    "lint:fix": "biome check --write .",
     "prepublish": "V=$(node -p \"require('../../package.json').version\") && npm pkg set version=$V peerDependencies.testurio=^$V && pnpm run lint && pnpm run build"
   },
   "dependencies": {
-    "api-ref-bundler": "^0.5.0",
-    "commander": "^14.0.3",
-    "cosmiconfig": "^9.0.0",
-    "orval": "8.5.3",
-    "picocolors": "^1.1.0",
-    "protobufjs": "^8.0.0",
-    "yaml": "^2.6.0",
-    "zod": "^4.3.6"
+    "@clickhouse/client": "^1.18.0"
   },
   "peerDependencies": {
     "testurio": "^0.6.1"

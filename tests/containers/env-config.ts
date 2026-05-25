@@ -44,6 +44,15 @@ export interface MongoDBEnvConfig {
 	database: string;
 }
 
+export interface ClickHouseEnvConfig {
+	host: string;
+	port: number;
+	url: string;
+	username: string;
+	password: string;
+	database: string;
+}
+
 /**
  * Check if Docker containers were started by global setup.
  * This should be used with describe.skipIf() to skip tests when Docker is unavailable.
@@ -85,6 +94,13 @@ export function isRabbitMQAvailable(): boolean {
  */
 export function isMongoDBAvailable(): boolean {
 	return isContainerSetupAvailable() && !!process.env.TESTURIO_MONGODB_HOST;
+}
+
+/**
+ * Check if ClickHouse container is available.
+ */
+export function isClickHouseAvailable(): boolean {
+	return isContainerSetupAvailable() && !!process.env.TESTURIO_CLICKHOUSE_HOST;
 }
 
 /**
@@ -209,6 +225,34 @@ export function getMongoDBConfig(): MongoDBEnvConfig {
 		host,
 		port: parseInt(port, 10),
 		uri,
+		database,
+	};
+}
+
+/**
+ * Get ClickHouse connection config from environment variables.
+ * Throws if ClickHouse is not available.
+ */
+export function getClickHouseConfig(): ClickHouseEnvConfig {
+	const host = process.env.TESTURIO_CLICKHOUSE_HOST;
+	const port = process.env.TESTURIO_CLICKHOUSE_PORT;
+	const url = process.env.TESTURIO_CLICKHOUSE_URL;
+	const username = process.env.TESTURIO_CLICKHOUSE_USERNAME;
+	const password = process.env.TESTURIO_CLICKHOUSE_PASSWORD;
+	const database = process.env.TESTURIO_CLICKHOUSE_DATABASE;
+
+	if (!host || !port || !url || !username || password === undefined || !database) {
+		throw new Error(
+			"ClickHouse container config not found in environment. " + "Ensure global setup has run and Docker is available."
+		);
+	}
+
+	return {
+		host,
+		port: parseInt(port, 10),
+		url,
+		username,
+		password,
 		database,
 	};
 }

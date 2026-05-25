@@ -70,6 +70,7 @@ export default defineConfig({
             { text: 'adapter-rabbitmq', link: '/api/adapter-rabbitmq' },
             { text: 'adapter-mongo', link: '/api/adapter-mongo' },
             { text: 'adapter-pg', link: '/api/adapter-pg' },
+            { text: 'adapter-clickhouse', link: '/api/adapter-clickhouse' },
           ]
         },
         {

@@ -15,7 +15,7 @@ A declarative E2E/integration testing framework for distributed systems with mul
 
 - **Multi-Protocol Support** - HTTP, gRPC (Unary & Streaming), WebSocket, TCP
 - **Message Queue Support** - Publisher/Subscriber for Kafka, RabbitMQ, Redis Pub/Sub
-- **DataSource Integration** - Direct SDK access to Redis, PostgreSQL, MongoDB
+- **DataSource Integration** - Direct SDK access to Redis, PostgreSQL, MongoDB, ClickHouse
 - **Declarative API** - Write tests in execution order with clear, readable syntax
 - **Component-Based** - Define clients, mocks, proxies, publishers, subscribers, and data sources as reusable components
 - **Type-Safe** - Full TypeScript support with automatic type inference
@@ -74,19 +74,20 @@ console.log(result.passed); // true
 
 ## Packages
 
-| Package                                                                                  | Description                          |
-| ---------------------------------------------------------------------------------------- | ------------------------------------ |
-| [`testurio`](https://www.npmjs.com/package/testurio)                                     | Core framework with HTTP protocol    |
-| [`@testurio/protocol-grpc`](https://www.npmjs.com/package/@testurio/protocol-grpc)       | gRPC unary & streaming protocol      |
-| [`@testurio/protocol-ws`](https://www.npmjs.com/package/@testurio/protocol-ws)           | WebSocket protocol                   |
-| [`@testurio/protocol-tcp`](https://www.npmjs.com/package/@testurio/protocol-tcp)         | TCP protocol                         |
-| [`@testurio/adapter-kafka`](https://www.npmjs.com/package/@testurio/adapter-kafka)       | Kafka adapter                        |
-| [`@testurio/adapter-rabbitmq`](https://www.npmjs.com/package/@testurio/adapter-rabbitmq) | RabbitMQ adapter                     |
-| [`@testurio/adapter-redis`](https://www.npmjs.com/package/@testurio/adapter-redis)       | Redis adapter (Pub/Sub + DataSource) |
-| [`@testurio/adapter-pg`](https://www.npmjs.com/package/@testurio/adapter-pg)             | PostgreSQL adapter                   |
-| [`@testurio/adapter-mongo`](https://www.npmjs.com/package/@testurio/adapter-mongo)       | MongoDB adapter                      |
-| [`@testurio/reporter-allure`](https://www.npmjs.com/package/@testurio/reporter-allure)   | Allure reporter                      |
-| [`@testurio/cli`](https://www.npmjs.com/package/@testurio/cli)                           | CLI for schema generation            |
+| Package                                                                                      | Description                          |
+| -------------------------------------------------------------------------------------------- | ------------------------------------ |
+| [`testurio`](https://www.npmjs.com/package/testurio)                                         | Core framework with HTTP protocol    |
+| [`@testurio/protocol-grpc`](https://www.npmjs.com/package/@testurio/protocol-grpc)           | gRPC unary & streaming protocol      |
+| [`@testurio/protocol-ws`](https://www.npmjs.com/package/@testurio/protocol-ws)               | WebSocket protocol                   |
+| [`@testurio/protocol-tcp`](https://www.npmjs.com/package/@testurio/protocol-tcp)             | TCP protocol                         |
+| [`@testurio/adapter-kafka`](https://www.npmjs.com/package/@testurio/adapter-kafka)           | Kafka adapter                        |
+| [`@testurio/adapter-rabbitmq`](https://www.npmjs.com/package/@testurio/adapter-rabbitmq)     | RabbitMQ adapter                     |
+| [`@testurio/adapter-redis`](https://www.npmjs.com/package/@testurio/adapter-redis)           | Redis adapter (Pub/Sub + DataSource) |
+| [`@testurio/adapter-pg`](https://www.npmjs.com/package/@testurio/adapter-pg)                 | PostgreSQL adapter                   |
+| [`@testurio/adapter-mongo`](https://www.npmjs.com/package/@testurio/adapter-mongo)           | MongoDB adapter                      |
+| [`@testurio/adapter-clickhouse`](https://www.npmjs.com/package/@testurio/adapter-clickhouse) | ClickHouse adapter (HTTP)            |
+| [`@testurio/reporter-allure`](https://www.npmjs.com/package/@testurio/reporter-allure)       | Allure reporter                      |
+| [`@testurio/cli`](https://www.npmjs.com/package/@testurio/cli)                               | CLI for schema generation            |
 
 ## Roadmap
 

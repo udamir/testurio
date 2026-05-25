@@ -17,6 +17,7 @@ export default defineConfig({
       '@testurio/protocol-grpc': resolve(__dirname, './packages/protocol-grpc/src'),
       '@testurio/protocol-ws': resolve(__dirname, './packages/protocol-ws/src'),
       '@testurio/protocol-tcp': resolve(__dirname, './packages/protocol-tcp/src'),
+      '@testurio/adapter-clickhouse': resolve(__dirname, './packages/adapter-clickhouse/src'),
       '@testurio/adapter-kafka': resolve(__dirname, './packages/adapter-kafka/src'),
       '@testurio/adapter-mongo': resolve(__dirname, './packages/adapter-mongo/src'),
       '@testurio/adapter-pg': resolve(__dirname, './packages/adapter-pg/src'),

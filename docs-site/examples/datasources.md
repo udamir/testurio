@@ -4,13 +4,14 @@ Practical examples for testing with database and cache integrations.
 
 ## Overview
 
-Testurio supports three DataSource adapters:
+Testurio supports four DataSource adapters:
 
-| Adapter | Package | Client Type |
-|---------|---------|-------------|
-| Redis | `@testurio/adapter-redis` | ioredis `Redis` |
-| PostgreSQL | `@testurio/adapter-pg` | pg `Pool` |
-| MongoDB | `@testurio/adapter-mongo` | mongodb `Db` |
+| Adapter    | Package                        | Client Type                                           |
+| ---------- | ------------------------------ | ----------------------------------------------------- |
+| Redis      | `@testurio/adapter-redis`      | ioredis `Redis`                                       |
+| PostgreSQL | `@testurio/adapter-pg`         | pg `Pool`                                             |
+| MongoDB    | `@testurio/adapter-mongo`      | mongodb `Db`                                          |
+| ClickHouse | `@testurio/adapter-clickhouse` | `ClickHouseClientWrapper` (over `@clickhouse/client`) |
 
 ## Redis DataSource
 
@@ -115,6 +116,60 @@ const tc = testCase('Collection operations', (test) => {
   mongo.exec('verify', async (client) => {
     return client.collection('users').findOne({ name: 'Alice' });
   }).assert('user exists', (user) => user !== null);
+});
+```
+
+## ClickHouse DataSource
+
+```typescript
+import { DataSource, TestScenario, testCase } from 'testurio';
+import { ClickHouseAdapter } from '@testurio/adapter-clickhouse';
+
+const ch = new DataSource('clickhouse', {
+  adapter: new ClickHouseAdapter({
+    url: 'http://localhost:8123',
+    username: 'default',
+    password: '',
+    database: 'default',
+  }),
+});
+
+const scenario = new TestScenario({
+  name: 'ClickHouse Tests',
+  components: [ch],
+});
+
+const tc = testCase('DDL → insert → count', (test) => {
+  const store = test.use(ch);
+
+  store.exec('create table', async (db) => {
+    await db.command({
+      query: `CREATE TABLE events (id UInt32, name String) ENGINE = MergeTree() ORDER BY id`,
+    });
+  });
+
+  store.exec('insert rows', async (db) => {
+    await db.insert<{ id: number; name: string }>({
+      table: 'events',
+      values: [
+        { id: 1, name: 'login' },
+        { id: 2, name: 'logout' },
+      ],
+    });
+  });
+
+  store
+    .exec('count', async (db) => {
+      const rows = await db.query<{ c: string }>({
+        query: 'SELECT count() AS c FROM events',
+      });
+      return Number(rows[0].c);
+    })
+    .assert('two events', (n) => n === 2);
+
+  store.exec('cleanup', async (db) => {
+    await db.command({ query: 'DROP TABLE events' });
+  });
 });
 ```
 

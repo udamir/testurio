@@ -4,6 +4,7 @@
  * Provides container helpers for integration testing with real services.
  */
 
+export * from "./clickhouse.container";
 export * from "./docker-check";
 export * from "./env-config";
 export * from "./kafka.container";

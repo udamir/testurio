@@ -7,6 +7,11 @@
  * Returns a teardown function that stops all containers after tests complete.
  */
 
+import {
+	type ClickHouseTestContext,
+	startClickHouseContainer,
+	stopClickHouseContainer,
+} from "./containers/clickhouse.container";
 import { isDockerAvailable } from "./containers/docker-check";
 import { type KafkaTestContext, startKafkaContainer, stopKafkaContainer } from "./containers/kafka.container";
 import { type MongoDBTestContext, startMongoContainer, stopMongoContainer } from "./containers/mongodb.container";
@@ -28,6 +33,7 @@ let postgresContext: PostgresTestContext | null = null;
 let kafkaContext: KafkaTestContext | null = null;
 let rabbitmqContext: RabbitMQTestContext | null = null;
 let mongodbContext: MongoDBTestContext | null = null;
+let clickhouseContext: ClickHouseTestContext | null = null;
 
 export default async function globalSetup(): Promise<() => Promise<void>> {
 	// Disable Ryuk (Reaper) to avoid "Failed to connect to Reaper" errors
@@ -53,7 +59,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
 
 	try {
 		// Start all containers in parallel for faster startup
-		const [redis, postgres, kafka, rabbitmq, mongodb] = await Promise.all([
+		const [redis, postgres, kafka, rabbitmq, mongodb, clickhouse] = await Promise.all([
 			startRedisContainer().catch((err) => {
 				console.error("[Global Setup] Failed to start Redis:", err.message);
 				return null;
@@ -77,6 +83,10 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
 				console.error("[Global Setup] Failed to start MongoDB:", err.message);
 				return null;
 			}),
+			startClickHouseContainer().catch((err) => {
+				console.error("[Global Setup] Failed to start ClickHouse:", err.message);
+				return null;
+			}),
 		]);
 
 		// Store contexts for teardown
@@ -85,6 +95,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
 		kafkaContext = kafka;
 		rabbitmqContext = rabbitmq;
 		mongodbContext = mongodb;
+		clickhouseContext = clickhouse;
 
 		// Set Redis environment variables
 		if (redis) {
@@ -139,6 +150,17 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
 			console.log(`[Global Setup] MongoDB started: ${mongodb.host}:${mongodb.port}`);
 		}
 
+		// Set ClickHouse environment variables
+		if (clickhouse) {
+			process.env.TESTURIO_CLICKHOUSE_HOST = clickhouse.host;
+			process.env.TESTURIO_CLICKHOUSE_PORT = String(clickhouse.port);
+			process.env.TESTURIO_CLICKHOUSE_URL = clickhouse.url;
+			process.env.TESTURIO_CLICKHOUSE_USERNAME = clickhouse.username;
+			process.env.TESTURIO_CLICKHOUSE_PASSWORD = clickhouse.password;
+			process.env.TESTURIO_CLICKHOUSE_DATABASE = clickhouse.database;
+			console.log(`[Global Setup] ClickHouse started: ${clickhouse.host}:${clickhouse.port}`);
+		}
+
 		const elapsed = Date.now() - startTime;
 		console.log(`[Global Setup] All containers started in ${elapsed}ms`);
 	} catch (error) {
@@ -189,6 +211,14 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
 			stopPromises.push(
 				stopMongoContainer(mongodbContext).catch((err) => {
 					console.error("[Global Teardown] Error stopping MongoDB:", err.message);
+				})
+			);
+		}
+
+		if (clickhouseContext) {
+			stopPromises.push(
+				stopClickHouseContainer(clickhouseContext).catch((err) => {
+					console.error("[Global Teardown] Error stopping ClickHouse:", err.message);
 				})
 			);
 		}
