@@ -1,0 +1,7 @@
+:root {
+  --vp-layout-max-width: 1600px;
+}
+
+.VPContent .content-container {
+  max-width: 1024px !important;
+}
