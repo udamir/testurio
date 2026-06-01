@@ -2,7 +2,7 @@
  * Sync Client Hook Builder
  *
  * Builder for handling sync client responses in a declarative way.
- * Extends BaseHookBuilder with client-specific handler methods.
+ * Extends BaseHookBuilder with response-specific handler methods.
  *
  * Per design:
  * - Contains NO logic, only handler registration

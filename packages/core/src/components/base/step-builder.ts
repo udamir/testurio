@@ -78,15 +78,26 @@ export abstract class BaseStepBuilder {
 	 * Creates a Step object (pure data) and registers it.
 	 * NO action function, NO execution logic.
 	 *
+	 * Extra constructor arguments after `Step` are forwarded via variadic
+	 * `args` — this lets hook builders (e.g. `SyncClientRequestBuilder`)
+	 * accept additional context like `messageType` or a back-reference to
+	 * the step builder without needing a separate registration method.
+	 *
 	 * @param stepData - Step data without id (id will be generated)
 	 * @param HookBuilderClass - Optional hook builder class to instantiate
+	 * @param args - Extra constructor arguments forwarded to HookBuilderClass
 	 * @returns Hook builder instance if HookBuilderClass provided, undefined otherwise
 	 */
-	protected registerStep<T extends BaseHookBuilder>(stepData: StepData, HookBuilderClass: new (step: Step) => T): T;
-	protected registerStep(stepData: StepData): undefined;
-	protected registerStep<T extends BaseHookBuilder>(
+	protected registerStep<T extends BaseHookBuilder, A extends unknown[] = []>(
 		stepData: StepData,
-		HookBuilderClass?: new (step: Step) => T
+		HookBuilderClass: new (step: Step, ...args: A) => T,
+		...args: A
+	): T;
+	protected registerStep(stepData: StepData): undefined;
+	protected registerStep<T extends BaseHookBuilder, A extends unknown[]>(
+		stepData: StepData,
+		HookBuilderClass?: new (step: Step, ...args: A) => T,
+		...args: A
 	): T | undefined {
 		// Create the Step object (pure data)
 		const step: Step = {
@@ -100,8 +111,8 @@ export abstract class BaseStepBuilder {
 		this._registerStep(step);
 
 		if (HookBuilderClass) {
-			// Pass step directly to HookBuilder - it can mutate handlers and params
-			return new HookBuilderClass(step);
+			// Pass step (and any extra ctor args) directly to HookBuilder
+			return new HookBuilderClass(step, ...args);
 		}
 
 		return;

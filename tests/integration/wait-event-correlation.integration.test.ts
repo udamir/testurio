@@ -94,15 +94,18 @@ describe("Wait Event Correlation", () => {
 				api.sendMessage("NewOrder", { price: 0.85, amount: 8000 });
 
 				// Filtered waits — each matcher routes to the correct response
-				api.waitEvent("OrderConfirm", { matcher: (r) => r.price === 1.9 })
+				api
+					.waitEvent("OrderConfirm", { matcher: (r) => r.price === 1.9 })
 					.timeout(3000)
 					.assert((r) => r.orderId === "ORD-1.9");
 
-				api.waitEvent("OrderConfirm", { matcher: (r) => r.price === 0.99 })
+				api
+					.waitEvent("OrderConfirm", { matcher: (r) => r.price === 0.99 })
 					.timeout(3000)
 					.assert((r) => r.orderId === "ORD-0.99");
 
-				api.waitEvent("OrderConfirm", { matcher: (r) => r.price === 0.85 })
+				api
+					.waitEvent("OrderConfirm", { matcher: (r) => r.price === 0.85 })
 					.timeout(3000)
 					.assert((r) => r.orderId === "ORD-0.85");
 			});
@@ -136,15 +139,18 @@ describe("Wait Event Correlation", () => {
 				api.sendMessage("NewOrder", { price: 0.85, amount: 8000 });
 
 				// Filtered waits in REVERSE order of sending — matchers still correlate
-				api.waitEvent("OrderConfirm", { matcher: (r) => r.price === 0.85 })
+				api
+					.waitEvent("OrderConfirm", { matcher: (r) => r.price === 0.85 })
 					.timeout(3000)
 					.assert((r) => r.orderId === "ORD-0.85");
 
-				api.waitEvent("OrderConfirm", { matcher: (r) => r.price === 1.9 })
+				api
+					.waitEvent("OrderConfirm", { matcher: (r) => r.price === 1.9 })
 					.timeout(3000)
 					.assert((r) => r.orderId === "ORD-1.9");
 
-				api.waitEvent("OrderConfirm", { matcher: (r) => r.price === 0.99 })
+				api
+					.waitEvent("OrderConfirm", { matcher: (r) => r.price === 0.99 })
 					.timeout(3000)
 					.assert((r) => r.orderId === "ORD-0.99");
 			});
@@ -171,15 +177,23 @@ describe("Wait Event Correlation", () => {
 
 				// First send-wait pair
 				api.sendMessage("Ping", { id: 1 });
-				srv.waitMessage("Ping").timeout(2000).mockEvent("Pong", () => ({ id: 100 }));
-				api.waitEvent("Pong")
+				srv
+					.waitMessage("Ping")
+					.timeout(2000)
+					.mockEvent("Pong", () => ({ id: 100 }));
+				api
+					.waitEvent("Pong")
 					.timeout(3000)
 					.assert((p) => p.id === 100);
 
 				// Second send-wait pair — skip-resolved ensures second Pong goes to second hook
 				api.sendMessage("Ping", { id: 2 });
-				srv.waitMessage("Ping").timeout(2000).mockEvent("Pong", () => ({ id: 200 }));
-				api.waitEvent("Pong")
+				srv
+					.waitMessage("Ping")
+					.timeout(2000)
+					.mockEvent("Pong", () => ({ id: 200 }));
+				api
+					.waitEvent("Pong")
 					.timeout(3000)
 					.assert((p) => p.id === 200);
 			});
@@ -210,15 +224,18 @@ describe("Wait Event Correlation", () => {
 				api.sendMessage("NewOrder", { price: 0.85, amount: 8000 });
 
 				// Server uses filtered waitMessage to match each by price
-				srv.waitMessage("NewOrder", { matcher: (p) => p.price === 1.9 })
+				srv
+					.waitMessage("NewOrder", { matcher: (p) => p.price === 1.9 })
 					.timeout(3000)
 					.assert((p) => p.amount === 4000);
 
-				srv.waitMessage("NewOrder", { matcher: (p) => p.price === 0.99 })
+				srv
+					.waitMessage("NewOrder", { matcher: (p) => p.price === 0.99 })
 					.timeout(3000)
 					.assert((p) => p.amount === 7000);
 
-				srv.waitMessage("NewOrder", { matcher: (p) => p.price === 0.85 })
+				srv
+					.waitMessage("NewOrder", { matcher: (p) => p.price === 0.85 })
 					.timeout(3000)
 					.assert((p) => p.amount === 8000);
 			});
@@ -246,15 +263,18 @@ describe("Wait Event Correlation", () => {
 				api.sendMessage("NewOrder", { price: 0.85, amount: 8000 });
 
 				// Wait in reverse order — matchers still correlate
-				srv.waitMessage("NewOrder", { matcher: (p) => p.price === 0.85 })
+				srv
+					.waitMessage("NewOrder", { matcher: (p) => p.price === 0.85 })
 					.timeout(3000)
 					.assert((p) => p.amount === 8000);
 
-				srv.waitMessage("NewOrder", { matcher: (p) => p.price === 1.9 })
+				srv
+					.waitMessage("NewOrder", { matcher: (p) => p.price === 1.9 })
 					.timeout(3000)
 					.assert((p) => p.amount === 4000);
 
-				srv.waitMessage("NewOrder", { matcher: (p) => p.price === 0.99 })
+				srv
+					.waitMessage("NewOrder", { matcher: (p) => p.price === 0.99 })
 					.timeout(3000)
 					.assert((p) => p.amount === 7000);
 			});

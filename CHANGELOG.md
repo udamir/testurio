@@ -5,9 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.6.2]
+## [0.6.3]
 
 ### Added
+
+- **Step Polling / Retry** — Step-level `.retry(predicate, timeoutMs | options)` modifier on `Client.request(...)` (HTTP / gRPC unary) and `DataSource.exec(...)`. Retry-while semantics: predicate returns `true` to keep retrying, `false` to stop. Three call forms: `.retry(pred)`, `.retry(pred, timeoutMs)`, `.retry(pred, { timeout, interval, retryOnError })`. Defaults: `timeout = 5000 ms`, `interval = 1000 ms`, `retryOnError = true`. Throws `RetryTimeoutError` carrying `attempts`, `elapsedMs`, `lastResult`, and `lastError` when the overall timeout elapses.
+  ```typescript
+  api.request('getStatus', { method: 'GET', path: '/status' })
+     .retry((res) => res.body.ready === false, 3000);
+
+  ds.exec('wait for row', (c) => c.query<Row>({ query: 'SELECT * FROM t' }))
+    .retry((rows) => rows.length === 0)
+    .assert('row exists', (rows) => rows.length > 0);
+  ```
+  New exported types: `RetryPredicate<T>`, `RetryOptions`, `RetryPolicy<T>`, `RetryTimeoutError`, `TimeoutError`. Data factories on `request(...)` and exec callbacks re-resolve on every attempt; `onResponse`/`waitResponse` hooks (sync client) and chained handlers (DataSource) only see the terminal result.
 
 - **ClickHouse DataSource adapter** — New `@testurio/adapter-clickhouse` package exposing a thin `query`/`insert`/`command`/`ping`/`raw` wrapper over the official `@clickhouse/client` HTTP client. Lifecycle managed by `TestScenario`
 

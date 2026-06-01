@@ -141,6 +141,8 @@ api.waitResponse('getUser')
   .assert((res) => res.code === 200);
 ```
 
+> **See also:** For waiting until an endpoint *converges* to an expected state (rather than waiting for a single message within a budget), see the [Polling & Retry guide](/guide/polling-and-retry).
+
 ## Chaining Handlers
 
 Handlers can be chained together and execute in order:

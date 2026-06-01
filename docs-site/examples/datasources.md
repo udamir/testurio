@@ -275,3 +275,79 @@ const tc = testCase('With timeout', (test) => {
   ).timeout(1000);
 });
 ```
+
+## Polling for Convergence
+
+Use `.retry(predicate)` on a `.exec(...)` step to poll the data store until it converges to the expected state — wait for a row to appear, for a job status to flip, for a queue to drain. See the [Polling & Retry guide](/guide/polling-and-retry) for full semantics.
+
+### Wait for row to appear (defaults)
+
+The polling step starts immediately. A sibling exec step schedules an insert via `setTimeout` so the row only lands part-way through the loop:
+
+```typescript
+import { ClickHouseAdapter } from '@testurio/adapter-clickhouse';
+import { DataSource, TestScenario, testCase } from 'testurio';
+
+const db = new DataSource('clickhouse', {
+  adapter: new ClickHouseAdapter({ url: 'http://localhost:8123' }),
+});
+
+const scenario = new TestScenario({
+  name: 'Wait for row',
+  components: [db],
+});
+
+const tc = testCase('Wait for row to appear', (test) => {
+  const store = test.use(db);
+
+  store.exec('setup', async (wrapper) => {
+    await wrapper.command({
+      query: 'CREATE TABLE events (id UInt32) ENGINE = MergeTree() ORDER BY id',
+    });
+  });
+
+  // The exec callback returns immediately; the setTimeout fires later.
+  store.exec('schedule insert', async (wrapper) => {
+    setTimeout(() => {
+      void wrapper.insert({ table: 'events', values: [{ id: 1 }] });
+    }, 1500);
+  });
+
+  // Poll until at least one row exists. Defaults: timeout 5s, interval 1s.
+  store
+    .exec('wait for row', async (wrapper) => {
+      const rows = await wrapper.query<{ c: string }>({
+        query: 'SELECT count() AS c FROM events',
+      });
+      return Number(rows[0].c);
+    })
+    .retry((n) => n === 0)
+    .assert('row exists', (n) => n > 0);
+});
+```
+
+### Step-level timeout caps the retry loop
+
+`.timeout(ms)` is a **step-level wall-clock deadline**. When `.retry(...)` is set, it caps the entire polling loop — when the deadline fires, retry is terminated and the step fails with `TimeoutError` (distinct from `RetryTimeoutError`, which means the retry budget elapsed naturally between attempts).
+
+```typescript
+const tc = testCase('Step-level timeout', (test) => {
+  const store = test.use(db);
+
+  store
+    .exec('poll empty', async (wrapper) => {
+      const rows = await wrapper.query<{ c: string }>({
+        query: 'SELECT count() AS c FROM events',
+      });
+      return Number(rows[0].c);
+    })
+    .timeout(1500)                                              // step-level deadline (caps the whole loop)
+    .retry((n) => n === 0, { interval: 200 });                  // poll forever until cap fires
+});
+```
+
+The step fails with a `TimeoutError` after ~1500 ms. When `.timeout(ms)` and `.retry({ timeout })` are both set, whichever elapses first wins.
+
+::: warning In-flight call is abandoned
+The SDK call running when the deadline fires is abandoned, not cancelled — the framework stops awaiting but the underlying query may still complete on the server. Cooperative cancellation via `AbortSignal` is planned in a follow-up release.
+:::

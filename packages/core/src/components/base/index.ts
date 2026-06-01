@@ -23,6 +23,9 @@ export * from "./base.types";
 export * from "./base.utils";
 export * from "./hook.types";
 export * from "./hook-builder";
+// Retry / polling primitive
+export * from "./retry";
+export * from "./retry.types";
 export * from "./service.component";
 // Core types
 export * from "./step.types";

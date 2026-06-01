@@ -418,6 +418,8 @@ const tc = testCase('cache test', (test) => {
 });
 ```
 
+> **See also:** `.exec(...)` returns a hook builder that supports `.timeout(ms)` (per-attempt) and `.retry(predicate)` (poll until convergence). See the [Polling & Retry guide](/guide/polling-and-retry) for how to wait for rows to appear, jobs to complete, or other convergence scenarios.
+
 ## Component Ordering
 
 In the `components` array, order matters:

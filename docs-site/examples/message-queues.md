@@ -14,6 +14,47 @@ Testurio supports three MQ adapters:
 
 All MQ adapters use the same `Publisher` / `Subscriber` API.
 
+## Type-Safe Topic Definitions
+
+`Publisher<T>` and `Subscriber<T>` take a topics interface where each key is a topic name and each value is the payload shape for that topic. Both ends of the queue share the same interface, so the same typo or shape mismatch fails to compile on the publisher and on the subscriber.
+
+```typescript
+interface OrderTopics {
+  'order-created':   { orderId: string; customerId: string; total: number };
+  'order-shipped':   { orderId: string; trackingNumber: string };
+  'order-cancelled': { orderId: string; reason: string };
+}
+
+const pub = new Publisher<OrderTopics>('order-pub', {
+  adapter: new KafkaAdapter({ brokers: ['localhost:9092'] }),
+});
+
+const sub = new Subscriber<OrderTopics>('order-sub', {
+  adapter: new KafkaAdapter({ brokers: ['localhost:9092'], groupId: 'test' }),
+});
+```
+
+What the compiler catches:
+
+```typescript
+// ✗ Topic not declared on OrderTopics
+pub.publish('order-pending', { orderId: 'ORD-1' });
+
+// ✗ Wrong payload shape for the topic
+pub.publish('order-shipped', { orderId: 'ORD-1', total: 99.99 });
+//                                              ^^^^^ should be trackingNumber
+
+// ✗ Field with the wrong type
+pub.publish('order-created', { orderId: 'ORD-1', customerId: 'C-1', total: '99.99' });
+//                                                                         ^^^^^^^ string ≠ number
+
+// ✓ Subscriber payload is typed against the topic key
+sub.waitMessage('order-created').assert((m) => m.payload.total > 0);
+//                                                       ^^^^^ number from OrderTopics
+```
+
+See the [Type Safety guide](/guide/type-safety) for the full mode comparison and schema-first inference.
+
 ## Kafka Example
 
 ```typescript

@@ -38,7 +38,9 @@ export default defineConfig({
           items: [
             { text: 'Components', link: '/guide/components' },
             { text: 'Protocols', link: '/guide/protocols' },
+            { text: 'Type Safety', link: '/guide/type-safety' },
             { text: 'Hooks & Mocking', link: '/guide/hooks' },
+            { text: 'Polling & Retry', link: '/guide/polling-and-retry' },
             { text: 'Proxy Mode', link: '/guide/proxy-mode' },
             { text: 'Schema Validation', link: '/guide/schema-validation' },
             { text: 'Test Lifecycle', link: '/guide/test-lifecycle' },
@@ -127,7 +129,7 @@ export default defineConfig({
     },
     footer: {
       message: 'Released under the MIT License.',
-      copyright: 'Copyright 2024-present Damir Yusipov'
+      copyright: 'Copyright 2026 Damir Yusipov'
     }
   }
 })

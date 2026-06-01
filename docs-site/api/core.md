@@ -121,11 +121,20 @@ new Client(name: string, options: ClientOptions)
 
 ### Step Builder Methods
 
-| Method                                 | Mode   | Description                   |
-| -------------------------------------- | ------ | ----------------------------- |
-| `request(operationId, data, traceId?)` | action | Send a request                |
-| `onResponse(operationId, traceId?)`    | hook   | Non-blocking response handler |
-| `waitResponse(operationId, options?)`  | wait   | Block until response arrives  |
+| Method                                 | Mode   | Description                                                                          |
+| -------------------------------------- | ------ | ------------------------------------------------------------------------------------ |
+| `request(operationId, data, traceId?)` | action | Send a request. Chain `.retry(...)` to poll until the response matches a predicate   |
+| `onResponse(operationId, traceId?)`    | hook   | Non-blocking response handler                                                        |
+| `waitResponse(operationId, options?)`  | wait   | Block until response arrives                                                         |
+
+#### Request Builder Chain Methods
+
+Returned by `request(...)`:
+
+| Method                              | Description                                                                                                                                                |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.onResponse()`                     | Shorthand for the matching `onResponse(operationId)` step                                                                                                  |
+| `.retry(predicate, timeoutMs?)`     | Poll: re-fire the request while predicate returns `true`. Defaults: `timeout = 5000 ms`, `interval = 1000 ms`, `retryOnError = true`. See Hook Builder Methods for the options form. Terminal response is delivered to matching `onResponse`/`waitResponse` hooks. |
 
 ## Server
 
@@ -220,9 +229,9 @@ new DataSource(name: string, options: DataSourceOptions)
 
 ### Step Builder Methods
 
-| Method                            | Mode   | Description                          |
-| --------------------------------- | ------ | ------------------------------------ |
-| `exec(description, fn, options?)` | action | Execute operations on the data store |
+| Method                            | Mode   | Description                                                                                                                                |
+| --------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `exec(description, fn, options?)` | action | Execute operations on the data store. Returns a hook builder that supports `.assert(...)`, `.timeout(ms)`, and `.retry(...)` for polling. |
 
 ## Publisher
 
@@ -298,6 +307,7 @@ All hook builders support these chaining methods:
 | `.validate()`              | Validate against schema          |
 | `.validate(schema)`        | Validate against explicit schema |
 | `.timeout(ms)`             | Set timeout (wait steps only)    |
+| `.retry(predicate, opts?)` | Poll the action: re-run until predicate returns false, with overall timeout (DataSource exec only — see Polling & Retry guide) |
 
 ## Types
 
@@ -338,3 +348,37 @@ new JsonCodec(options?: {
   replacer?: (key: string, value: unknown) => unknown;
 })
 ```
+
+### RetryPredicate
+
+```typescript
+type RetryPredicate<T> = (result: T) => boolean | Promise<boolean>;
+```
+
+Returns `true` to keep retrying, `false` to stop. See the [Polling & Retry guide](/guide/polling-and-retry) for full semantics.
+
+### RetryOptions
+
+```typescript
+interface RetryOptions {
+  /** Overall wall-clock timeout for the polling loop. Default: 5000. */
+  timeout?: number;
+  /** Delay between attempts in ms. Default: 1000. Use 0 for immediate retry. */
+  interval?: number;
+  /** Treat thrown attempts as "not ready" and retry. Default: true. */
+  retryOnError?: boolean;
+}
+```
+
+### RetryTimeoutError
+
+```typescript
+class RetryTimeoutError extends Error {
+  readonly attempts: number;
+  readonly elapsedMs: number;
+  readonly lastResult: unknown;
+  readonly lastError: Error | undefined;
+}
+```
+
+Thrown by `.retry(...)` when the overall `timeout` elapses without the predicate returning `false`. The `lastResult` is the most recent attempt result (or `undefined` if every attempt threw); `lastError` is the most recent thrown error (or `undefined` if no attempt threw).

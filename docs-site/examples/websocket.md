@@ -38,6 +38,43 @@ const scenario = new TestScenario({
 });
 ```
 
+## Type-Safe Service Definition
+
+The `ChatService` interface above splits messages into `clientMessages` (what the client sends) and `serverMessages` (what the server sends back). The compiler then enforces the direction of every step — you can't accidentally call `sendMessage('joined', ...)` from the client, and you can't `waitEvent('join')` on a client-only message.
+
+```typescript
+const ws   = test.use(client);
+const mock = test.use(server);
+
+// ✗ 'joined' is a server message — the client can't send it
+ws.sendMessage('joined', { roomId: 'general', userId: 'alice', success: true });
+
+// ✗ 'join' is a client message — the client doesn't receive it
+ws.waitEvent('join');
+
+// ✗ Missing required field
+ws.sendMessage('join', { roomId: 'general' });
+//                     ^^^^^^^^^^^^^^^^^^^^^ userId is required
+
+// ✓ All directions and shapes match the definition
+ws.sendMessage('join', { roomId: 'general', userId: 'alice' });
+ws.waitEvent('joined').assert((msg) => msg.success);
+```
+
+On the server side the same definition flips: `onMessage` covers `clientMessages`, `mockEvent` / `sendEvent` / `broadcast` cover `serverMessages`. The mock callback receives the typed client payload and must return a typed server payload:
+
+```typescript
+mock.onMessage('join').mockEvent('joined', (msg) => ({
+  roomId: msg.roomId,
+  //          ^^^^^^ inferred from clientMessages.join
+  userId: msg.userId,
+  success: true,
+  //  ^^^^^^^^^^^^^ required by serverMessages.joined
+}));
+```
+
+See the [Type Safety guide](/guide/type-safety) for matchers, factories, and schema-first inference.
+
 ## Join a Room
 
 ```typescript

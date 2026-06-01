@@ -17,6 +17,8 @@ import type { SchemaLike, SyncSchemaInput } from "../../validation";
 import { ValidationError } from "../../validation";
 import type { ITestCaseContext } from "../base/base.types";
 import type { Hook } from "../base/hook.types";
+import { runWithRetry } from "../base/retry";
+import type { RetryPolicy } from "../base/retry.types";
 import { ServiceComponent } from "../base/service.component";
 import type { Handler, Step, ValueOrFactory } from "../base/step.types";
 import { resolveValue } from "../base/step.types";
@@ -97,26 +99,45 @@ export class Client<P extends ISyncProtocol = ISyncProtocol> extends ServiceComp
 		const params = step.params as {
 			messageType: string;
 			data?: ValueOrFactory<P["$request"]>;
+			retry?: RetryPolicy<P["$response"]>;
 		};
-
-		const data = resolveValue(params.data);
-
-		// Auto-validate outgoing request
-		if (this._validation?.validateRequests !== false) {
-			this.autoValidate(params.messageType, "request", data);
-		}
 
 		// Find matching response hooks (already registered with pending in Phase 1)
 		const preMatchMessage: ResponseMessage = { type: params.messageType, payload: undefined };
 		const matchingHooks = this.findAllMatchingHooks(preMatchMessage);
 
-		// Start request (don't await)
-		const requestPromise = this.request(params.messageType, data);
+		if (params.retry) {
+			// Retry path: per-attempt re-resolution + re-validation (per design §2.2).
+			// Owns the loop, delivers only the terminal response to hooks.
+			const attempt = async (): Promise<P["$response"]> => {
+				const data = resolveValue(params.data);
+				if (this._validation?.validateRequests !== false) {
+					this.autoValidate(params.messageType, "request", data);
+				}
+				return this.request(params.messageType, data);
+			};
+			try {
+				const finalResponse = await runWithRetry(params.retry, attempt, `Client.request("${params.messageType}")`);
+				for (const hook of matchingHooks) this.resolveHook(hook, finalResponse);
+			} catch (error) {
+				const err = error instanceof Error ? error : new Error(String(error));
+				for (const hook of matchingHooks) this.rejectHook(hook, err);
+				throw err;
+			}
+			return;
+		}
 
-		// Resolve hooks when response arrives
+		// Non-retry path: synchronous data resolution + validation BEFORE firing
+		// the request, so a validation throw bubbles out of executeRequest as a
+		// step error (matches pre-task-024 contract that schema-validation tests
+		// depend on). Then fire-and-forget the request promise with hook plumbing.
+		const data = resolveValue(params.data);
+		if (this._validation?.validateRequests !== false) {
+			this.autoValidate(params.messageType, "request", data);
+		}
+		const requestPromise = this.request(params.messageType, data);
 		for (const hook of matchingHooks) {
 			if (!hook.step) continue;
-
 			requestPromise
 				.then((response) => {
 					this.resolveHook(hook, response);

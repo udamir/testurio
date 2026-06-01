@@ -8,6 +8,66 @@ Practical examples for testing HTTP APIs with Testurio.
 import { Client, HttpProtocol, Server, TestScenario, testCase } from 'testurio';
 ```
 
+## Type-Safe Service Definition
+
+Declaring an `interface` for your HTTP service gives every step builder full autocomplete and turns silent runtime mismatches into compile-time errors. `HttpProtocol` understands the `{param}` path-template syntax — clients accept any concrete string at that segment, and server handlers receive a typed `params` object.
+
+```typescript
+interface UserApi {
+  getUser: {
+    request:  { method: 'GET';    path: '/users/{id}' };
+    response: { code: 200;        body: { id: number; name: string; email: string } };
+  };
+  createUser: {
+    request:  { method: 'POST';   path: '/users'; body: { name: string; email: string } };
+    response: { code: 201;        body: { id: number; name: string; email: string } };
+  };
+  deleteUser: {
+    request:  { method: 'DELETE'; path: '/users/{id}' };
+    response: { code: 204;        body?: never };
+  };
+}
+
+const server = new Server('backend', {
+  protocol: new HttpProtocol<UserApi>(),
+  listenAddress: { host: 'localhost', port: 3000 },
+});
+
+const client = new Client('api', {
+  protocol: new HttpProtocol<UserApi>(),
+  targetAddress: { host: 'localhost', port: 3000 },
+});
+```
+
+What the compiler now catches:
+
+```typescript
+// ✗ Operation ID not in UserApi
+api.request('getUserr', { method: 'GET', path: '/users/1' });
+
+// ✗ Wrong HTTP method for the operation
+api.request('getUser', { method: 'POST', path: '/users/1' });
+
+// ✗ Missing required body field
+api.request('createUser', { method: 'POST', path: '/users', body: { name: 'Bob' } });
+//                                                                ^^^^^^^^^^^^^^ email is required
+
+// ✗ Path doesn't match the template
+api.request('getUser', { method: 'GET', path: '/orders/1' });
+```
+
+On the server side the `params` object is typed from the path template — no `as string` casts needed:
+
+```typescript
+mock.onRequest('getUser').mockResponse((req) => ({
+  code: 200,
+  body: { id: Number(req.params.id), name: 'Alice', email: 'alice@example.com' },
+  //                  ^^^^ string, extracted from /users/{id}
+}));
+```
+
+See the [Type Safety guide](/guide/type-safety) for response-code discriminated unions, schema-first inference, and the loose-mode escape hatch.
+
 ## GET Request with Mock Response
 
 ```typescript
@@ -178,3 +238,75 @@ describe('User API', () => {
   });
 });
 ```
+
+## Polling Until Ready
+
+Use `.retry(predicate)` after `request(...)` to poll an endpoint until it converges to the expected state. The predicate is "retry-while" — return `true` to keep retrying, `false` to stop. The mock must be **stateful** (a closure counter outside `testCase`), otherwise the loop will hit the overall timeout.
+
+See the [Polling & Retry guide](/guide/polling-and-retry) for full semantics.
+
+### Defaults form
+
+```typescript
+interface StatusService {
+  getStatus: {
+    request: { method: 'GET'; path: '/status' };
+    response: { code: 200 | 503; body: { ready: boolean } };
+  };
+}
+
+const server = new Server('backend', {
+  protocol: new HttpProtocol<StatusService>(),
+  listenAddress: { host: 'localhost', port: 3000 },
+});
+
+const client = new Client('api', {
+  protocol: new HttpProtocol<StatusService>(),
+  targetAddress: { host: 'localhost', port: 3000 },
+});
+
+const scenario = new TestScenario({
+  name: 'Polling Test',
+  components: [server, client],
+});
+
+// Stateful mock — first two attempts return 503, third returns 200.
+let attempts = 0;
+
+scenario.init((test) => {
+  test
+    .use(server)
+    .onRequest('getStatus', { method: 'GET', path: '/status' })
+    .mockResponse(() => {
+      attempts++;
+      const ready = attempts >= 3;
+      return { code: ready ? 200 : 503, body: { ready } };
+    });
+});
+
+const tc = testCase('Wait until ready', (test) => {
+  const api = test.use(client);
+
+  // Defaults: timeout 5000 ms, interval 1000 ms, retryOnError true.
+  api.request('getStatus', { method: 'GET', path: '/status' })
+     .retry((res) => res.body.ready === false);
+
+  api.onResponse('getStatus').assert((res) => res.code === 200);
+});
+```
+
+### Override timeout and interval
+
+```typescript
+const tc = testCase('Wait with custom budget', (test) => {
+  const api = test.use(client);
+
+  // Poll every 500 ms for up to 3 seconds.
+  api.request('getStatus', { method: 'GET', path: '/status' })
+     .retry((res) => res.body.ready === false, { timeout: 3000, interval: 500 });
+
+  api.onResponse('getStatus').assert((res) => res.code === 200);
+});
+```
+
+On overall timeout the step fails with a `RetryTimeoutError` carrying `attempts`, `elapsedMs`, `lastResult`, and `lastError`.

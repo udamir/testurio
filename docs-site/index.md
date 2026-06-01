@@ -25,14 +25,17 @@ features:
     details: Write tests in execution order with clear, readable syntax. No imperative setup or teardown code.
   - icon: "\U0001F512"
     title: Type-Safe
-    details: Full TypeScript support with automatic type inference from service definitions and Zod schemas.
+    details: Design-time type validation catches mismatched payloads, methods, and event names before tests run.
   - icon: "\U00002705"
     title: Schema Validation
     details: Runtime payload validation using Zod-compatible schemas with auto-validation at I/O boundaries.
+  - icon: "\U00002699"
+    title: CLI Codegen
+    details: Generate type inference from service definitions and Zod schemas automatically via the Testurio CLI.
   - icon: "\U0001F4E8"
     title: Message Queue Support
     details: Test pub/sub flows with Kafka, RabbitMQ, and Redis Pub/Sub using Publisher and Subscriber components.
-  - icon: "\U0001F4BE"
+  - icon: "\U0001F6E2️"
     title: DataSource Integration
-    details: Direct SDK access to Redis, PostgreSQL, and MongoDB for test setup, assertions, and teardown.
+    details: Direct SDK access to Redis, PostgreSQL, MongoDB, and ClickHouse for test setup, assertions, and teardown.
 ---

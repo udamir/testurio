@@ -2,6 +2,14 @@
 
 Practical examples for testing gRPC services with Testurio.
 
+## Type-Safe Service Definition
+
+gRPC service definitions follow the sync `request` / `response` shape, with RPC method names as the operation IDs. The same `interface` powers both the client (typed `request(...)` payloads) and the server (typed `mockResponse((req) => ...)` callbacks).
+
+`GrpcStreamProtocol` uses the async `clientMessages` / `serverMessages` shape — see the streaming section below for an example.
+
+If you're generating schemas from `.proto`, jump to [Schema-First gRPC](#schema-first-grpc) at the bottom of the page.
+
 ## Unary RPC
 
 ```typescript

@@ -15,6 +15,9 @@
 
 import { BaseComponent } from "../base/base.component";
 import type { ITestCaseContext } from "../base/base.types";
+import { TimeoutError } from "../base/base.utils";
+import { runWithRetry } from "../base/retry";
+import type { RetryPolicy } from "../base/retry.types";
 import type { Handler, Step } from "../base/step.types";
 import { DataSourceStepBuilder } from "./datasource.step-builder";
 import type { ClientOf, DataSourceAdapter, DataSourceOptions } from "./datasource.types";
@@ -93,44 +96,55 @@ export class DataSource<A extends DataSourceAdapter<unknown, unknown>> extends B
 	 * Execute an exec step.
 	 *
 	 * 1. Get native client from adapter
-	 * 2. Execute callback with optional timeout
-	 * 3. Run handlers on result (e.g., assert)
+	 * 2. Run the attempt (or retry loop, if `.retry(...)` is set) under the
+	 *    optional step-level wall-clock deadline (`.timeout(ms)`)
+	 * 3. Run handlers on the terminal result (e.g., assert)
+	 *
+	 * `.timeout(ms)` semantics: a step-level deadline. When it fires, the
+	 * entire retry loop (or single attempt) is terminated with a `TimeoutError`.
+	 * The in-flight SDK call is abandoned; cooperative cancellation requires
+	 * `AbortSignal` plumbing (planned follow-up task).
 	 */
 	private async executeExec(step: Step): Promise<void> {
 		const params = step.params as {
 			callback: (client: ClientOf<A>) => Promise<unknown>;
 			description?: string;
 			timeout?: number;
+			retry?: RetryPolicy<unknown>;
 		};
 
-		// Get native client
 		const client = this.getClient();
+		const attempt = (): Promise<unknown> => params.callback(client);
 
-		// Execute callback with optional timeout
-		let result: unknown;
-		if (params.timeout) {
-			result = await this.withTimeout(params.callback(client), params.timeout, params.description);
-		} else {
-			result = await params.callback(client);
-		}
+		// The retry loop (if any) runs underneath the step-level timeout.
+		const loop: Promise<unknown> = params.retry
+			? runWithRetry(params.retry, attempt, `DataSource.exec(${params.description ?? "exec"})`)
+			: attempt();
 
-		// Execute handlers (e.g., assert)
+		const result: unknown = params.timeout
+			? await this.withTimeout(loop, params.timeout, params.description)
+			: await loop;
+
 		await this.executeHandlers(step, result);
 	}
 
 	/**
-	 * Wrap a promise with a timeout.
+	 * Race a promise against a wall-clock deadline. Rejects with `TimeoutError`
+	 * if the deadline fires before `promise` settles.
 	 */
 	private async withTimeout<T>(promise: Promise<T>, timeoutMs: number, description?: string): Promise<T> {
-		return Promise.race([
-			promise,
-			new Promise<never>((_, reject) => {
-				setTimeout(() => {
-					const desc = description ? `"${description}"` : "exec";
-					reject(new Error(`DataSource ${desc} timeout after ${timeoutMs}ms`));
-				}, timeoutMs);
-			}),
-		]);
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		const timeout = new Promise<never>((_, reject) => {
+			timer = setTimeout(() => {
+				const desc = description ? `"${description}"` : "exec";
+				reject(new TimeoutError(`Step ${desc} timeout after ${timeoutMs}ms`));
+			}, timeoutMs);
+		});
+		try {
+			return await Promise.race([promise, timeout]);
+		} finally {
+			if (timer) clearTimeout(timer);
+		}
 	}
 
 	// =========================================================================

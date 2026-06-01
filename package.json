@@ -1,6 +1,6 @@
 {
   "name": "testurio-monorepo",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "private": true,
   "description": "Testurio monorepo - Declarative E2E/integration testing framework",
   "author": "Damir Yusipov",
@@ -24,7 +24,7 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
-    "prepublish": "pnpm run test:run && pnpm -r run prepublish",
+    "prepublish": "pnpm run test:run && pnpm -r run prepublish && pnpm run docs:build",
     "publish:all": "pnpm -r run prepublish && pnpm -r publish --access public",
     "docs:dev": "cd docs-site && npm run dev",
     "docs:build": "cd docs-site && npm run build",

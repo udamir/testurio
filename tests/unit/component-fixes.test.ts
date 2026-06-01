@@ -67,7 +67,7 @@ class TestComponent extends BaseComponent {
 	// Execute handlers for a hook's step
 	public async testExecuteHookHandlers<T>(message: T) {
 		const hook = this.findMatchingHook(message);
-		if (!hook || !hook.step) {
+		if (!hook?.step) {
 			return message;
 		}
 		try {
