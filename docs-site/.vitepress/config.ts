@@ -6,7 +6,8 @@ export default defineConfig({
   base: '/testurio/',
 
   head: [
-    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/testurio/favicon.svg' }]
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/testurio/favicon.svg' }],
+    ['script', { src: 'https://context7.com/widget.js', 'data-library': '/udamir/testurio', 'data-color': '#6366f1' }]
   ],
 
   themeConfig: {
