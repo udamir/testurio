@@ -78,11 +78,15 @@ export interface Codec<W extends string | Uint8Array = string | Uint8Array> {
 	/**
 	 * Decode wire format data to object.
 	 *
-	 * @param wire - The wire format data to decode
+	 * Accepts both `string` and `Uint8Array` regardless of the codec's declared
+	 * `wireFormat`. Adapters pass raw transport bytes; the codec is responsible
+	 * for any normalization (e.g. UTF-8 decoding a `Uint8Array` for a text codec).
+	 *
+	 * @param wire - The wire format data to decode (string or bytes)
 	 * @returns Decoded data or Promise thereof
 	 * @throws CodecError if decoding fails
 	 */
-	decode<D = unknown>(wire: W): D | Promise<D>;
+	decode<D = unknown>(wire: string | Uint8Array): D | Promise<D>;
 }
 
 /**

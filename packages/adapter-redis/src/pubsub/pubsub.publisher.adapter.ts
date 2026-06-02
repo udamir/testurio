@@ -59,9 +59,11 @@ export class RedisPubSubPublisherAdapter implements IMQPublisherAdapter {
 		};
 
 		const encoded = await this.codec.encode(envelope);
-		const message = typeof encoded === "string" ? encoded : Buffer.from(encoded).toString();
+		// Pass raw bytes (Buffer) directly when the codec is binary; only string
+		// payloads stay as strings. ioredis.publish accepts both natively.
+		const wire: string | Buffer = typeof encoded === "string" ? encoded : Buffer.from(encoded);
 
-		await this.redis.publish(topic, message);
+		await this.redis.publish(topic, wire);
 	}
 
 	async publishBatch<T = unknown>(
@@ -88,8 +90,10 @@ export class RedisPubSubPublisherAdapter implements IMQPublisherAdapter {
 			};
 
 			const encoded = await this.codec.encode(envelope);
-			const message = typeof encoded === "string" ? encoded : Buffer.from(encoded).toString();
-			pipeline.publish(topic, message);
+			// Pass raw bytes (Buffer) directly when the codec is binary; only string
+			// payloads stay as strings. ioredis.publish accepts both natively.
+			const wire: string | Buffer = typeof encoded === "string" ? encoded : Buffer.from(encoded);
+			pipeline.publish(topic, wire);
 		}
 
 		await pipeline.exec();

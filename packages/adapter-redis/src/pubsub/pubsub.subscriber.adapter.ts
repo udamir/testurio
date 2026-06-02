@@ -70,14 +70,16 @@ export class RedisPubSubSubscriberAdapter implements IMQSubscriberAdapter<QueueM
 			return;
 		}
 
-		// Set up message handler
+		// Set up message handler — use the `*Buffer` event variants so the codec
+		// receives raw payload bytes. Wire-format normalization (text vs binary)
+		// is the codec's responsibility, not the adapter's.
 		if (this.usePatterns) {
-			this.redis.on("pmessage", (pattern: string, channel: string, message: string) => {
-				this.handleMessage(channel, message, pattern);
+			this.redis.on("pmessageBuffer", (pattern: Buffer, channel: Buffer, message: Buffer) => {
+				void this.handleMessage(channel.toString("utf8"), message, pattern.toString("utf8"));
 			});
 		} else {
-			this.redis.on("message", (channel: string, message: string) => {
-				this.handleMessage(channel, message);
+			this.redis.on("messageBuffer", (channel: Buffer, message: Buffer) => {
+				void this.handleMessage(channel.toString("utf8"), message);
 			});
 		}
 
@@ -136,14 +138,14 @@ export class RedisPubSubSubscriberAdapter implements IMQSubscriberAdapter<QueueM
 		return Array.from(this.subscribedTopics);
 	}
 
-	private handleMessage(channel: string, rawMessage: string, pattern?: string): void {
+	private async handleMessage(channel: string, rawMessage: Buffer, pattern?: string): Promise<void> {
 		if (!this.messageHandler) {
 			return;
 		}
 
 		try {
-			// Decode envelope
-			const envelope = this.codec.decode(rawMessage) as MessageEnvelope;
+			// Decode envelope — pass raw bytes to the codec; the codec normalizes.
+			const envelope = (await this.codec.decode(rawMessage)) as MessageEnvelope;
 
 			// Build Redis-specific metadata
 			const metadata: RedisPubSubMessageMetadata = {

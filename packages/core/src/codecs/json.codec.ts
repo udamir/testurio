@@ -118,11 +118,17 @@ export class JsonCodec implements Codec<string> {
 	}
 
 	/**
-	 * Decode a JSON string to data
+	 * Decode a JSON wire payload to data.
+	 *
+	 * Accepts both `string` and `Uint8Array`/`Buffer` (UTF-8). When given bytes,
+	 * normalizes them to a UTF-8 string before parsing. This lets MQ adapters
+	 * pass raw transport bytes directly without any text/binary dispatch logic
+	 * leaking into the adapter layer.
 	 */
-	decode<D>(wire: string): D {
+	decode<D>(wire: string | Uint8Array): D {
+		const text = typeof wire === "string" ? wire : Buffer.from(wire).toString("utf8");
 		try {
-			return JSON.parse(wire, this.reviver) as D;
+			return JSON.parse(text, this.reviver) as D;
 		} catch (error) {
 			// If already a CodecError, rethrow
 			if (error instanceof CodecError) {
@@ -130,7 +136,7 @@ export class JsonCodec implements Codec<string> {
 			}
 
 			// Truncate large data for error message
-			const truncatedData = wire.length > 200 ? `${wire.slice(0, 200)}...` : wire;
+			const truncatedData = text.length > 200 ? `${text.slice(0, 200)}...` : text;
 
 			throw CodecError.decodeError(this.name, error instanceof Error ? error : new Error(String(error)), truncatedData);
 		}

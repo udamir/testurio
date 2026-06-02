@@ -70,7 +70,7 @@ export class RabbitMQSubscriberAdapter implements IMQSubscriberAdapter<QueueMess
 			this.queueName,
 			(msg) => {
 				if (msg) {
-					this.handleMessage(msg);
+					void this.handleMessage(msg);
 				}
 			},
 			{ noAck: this.autoAck }
@@ -128,7 +128,7 @@ export class RabbitMQSubscriberAdapter implements IMQSubscriberAdapter<QueueMess
 		return Array.from(this.subscribedTopics);
 	}
 
-	private handleMessage(msg: ConsumeMessage): void {
+	private async handleMessage(msg: ConsumeMessage): Promise<void> {
 		if (!this.messageHandler) {
 			return;
 		}
@@ -144,8 +144,9 @@ export class RabbitMQSubscriberAdapter implements IMQSubscriberAdapter<QueueMess
 				}
 			}
 
-			// Decode payload
-			const decodedPayload = this.codec.decode(msg.content.toString());
+			// Decode payload — pass raw Buffer to the codec; wire-format normalization
+			// (text vs binary) is the codec's responsibility, not the adapter's.
+			const decodedPayload = await this.codec.decode(msg.content);
 
 			// Find which subscription pattern matched this routing key
 			const routingKey = msg.fields.routingKey;

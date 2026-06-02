@@ -41,6 +41,9 @@ importers:
       ioredis:
         specifier: ^5.10.0
         version: 5.10.1
+      protobufjs:
+        specifier: ^8.0.0
+        version: 8.4.2
       testcontainers:
         specifier: ^11.12.0
         version: 11.14.0

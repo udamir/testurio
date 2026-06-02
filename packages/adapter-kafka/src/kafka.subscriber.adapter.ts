@@ -131,8 +131,9 @@ export class KafkaSubscriberAdapter implements IMQSubscriberAdapter<QueueMessage
 				}
 			}
 
-			// Decode payload
-			const decodedPayload = message.value ? this.codec.decode(message.value.toString()) : null;
+			// Decode payload — pass raw Buffer to the codec; wire-format normalization
+			// (text vs binary) is the codec's responsibility, not the adapter's.
+			const decodedPayload = message.value ? await this.codec.decode(message.value) : null;
 
 			// Build Kafka-specific metadata
 			const metadata: KafkaMessageMetadata = {
