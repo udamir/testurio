@@ -5,20 +5,24 @@ How to create a custom codec for serializing messages in async protocols (WebSoc
 ## Codec Interface
 
 ```typescript
-interface Codec<T = unknown> {
+interface Codec<W extends string | Uint8Array = string | Uint8Array> {
   name: string;
   wireFormat: WireFormat; // 'text' | 'binary'
-  encode(message: Message): T;
-  decode(data: T): Message;
+  encode<D>(data: D): W | Promise<W>;
+  decode<D>(wire: string | Uint8Array): D | Promise<D>;
 }
 ```
 
 | Field | Description |
 |-------|-------------|
 | `name` | Identifier for error reporting |
-| `wireFormat` | `'text'` for string-based, `'binary'` for Buffer/Uint8Array |
-| `encode` | Serialize a `Message` object to wire format |
-| `decode` | Deserialize wire format back to a `Message` object |
+| `wireFormat` | `'text'` for string-based, `'binary'` for `Uint8Array` |
+| `encode` | Serialize data to wire format (bound to `W`) |
+| `decode` | Deserialize wire payload back to data — always accepts both `string` and `Uint8Array` |
+
+### Decode Input Invariant
+
+`decode` always accepts `string | Uint8Array`, regardless of the codec's declared `wireFormat`. Adapters pass raw transport bytes; the codec is responsible for any text/binary normalization (e.g. a JSON codec normalizes `Uint8Array` → UTF-8 string before `JSON.parse`). This keeps transport adapters wire-format agnostic — the same codec works across WebSocket, TCP, and all MQ adapters with no per-transport branching.
 
 ## Message Type
 
@@ -100,6 +104,21 @@ new WebSocketProtocol<MyService>({ codec: myCodec });
 // TCP with custom codec
 new TcpProtocol<MyService>({ codec: myCodec });
 ```
+
+### 3. Use with a Publisher / Subscriber (MQ)
+
+`Publisher` and `Subscriber` accept the same `codec` option. The MQ adapter (Kafka, RabbitMQ, Redis Pub/Sub) passes raw transport bytes to your codec — no adapter-specific wiring needed.
+
+```typescript
+import { Publisher, Subscriber } from 'testurio';
+import { KafkaAdapter } from '@testurio/adapter-kafka';
+
+const adapter = new KafkaAdapter({ brokers: ['localhost:9092'], groupId: 'orders' });
+const pub = new Publisher('pub', { adapter, codec: myCodec });
+const sub = new Subscriber('sub', { adapter, codec: myCodec });
+```
+
+See [Message Queue Examples → Using a Custom Codec](/examples/message-queues#using-a-custom-codec-with-publisher-subscriber) for end-to-end protobuf examples on each MQ adapter.
 
 ## Error Handling
 

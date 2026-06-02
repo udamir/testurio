@@ -280,3 +280,132 @@ const pub = new Publisher<OrderTopics>('order-pub', {
 ```
 
 Messages are automatically validated against the schema before publishing.
+
+## Using a Custom Codec with Publisher / Subscriber
+
+Both `Publisher` and `Subscriber` accept an optional `codec` option. The default is JSON (`defaultJsonCodec`); pass any `Codec<string | Uint8Array>` to handle binary formats like Protocol Buffers, MessagePack, or Avro.
+
+The MQ adapter (Kafka, RabbitMQ, Redis Pub/Sub) passes raw transport bytes to the codec — text/binary normalization is the codec's job, not the adapter's. This means a single binary codec works across all three MQ adapters with no adapter-specific wiring.
+
+### Kafka with Protobuf
+
+```typescript
+import * as protobuf from 'protobufjs';
+import { type Codec, CodecError, Publisher, Subscriber } from 'testurio';
+import { KafkaAdapter } from '@testurio/adapter-kafka';
+
+const root = await protobuf.load('./orders.proto');
+const OrderEventType = root.lookupType('orders.OrderEvent');
+
+const orderProtobufCodec: Codec<Uint8Array> = {
+  name: 'orders-protobuf',
+  wireFormat: 'binary',
+  encode(data) {
+    try {
+      const message = OrderEventType.fromObject(data as object);
+      return OrderEventType.encode(message).finish();
+    } catch (error) {
+      throw CodecError.encodeError('orders-protobuf', error as Error, data);
+    }
+  },
+  decode(wire) {
+    try {
+      const bytes = typeof wire === 'string' ? new TextEncoder().encode(wire) : wire;
+      return OrderEventType.toObject(OrderEventType.decode(bytes), { defaults: true });
+    } catch (error) {
+      if (error instanceof CodecError) throw error;
+      throw CodecError.decodeError('orders-protobuf', error as Error);
+    }
+  },
+};
+
+const adapter = new KafkaAdapter({ brokers: ['localhost:9092'], groupId: 'orders-test' });
+
+const pub = new Publisher('order-pub', { adapter, codec: orderProtobufCodec });
+const sub = new Subscriber('order-sub', { adapter, codec: orderProtobufCodec });
+```
+
+### RabbitMQ with Protobuf
+
+The same `orderProtobufCodec` works as-is — only the adapter changes:
+
+```typescript
+import { RabbitMQAdapter } from '@testurio/adapter-rabbitmq';
+
+const adapter = new RabbitMQAdapter({
+  url: 'amqp://localhost:5672',
+  exchange: 'orders',
+  exchangeType: 'topic',
+});
+
+const pub = new Publisher('order-pub', { adapter, codec: orderProtobufCodec });
+const sub = new Subscriber('order-sub', { adapter, codec: orderProtobufCodec });
+```
+
+### Redis Pub/Sub with Protobuf
+
+Redis Pub/Sub has no native concept of message keys, headers, or timestamps, so the adapter wraps every payload in an envelope (`{ payload, key, headers, timestamp }`). A binary codec on Redis must therefore encode the **whole envelope**, with the inner application payload carried as raw bytes in the envelope's `payload` field.
+
+```protobuf
+// orders.proto
+syntax = "proto3";
+
+message OrderEvent {
+  string order_id = 1;
+  int32  amount   = 2;
+}
+
+message RedisEnvelope {
+  bytes  payload    = 1;
+  string key        = 2;
+  map<string, string> headers = 3;
+  int64  timestamp  = 4;
+}
+```
+
+```typescript
+import { RedisPubSubAdapter } from '@testurio/adapter-redis';
+
+const RedisEnvelopeType = root.lookupType('RedisEnvelope');
+
+const redisOrderCodec: Codec<Uint8Array> = {
+  name: 'redis-orders-protobuf',
+  wireFormat: 'binary',
+  encode(envelope) {
+    const e = envelope as { payload: unknown; key?: string; headers?: Record<string, string>; timestamp?: number };
+    const innerBytes = OrderEventType.encode(OrderEventType.fromObject(e.payload as object)).finish();
+    return RedisEnvelopeType.encode(
+      RedisEnvelopeType.fromObject({
+        payload: innerBytes,
+        key: e.key ?? '',
+        headers: e.headers ?? {},
+        timestamp: e.timestamp ?? 0,
+      }),
+    ).finish();
+  },
+  decode(wire) {
+    const bytes = typeof wire === 'string' ? new TextEncoder().encode(wire) : wire;
+    const outer = RedisEnvelopeType.toObject(RedisEnvelopeType.decode(bytes), { defaults: true });
+    const inner = OrderEventType.toObject(OrderEventType.decode(outer.payload), { defaults: true });
+    return { payload: inner, key: outer.key, headers: outer.headers, timestamp: outer.timestamp };
+  },
+};
+
+const adapter = new RedisPubSubAdapter({ host: 'localhost', port: 6379 });
+const pub = new Publisher('order-pub', { adapter, codec: redisOrderCodec });
+const sub = new Subscriber('order-sub', { adapter, codec: redisOrderCodec });
+```
+
+### Error Handling
+
+When a subscriber's codec fails to decode an incoming message, the error is captured on the component's unhandled-errors stream. Inspect it post-run:
+
+```typescript
+await scenario.run(tc);
+
+const codecErrors = sub
+  .getUnhandledErrors()
+  .filter((e) => e instanceof CodecError);
+
+expect(codecErrors).toHaveLength(0);
+```

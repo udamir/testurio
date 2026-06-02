@@ -30,13 +30,22 @@ const orderProtobufCodec: Codec<Uint8Array> = {
 	name: "orders-protobuf",
 	wireFormat: "binary",
 	encode(data) {
-		const message = OrderEventType.fromObject(data as Record<string, unknown>);
-		return OrderEventType.encode(message).finish();
+		try {
+			const message = OrderEventType.fromObject(data as Record<string, unknown>);
+			return OrderEventType.encode(message).finish();
+		} catch (error) {
+			throw CodecError.encodeError("orders-protobuf", error instanceof Error ? error : new Error(String(error)), data);
+		}
 	},
 	decode(wire) {
-		const bytes = typeof wire === "string" ? new TextEncoder().encode(wire) : wire;
-		const message = OrderEventType.decode(bytes);
-		return OrderEventType.toObject(message, { defaults: true }) as unknown as never;
+		try {
+			const bytes = typeof wire === "string" ? new TextEncoder().encode(wire) : wire;
+			const message = OrderEventType.decode(bytes);
+			return OrderEventType.toObject(message, { defaults: true }) as unknown as never;
+		} catch (error) {
+			if (error instanceof CodecError) throw error;
+			throw CodecError.decodeError("orders-protobuf", error instanceof Error ? error : new Error(String(error)));
+		}
 	},
 };
 

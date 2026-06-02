@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.4] - 2026-06-02
+
+### Fixed
+
+- **MQ adapters: binary codec payloads no longer corrupted** (#027). All three MQ subscribers (Kafka, RabbitMQ, Redis Pub/Sub) previously called `.toString()` on the raw payload before invoking `codec.decode(...)`, which UTF-8-stringified non-text bytes and silently broke any binary codec (protobuf, msgpack, Avro). The Redis Pub/Sub publisher had the symmetric bug on the encode side. Adapters now pass raw transport bytes directly to the codec; text/binary normalization is the codec's responsibility.
+
+
 ## [0.6.3] - 2026-06-01
 
 ### Added

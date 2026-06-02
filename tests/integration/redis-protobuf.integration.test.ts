@@ -49,33 +49,48 @@ const redisOrderEnvelopeCodec: Codec<Uint8Array> = {
 	name: "redis-orders-protobuf",
 	wireFormat: "binary",
 	encode(envelope) {
-		const e = envelope as RedisEnvelopeShape;
-		const innerBytes = OrderEventType.encode(OrderEventType.fromObject(e.payload as Record<string, unknown>)).finish();
-		const outerMessage = RedisEnvelopeType.fromObject({
-			payload: innerBytes,
-			key: e.key ?? "",
-			headers: e.headers ?? {},
-			timestamp: e.timestamp ?? 0,
-		});
-		return RedisEnvelopeType.encode(outerMessage).finish();
+		try {
+			const e = envelope as RedisEnvelopeShape;
+			const innerBytes = OrderEventType.encode(
+				OrderEventType.fromObject(e.payload as Record<string, unknown>)
+			).finish();
+			const outerMessage = RedisEnvelopeType.fromObject({
+				payload: innerBytes,
+				key: e.key ?? "",
+				headers: e.headers ?? {},
+				timestamp: e.timestamp ?? 0,
+			});
+			return RedisEnvelopeType.encode(outerMessage).finish();
+		} catch (error) {
+			throw CodecError.encodeError(
+				"redis-orders-protobuf",
+				error instanceof Error ? error : new Error(String(error)),
+				envelope
+			);
+		}
 	},
 	decode(wire) {
-		const bytes = typeof wire === "string" ? new TextEncoder().encode(wire) : wire;
-		const outerObj = RedisEnvelopeType.toObject(RedisEnvelopeType.decode(bytes), { defaults: true }) as {
-			payload: Uint8Array;
-			key?: string;
-			headers?: Record<string, string>;
-			timestamp?: number | { low: number; high: number };
-		};
-		const innerObj = OrderEventType.toObject(OrderEventType.decode(outerObj.payload), { defaults: true });
-		const ts = outerObj.timestamp;
-		const timestamp = typeof ts === "number" ? ts : ts ? ts.low : undefined;
-		return {
-			payload: innerObj,
-			key: outerObj.key || undefined,
-			headers: outerObj.headers && Object.keys(outerObj.headers).length > 0 ? outerObj.headers : undefined,
-			timestamp,
-		} as unknown as never;
+		try {
+			const bytes = typeof wire === "string" ? new TextEncoder().encode(wire) : wire;
+			const outerObj = RedisEnvelopeType.toObject(RedisEnvelopeType.decode(bytes), { defaults: true }) as {
+				payload: Uint8Array;
+				key?: string;
+				headers?: Record<string, string>;
+				timestamp?: number | { low: number; high: number };
+			};
+			const innerObj = OrderEventType.toObject(OrderEventType.decode(outerObj.payload), { defaults: true });
+			const ts = outerObj.timestamp;
+			const timestamp = typeof ts === "number" ? ts : ts ? ts.low : undefined;
+			return {
+				payload: innerObj,
+				key: outerObj.key || undefined,
+				headers: outerObj.headers && Object.keys(outerObj.headers).length > 0 ? outerObj.headers : undefined,
+				timestamp,
+			} as unknown as never;
+		} catch (error) {
+			if (error instanceof CodecError) throw error;
+			throw CodecError.decodeError("redis-orders-protobuf", error instanceof Error ? error : new Error(String(error)));
+		}
 	},
 };
 
@@ -127,9 +142,15 @@ describe.skipIf(!isRedisAvailable())("Redis Pub/Sub Protobuf Codec Integration",
 			port: redis.port,
 		});
 
-		// JSON publisher writes ASCII envelope bytes; protobuf subscriber expects
-		// a protobuf-encoded RedisEnvelope and will fail to decode.
-		const publisher = new Publisher("pub", { adapter: writerAdapter });
+		// Publisher emits guaranteed-invalid protobuf wire format (see Kafka test).
+		const garbageBytesCodec: Codec<Uint8Array> = {
+			name: "garbage",
+			wireFormat: "binary",
+			encode: () => new Uint8Array([0x0a, 0xff]),
+			decode: () => null as never,
+		};
+
+		const publisher = new Publisher("pub", { adapter: writerAdapter, codec: garbageBytesCodec });
 		const subscriber = new Subscriber("sub", { adapter: readerAdapter, codec: redisOrderEnvelopeCodec });
 
 		const scenario = new TestScenario({
@@ -137,7 +158,7 @@ describe.skipIf(!isRedisAvailable())("Redis Pub/Sub Protobuf Codec Integration",
 			components: [subscriber, publisher],
 		});
 
-		const tc = testCase("publish JSON to a protobuf-subscribed channel", (test) => {
+		const tc = testCase("publish malformed bytes to a protobuf-subscribed channel", (test) => {
 			const pub = test.use(publisher);
 			const sub = test.use(subscriber);
 

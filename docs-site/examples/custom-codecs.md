@@ -190,3 +190,21 @@ throw CodecError.decodeError('mycodec', originalError);
 - `codecName` — which codec produced the error
 - `cause` — the underlying error
 - `direction` — `'encode'` or `'decode'`
+
+## MQ Adapters
+
+`Publisher` and `Subscriber` accept a `codec` option identical to async protocols:
+
+```typescript
+import { Publisher, Subscriber } from 'testurio';
+import { KafkaAdapter } from '@testurio/adapter-kafka';
+
+const adapter = new KafkaAdapter({ brokers: ['localhost:9092'], groupId: 'orders' });
+
+const pub = new Publisher('pub', { adapter, codec: myProtobufCodec });
+const sub = new Subscriber('sub', { adapter, codec: myProtobufCodec });
+```
+
+The MQ adapter passes the raw transport payload (`Buffer` / `Uint8Array`) to your codec — the codec is responsible for any text/binary normalization. The same codec works across `@testurio/adapter-kafka`, `@testurio/adapter-rabbitmq`, and `@testurio/adapter-redis` (Pub/Sub).
+
+See [Message Queue Examples → Using a Custom Codec](/examples/message-queues#using-a-custom-codec-with-publisher-subscriber) for end-to-end protobuf examples on each MQ adapter.
