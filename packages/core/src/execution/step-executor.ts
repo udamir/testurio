@@ -71,6 +71,15 @@ export async function executeSteps(
 		await Promise.all(hookRegistrations);
 
 		// =========================================================================
+		// PHASE 1.5: Component readiness (post-hook, pre-execute)
+		// =========================================================================
+		// Components that need to perform setup based on the full set of registered
+		// hooks (e.g. Subscriber with autoSubscribe: true calling startConsuming
+		// after every topic is known) implement Component.afterHooksRegistered.
+		// Failures bubble up like Phase 1 failures and abort the test case.
+		await Promise.all(Array.from(components).map((c) => c.afterHooksRegistered?.() ?? Promise.resolve()));
+
+		// =========================================================================
 		// PHASE 2: Execute steps in order
 		// =========================================================================
 		for (let i = 0; i < steps.length; i++) {
@@ -158,6 +167,7 @@ export function toTestStepResult(result: StepExecutionResult, index: number): Te
 		type: result.step.type,
 		description: result.step.description ?? result.step.type,
 		componentName: result.step.componentName,
+		messageType: result.step.messageType,
 		passed: result.passed,
 		duration: result.duration,
 		error: result.error?.message,

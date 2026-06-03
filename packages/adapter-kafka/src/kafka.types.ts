@@ -86,6 +86,18 @@ export interface KafkaAdapterConfig {
 	 * @default false
 	 */
 	testMode?: boolean;
+
+	/**
+	 * Maximum time (in milliseconds) `KafkaSubscriberAdapter.startConsuming()`
+	 * will wait for the `consumer.events.GROUP_JOIN` event before rejecting
+	 * with `ConsumerJoinTimeoutError`.
+	 *
+	 * Only applies when the consumer is asked to start (i.e. has at least one
+	 * subscribed topic).
+	 *
+	 * @default 10000 (5000 when `testMode` is enabled)
+	 */
+	groupJoinTimeoutMs?: number;
 }
 
 /**

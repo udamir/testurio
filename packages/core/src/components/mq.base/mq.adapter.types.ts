@@ -145,6 +145,14 @@ export interface IMQSubscriberAdapter<TMessage = unknown> {
 	 * For adapters like Kafka that benefit from batching subscriptions
 	 * before triggering consumer group coordination.
 	 *
+	 * **Contract:** Must not resolve until the adapter is in a state where any
+	 * subsequently-published message on a subscribed topic will be delivered.
+	 * For Kafka this means awaiting the `GROUP_JOIN` event; for adapters whose
+	 * subscribe-time delivery is already synchronous (RabbitMQ, Redis Pub/Sub),
+	 * `startConsuming` may be left unimplemented.
+	 *
+	 * Must be idempotent — calling it more than once on the same adapter is a no-op.
+	 *
 	 * If not implemented, subscribe() should start consuming automatically.
 	 */
 	startConsuming?(): Promise<void>;

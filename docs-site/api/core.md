@@ -262,11 +262,24 @@ Subscribes to messages from message queue topics.
 new Subscriber(name: string, options: SubscriberOptions)
 ```
 
-| Option       | Type                  | Description                           |
-| ------------ | --------------------- | ------------------------------------- |
-| `adapter`    | `IMQAdapter`          | MQ adapter instance                   |
-| `schema`     | `MQSchemaInput`       | _(optional)_ Topic-based schemas      |
-| `validation` | `MQValidationOptions` | _(optional)_ Auto-validation settings |
+| Option          | Type                  | Description                                                                                                                                                                                                                                  |
+| --------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `adapter`       | `IMQAdapter`          | MQ adapter instance                                                                                                                                                                                                                          |
+| `schema`        | `MQSchemaInput`       | _(optional)_ Topic-based schemas                                                                                                                                                                                                             |
+| `validation`    | `MQValidationOptions` | _(optional)_ Auto-validation settings                                                                                                                                                                                                        |
+| `autoSubscribe` | `true \| string[]`    | _(optional)_ Eager subscription mode. `string[]`: subscribe + `startConsuming` during `doStart()`. `true`: defer to executor's Phase 1.5 seam — topics derived from `onMessage`/`waitMessage` hooks. `undefined` (default): lazy. See below. |
+
+#### `autoSubscribe` modes
+
+For adapters whose `startConsuming` incurs consumer-group coordination latency (notably Kafka), the lazy default can race with action steps that publish before the consumer joins the group. `autoSubscribe` makes that subscription eager:
+
+| Mode          | When `startConsuming` runs                                                            | Topic source        | When to use                                                                                |
+| ------------- | ------------------------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------ |
+| `undefined`   | Lazy — first subscriber step in a test case                                           | step hooks (lazy)   | Default. Safe when the first subscriber step runs before any publishing action.            |
+| `string[]`    | `Subscriber.doStart()` — before any test case runs                                    | the array you pass  | Statically known topic set. **Foot-gun:** topics drift — adding a `.waitMessage('new.topic')` step without updating this list falls back to the lazy path for that topic. |
+| `true`        | Executor's Phase 1.5 — between hook registration and the first `executeStep`          | registered hooks    | Recommended for Kafka. Single config knob, no topic duplication, no drift risk.            |
+
+When the adapter supports the contract (e.g. `@testurio/adapter-kafka` v0.7+), `startConsuming` is guaranteed to resolve only **after** the consumer has joined its group — any message subsequently published on a subscribed topic is delivered.
 
 ### Step Builder Methods
 

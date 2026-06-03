@@ -17,7 +17,7 @@ import { BaseComponent } from "../base/base.component";
 import type { ITestCaseContext } from "../base/base.types";
 import type { Hook } from "../base/hook.types";
 import type { Handler, Step } from "../base/step.types";
-import type { DefaultTopics, IMQAdapter, IMQSubscriberAdapter, Topics } from "../mq.base";
+import type { DefaultTopics, IMQAdapter, IMQSubscriberAdapter, Topic, Topics } from "../mq.base";
 import { SubscriberStepBuilder } from "./subscriber.step-builder";
 
 /**
@@ -30,7 +30,7 @@ class DropMessageError extends Error {
 	}
 }
 
-export interface SubscriberOptions<TMessage = unknown> {
+export interface SubscriberOptions<T extends Topics<T> = DefaultTopics, TMessage = unknown> {
 	adapter: IMQAdapter<TMessage>;
 	/**
 	 * Codec for message deserialization.
@@ -41,6 +41,32 @@ export interface SubscriberOptions<TMessage = unknown> {
 	schema?: MQSchemaInput;
 	/** Control auto-validation behavior */
 	validation?: MQValidationOptions;
+	/**
+	 * Eager subscription mode. Controls when the underlying subscriber adapter
+	 * subscribes to topics and starts consuming.
+	 *
+	 * - `string[]` — Subscribe to the listed topics and call `startConsuming`
+	 *   during `doStart()`, before any test case runs. Use when the topic set
+	 *   is known statically.
+	 *   **Foot-gun:** topics drift — adding a `.waitMessage('new.topic')` step
+	 *   without updating this list silently falls back to the lazy path for
+	 *   that topic.
+	 *
+	 * - `true` — Defer to the executor's post-hooks-registered seam: after
+	 *   Phase 1 has subscribed every topic referenced by `onMessage`/
+	 *   `waitMessage` steps for the current test case, the executor calls
+	 *   `afterHooksRegistered()`, which triggers `startConsuming`. The
+	 *   consumer is hot before the first action step runs. No double
+	 *   declaration of topics; topics are derived from registered hooks.
+	 *
+	 * - `undefined` (default) — Lazy: `startConsuming` is triggered by the
+	 *   first subscriber step inside the test case. Backward-compatible with
+	 *   existing scenarios.
+	 *
+	 * Recommended for Kafka and any other adapter whose `startConsuming`
+	 * incurs consumer-group coordination latency.
+	 */
+	autoSubscribe?: true | Array<Topic<T>>;
 }
 
 /**
@@ -63,14 +89,16 @@ export class Subscriber<T extends Topics<T> = DefaultTopics, TMessage = unknown>
 	private readonly _codec: Codec;
 	private readonly _schema?: MQSchemaInput;
 	private readonly _validation?: MQValidationOptions;
+	private readonly _autoSubscribe?: true | Array<Topic<T>>;
 	private _subscriberAdapter?: IMQSubscriberAdapter<TMessage>;
 
-	constructor(name: string, options: SubscriberOptions<TMessage>) {
+	constructor(name: string, options: SubscriberOptions<T, TMessage>) {
 		super(name);
 		this._adapter = options.adapter;
 		this._codec = options.codec ?? defaultJsonCodec;
 		this._schema = options.schema;
 		this._validation = options.validation;
+		this._autoSubscribe = options.autoSubscribe;
 	}
 
 	createStepBuilder(context: ITestCaseContext): SubscriberStepBuilder<T, TMessage> {
@@ -122,6 +150,25 @@ export class Subscriber<T extends Topics<T> = DefaultTopics, TMessage = unknown>
 			if (subscriptionPromises.length > 0) {
 				await Promise.all(subscriptionPromises);
 			}
+		}
+	}
+
+	/**
+	 * Phase 1.5 readiness hook.
+	 *
+	 * When `autoSubscribe: true`, every topic referenced by `onMessage` /
+	 * `waitMessage` steps in the current test case has already been subscribed
+	 * during Phase 1 (`registerHook` awaits `subscribeToTopics`). Calling
+	 * `startConsuming` here ensures the consumer is hot before any action step
+	 * runs, eliminating the publish-before-consumer-join race.
+	 *
+	 * No-op when `autoSubscribe` is not `true` — the `string[]` mode handles
+	 * startConsuming in `doStart`, and the default (undefined) mode keeps the
+	 * lazy executeStep trigger.
+	 */
+	async afterHooksRegistered(): Promise<void> {
+		if (this._autoSubscribe === true && this._subscriberAdapter?.startConsuming) {
+			await this._subscriberAdapter.startConsuming();
 		}
 	}
 
@@ -384,6 +431,18 @@ export class Subscriber<T extends Topics<T> = DefaultTopics, TMessage = unknown>
 				}
 			}
 		});
+
+		// Eager-subscribe explicit topic list (autoSubscribe: string[] mode).
+		// After this returns, the consumer has joined the group (Kafka) and any
+		// subsequently-published message on these topics will be delivered.
+		if (Array.isArray(this._autoSubscribe)) {
+			for (const topic of this._autoSubscribe) {
+				await this._subscriberAdapter.subscribe(topic);
+			}
+			if (this._subscriberAdapter.startConsuming) {
+				await this._subscriberAdapter.startConsuming();
+			}
+		}
 	}
 
 	protected async doStop(): Promise<void> {

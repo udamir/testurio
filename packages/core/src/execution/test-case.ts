@@ -257,7 +257,13 @@ export class TestCase {
 	 */
 	private toStepResult(
 		result: {
-			step: { type: string; componentName?: string; description?: string; metadata?: Record<string, unknown> };
+			step: {
+				type: string;
+				componentName?: string;
+				messageType?: string;
+				description?: string;
+				metadata?: Record<string, unknown>;
+			};
 			passed: boolean;
 			duration: number;
 			error?: Error;
@@ -269,6 +275,7 @@ export class TestCase {
 			type: result.step.type,
 			description: result.step.description || result.step.type,
 			componentName: result.step.componentName,
+			messageType: result.step.messageType,
 			passed: result.passed,
 			duration: result.duration,
 			error: result.error?.message,

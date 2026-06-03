@@ -7,6 +7,7 @@
 
 import type { Consumer, ConsumerCrashEvent, EachMessagePayload } from "kafkajs";
 import type { Codec, IMQSubscriberAdapter, QueueMessage } from "testurio";
+import { ConsumerJoinTimeoutError } from "./kafka.errors";
 import type { KafkaMessageMetadata } from "./kafka.types";
 
 /**
@@ -29,7 +30,8 @@ export class KafkaSubscriberAdapter implements IMQSubscriberAdapter<QueueMessage
 	constructor(
 		private readonly consumer: Consumer,
 		private readonly codec: Codec,
-		private readonly fromBeginning: boolean = false
+		private readonly fromBeginning: boolean = false,
+		private readonly groupJoinTimeoutMs: number = 10000
 	) {
 		this.id = `kafka-sub-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 	}
@@ -85,10 +87,15 @@ export class KafkaSubscriberAdapter implements IMQSubscriberAdapter<QueueMessage
 
 	/**
 	 * Start consuming messages. Call after all topics are subscribed.
-	 * This triggers consumer group join and rebalancing.
+	 *
+	 * Awaits `consumer.events.GROUP_JOIN` before resolving — when this method
+	 * returns, the consumer is guaranteed to have joined the group and any
+	 * message subsequently published on a subscribed topic will be delivered.
 	 *
 	 * For optimal performance with Kafka, call subscribe() for all topics first,
 	 * then call startConsuming() once to trigger a single rebalancing cycle.
+	 *
+	 * @throws ConsumerJoinTimeoutError if GROUP_JOIN does not fire within `groupJoinTimeoutMs`.
 	 */
 	async startConsuming(): Promise<void> {
 		if (this._isRunning) {
@@ -99,12 +106,29 @@ export class KafkaSubscriberAdapter implements IMQSubscriberAdapter<QueueMessage
 			return; // No topics to consume
 		}
 
+		const timeoutMs = this.groupJoinTimeoutMs;
+		const groupJoined = new Promise<void>((resolve, reject) => {
+			let timer: ReturnType<typeof setTimeout> | undefined;
+			const removeListener = this.consumer.on(this.consumer.events.GROUP_JOIN, () => {
+				removeListener();
+				if (timer) {
+					clearTimeout(timer);
+				}
+				resolve();
+			});
+			timer = setTimeout(() => {
+				removeListener();
+				reject(new ConsumerJoinTimeoutError(timeoutMs));
+			}, timeoutMs);
+		});
+
 		await this.consumer.run({
 			eachMessage: async (payload: EachMessagePayload) => {
 				await this.handleMessage(payload);
 			},
 		});
 
+		await groupJoined;
 		this._isRunning = true;
 	}
 

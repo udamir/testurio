@@ -114,7 +114,8 @@ export class KafkaAdapter implements IMQAdapter {
 			...this.config.consumerOptions,
 		});
 
-		const adapter = new KafkaSubscriberAdapter(consumer, codec, this.config.fromBeginning ?? false);
+		const groupJoinTimeoutMs = this.config.groupJoinTimeoutMs ?? (this.config.testMode ? 5000 : 10000);
+		const adapter = new KafkaSubscriberAdapter(consumer, codec, this.config.fromBeginning ?? false, groupJoinTimeoutMs);
 		await adapter.connect();
 		this.subscribers.push(adapter);
 		return adapter;

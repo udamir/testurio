@@ -131,6 +131,85 @@ const sub = new Subscriber<OrderTopics>('redis-sub', {
 });
 ```
 
+## Kafka consumer-join timing (the `autoSubscribe` option)
+
+For Kafka, the underlying `consumer.run()` schedules the runner loop and resolves
+*before* the `GROUP_JOIN` event fires. If your test publishes a message *before*
+the subscriber has joined the consumer group, that message lands at an offset
+the consumer never reads (with `fromBeginning: false`) — the `waitMessage` step
+hangs until its `.timeout(N)` fires.
+
+The race surfaces whenever the first subscriber step in a test case is a
+`waitMessage` placed *after* an action step that publishes:
+
+```typescript
+// Racy with default lazy behavior
+const tc = testCase('order flow', (test) => {
+  const api = test.use(orderApi);
+  const ev  = test.use(events);
+
+  api.request('placeOrder', { ... });           // backend publishes order.filled
+  api.onResponse('placeOrder').assert((r) => r.code === 200);
+
+  ev.waitMessage('order.filled', { ... });      // joins group AFTER publish — misses message
+});
+```
+
+### Recommended fix: `autoSubscribe: true`
+
+`true` mode tells the executor to call `startConsuming` *between* hook
+registration and the first action step. By that point Phase 1 has subscribed
+every topic referenced by `onMessage`/`waitMessage` hooks, so the consumer
+joins the group with the full topic set — no double declaration, no drift.
+
+```typescript
+const events = new Subscriber('events', {
+  adapter: new KafkaAdapter({ brokers: ['localhost:9092'], groupId: 'test-group' }),
+  autoSubscribe: true, // ← single config knob, deterministic delivery
+});
+
+const tc = testCase('order flow', (test) => {
+  const api = test.use(orderApi);
+  const ev  = test.use(events);
+
+  api.request('placeOrder', { ... });
+  api.onResponse('placeOrder').assert((r) => r.code === 200);
+
+  ev.waitMessage('order.filled', { ... });      // deterministic
+});
+```
+
+### Alternative: explicit topic list
+
+If the topic set is statically known, pass it directly. The subscriber
+subscribes + joins the group inside `Subscriber.doStart()` — before any
+test case runs.
+
+```typescript
+const events = new Subscriber('events', {
+  adapter: new KafkaAdapter({ brokers: ['localhost:9092'], groupId: 'test-group' }),
+  autoSubscribe: ['order.filled', 'order.rejected'],
+});
+```
+
+> **Foot-gun:** topics drift. Adding a new `waitMessage('new.topic')` step
+> without updating the `string[]` falls back to the lazy path for that topic.
+> When in doubt, prefer `autoSubscribe: true`.
+
+### Configuring the GROUP_JOIN timeout
+
+By default, `KafkaSubscriberAdapter.startConsuming()` waits up to 10s
+(5s under `testMode: true`) for `GROUP_JOIN` before rejecting with
+`ConsumerJoinTimeoutError`. Override via `KafkaAdapterConfig.groupJoinTimeoutMs`:
+
+```typescript
+new KafkaAdapter({
+  brokers: ['localhost:9092'],
+  groupId: 'test-group',
+  groupJoinTimeoutMs: 2000, // fail fast in tight integration suites
+});
+```
+
 ## Basic Publish and Subscribe
 
 ```typescript

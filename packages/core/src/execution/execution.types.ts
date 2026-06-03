@@ -125,6 +125,7 @@ export interface TestStepResult {
 	type: string;
 	description: string;
 	componentName?: string;
+	messageType?: string;
 	passed: boolean;
 	duration: number;
 	error?: string;

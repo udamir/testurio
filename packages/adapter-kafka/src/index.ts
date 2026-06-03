@@ -29,7 +29,8 @@
 
 // Main adapter
 export { KafkaAdapter } from "./kafka.adapter";
-
+// Errors
+export { ConsumerJoinTimeoutError } from "./kafka.errors";
 // Individual adapters (for advanced use cases)
 export { KafkaPublisherAdapter } from "./kafka.publisher.adapter";
 export { KafkaSubscriberAdapter } from "./kafka.subscriber.adapter";

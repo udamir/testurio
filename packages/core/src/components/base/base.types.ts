@@ -64,6 +64,23 @@ export interface Component<TStepBuilder = unknown> {
 	registerHook(step: Step, withPending?: boolean): Promise<Hook>;
 
 	/**
+	 * Phase 1.5: Optional readiness hook.
+	 *
+	 * If implemented, the executor invokes this method on each component after
+	 * `Promise.all(registerHook(...))` resolves (Phase 1) and before the Phase 2
+	 * `executeStep` loop begins. Use this when a component needs to perform setup
+	 * that depends on the **full** set of hooks registered for the test case.
+	 *
+	 * Failures bubble up identically to Phase 1 failures: any rejected
+	 * `afterHooksRegistered` aborts the test case before any action runs.
+	 *
+	 * Example use: a `Subscriber` configured with `autoSubscribe: true` calls
+	 * `startConsuming` here so the broker consumer joins the group before the
+	 * first action step (which may publish a message) executes.
+	 */
+	afterHooksRegistered?(): Promise<void>;
+
+	/**
 	 * Phase 2: Execute a step.
 	 * Called by executor for ALL steps.
 	 * Behavior depends on step.mode:
