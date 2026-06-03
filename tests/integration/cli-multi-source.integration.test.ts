@@ -68,14 +68,19 @@ describe("Multi-source generation", () => {
 		expect(existsSync(openapiOutput)).toBe(true);
 		expect(existsSync(grpcOutput)).toBe(true);
 
-		// Verify OpenAPI output content
+		// Verify OpenAPI output content — unified operations artifact, self-contained (no testurio import)
 		const openapiContent = await readFile(openapiOutput, "utf-8");
-		expect(openapiContent).toContain("export interface PetStore");
+		expect(openapiContent).toContain("export type PetStore = {");
+		expect(openapiContent).toContain('z.infer<(typeof operations)[K]["request"]>');
 		expect(openapiContent).toContain("export const operations");
+		expect(openapiContent).not.toContain("from 'testurio'");
+		expect(openapiContent).not.toContain("InferSyncService");
 
-		// Verify OpenAPI protocol schema bridge
-		expect(openapiContent).toContain("export const petStoreSchema");
-		expect(openapiContent).toContain("// ===== Protocol Schema =====");
+		// Standalone Protocol Schema artifact is gone (unified into operations)
+		expect(openapiContent).not.toContain("export const petStoreSchema");
+		expect(openapiContent).not.toContain("// ===== Protocol Schema =====");
+
+		// Unified operations uses z.literal + z.object
 		expect(openapiContent).toContain("z.literal(");
 		expect(openapiContent).toContain("z.object({");
 
@@ -90,11 +95,9 @@ describe("Multi-source generation", () => {
 		expect(openapiContent).toContain("// ===== Zod Schema =====");
 		expect(openapiContent).not.toContain("// ===== Zod Schemas =====");
 
-		// Verify OpenAPI doc comments — schema-first and current usage patterns
-		expect(openapiContent).toContain("Schema-first (recommended");
-		expect(openapiContent).toContain("new HttpProtocol({ schema: petStoreSchema })");
-		expect(openapiContent).toContain("Current usage (explicit generic");
-		expect(openapiContent).toContain("new HttpProtocol<PetStore>()");
+		// Verify OpenAPI doc comments — unified usage patterns
+		expect(openapiContent).toContain("new HttpProtocol({ schema: operations })");
+		expect(openapiContent).toContain("new HttpProtocol<typeof operations>()");
 
 		// Verify gRPC output content
 		const grpcContent = await readFile(grpcOutput, "utf-8");

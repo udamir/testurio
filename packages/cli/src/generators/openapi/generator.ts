@@ -2,7 +2,12 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import type { OpenApiSource } from "../../config/schema.js";
 import type { GeneratedFile, Generator, GeneratorContext } from "../types.js";
-import { buildOperationsMap, extractOperations } from "./operations-map.js";
+import {
+	assertNoOperationIdCollisions,
+	buildOperationsMap,
+	extractOperations,
+	synthesizeOperationIds,
+} from "./operations-map.js";
 import { generateZodSchemas } from "./orval-bridge.js";
 import { bundleOpenApiSpec, readOpenApiSpec } from "./ref-bundler.js";
 
@@ -28,9 +33,23 @@ export class OpenApiGenerator implements Generator<OpenApiSource> {
 		const rawSpec = await readOpenApiSpec(inputPath);
 		const bundledSpec = await bundleOpenApiSpec(inputPath);
 
+		// Step 1.5: Synthesize missing operationIds on BOTH specs so Orval and our parser agree.
+		// Deterministic — same (method, path) yields the same id, so calling on both is safe.
+		const synthesized = synthesizeOperationIds(rawSpec);
+		synthesizeOperationIds(bundledSpec);
+		assertNoOperationIdCollisions(rawSpec);
+
+		if (synthesized.length > 0) {
+			const example = synthesized[0];
+			context.logger.info(
+				`Synthesized ${synthesized.length} operationId(s) from path+method ` +
+					`(example: ${example.method} ${example.path} → ${example.operationId})`
+			);
+		}
+
 		// Step 2: Generate Zod schemas via Orval
 		context.logger.info("Generating Zod schemas...");
-		const orvalResult = await generateZodSchemas(bundledSpec, source);
+		const orvalResult = await generateZodSchemas(bundledSpec, source, context.logger);
 		context.logger.debug(
 			`Found ${orvalResult.exportedNames.size} schema exports: ${[...orvalResult.exportedNames].join(", ")}`
 		);
@@ -60,13 +79,6 @@ export class OpenApiGenerator implements Generator<OpenApiSource> {
 
 		if (source.options?.operationsMap !== false) {
 			sections.push(result.operationsMap);
-			sections.push("");
-		}
-
-		if (result.protocolSchema) {
-			sections.push("// ===== Protocol Schema =====");
-			sections.push("");
-			sections.push(result.protocolSchema);
 			sections.push("");
 		}
 

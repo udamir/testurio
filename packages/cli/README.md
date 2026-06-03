@@ -117,6 +117,8 @@ export default defineConfig({
 | `options.operationsMap`       | `boolean` | `true`             | Generate operations map                         |
 | `options.errorSchemaName`     | `string`  | —                  | Name for error response schema                  |
 
+If a spec operation omits the optional `operationId` field, the CLI synthesizes a deterministic name from `{path + method}` (e.g. `GET /v1/accounts/{account-id}` → `v1getAccountsAccountId`) so no operation is silently skipped. Explicit operationIds are preserved unchanged; collisions hard-fail with both endpoints named. See the [CLI guide](https://testurio.dev/guide/cli#operation-id-fallback) for the algorithm.
+
 ### gRPC Source Options
 
 | Option                        | Type                 | Default              | Description                              |

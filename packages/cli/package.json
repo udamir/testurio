@@ -29,6 +29,7 @@
     "prepublish": "V=$(node -p \"require('../../package.json').version\") && npm pkg set version=$V peerDependencies.testurio=^$V && pnpm run lint && pnpm run build"
   },
   "dependencies": {
+    "@biomejs/biome": "^2.4.7",
     "api-ref-bundler": "^0.5.0",
     "commander": "^14.0.3",
     "cosmiconfig": "^9.0.0",
@@ -42,7 +43,6 @@
     "testurio": "^0.6.4"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.7",
     "@types/node": "^25.5.0",
     "testurio": "workspace:*",
     "tsup": "^8.5.1",

@@ -95,6 +95,27 @@ export default defineConfig({
 | `options.zod.coerce.params` | `boolean` | — | Coercion for path parameters |
 | `options.operationsMap` | `boolean` | `true` | Generate operations map |
 
+#### Operation ID Fallback
+
+`operationId` is optional in OpenAPI 3.x. When an operation omits it, the generator synthesizes a deterministic id from `{path + method}` so the operation still appears in the generated output — no operation is silently skipped.
+
+The algorithm:
+
+- If the first path segment matches `v\d+` (e.g. `/v1/...`), it is kept lowercase as a prefix.
+- The HTTP method is appended in lowercase.
+- The remaining path segments are appended in PascalCase. Kebab/snake/dot delimiters are split, and `{param}` braces are stripped.
+
+Examples:
+
+| Method  | Path                                    | Synthesized operationId        |
+| ------- | --------------------------------------- | ------------------------------ |
+| `GET`   | `/v1/accounts/{account-id}`             | `v1getAccountsAccountId`       |
+| `POST`  | `/v1/orders`                            | `v1postOrders`                 |
+| `GET`   | `/v1/server/performance`                | `v1getServerPerformance`       |
+| `GET`   | `/users/{userId}`                       | `getUsersUserId`               |
+
+Explicit `operationId` values in the source spec are preserved unchanged. If a synthesized id collides with another synthesized or explicit id, the CLI fails with an error naming both endpoints — add an explicit `operationId` to one of them.
+
 ### gRPC Source Options
 
 | Option | Type | Default | Description |

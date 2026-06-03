@@ -1,0 +1,132 @@
+openapi: 3.0.0
+info:
+  title: No Op IDs Service
+  version: 1.0.0
+paths:
+  /v1/accounts/{account-id}:
+    get:
+      parameters:
+        - name: account-id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: An account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+    delete:
+      parameters:
+        - name: account-id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Deleted
+  /v1/orders:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrder'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+  /v1/server/performance:
+    get:
+      responses:
+        '200':
+          description: Server performance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cpu:
+                    type: number
+  /health:
+    get:
+      responses:
+        '200':
+          description: Health
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+  /users:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUser'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+components:
+  schemas:
+    Account:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+        balance:
+          type: number
+    CreateOrder:
+      type: object
+      required:
+        - symbol
+        - volume
+      properties:
+        symbol:
+          type: string
+        volume:
+          type: number
+    Order:
+      type: object
+      required:
+        - id
+        - symbol
+      properties:
+        id:
+          type: string
+        symbol:
+          type: string
+    CreateUser:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+    User:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+        name:
+          type: string

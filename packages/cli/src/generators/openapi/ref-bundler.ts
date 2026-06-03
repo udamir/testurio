@@ -8,7 +8,7 @@ import type { OpenApiSpec } from "./operations-map.js";
  * Bundle an OpenAPI spec, resolving all external $ref references into a single
  * self-contained document. Specs without external refs pass through unchanged.
  */
-export async function bundleOpenApiSpec(specPath: string): Promise<object> {
+export async function bundleOpenApiSpec(specPath: string): Promise<OpenApiSpec> {
 	const resolvedPath = path.resolve(specPath);
 	const specDir = path.dirname(resolvedPath);
 
@@ -19,7 +19,7 @@ export async function bundleOpenApiSpec(specPath: string): Promise<object> {
 		return parseSpecContent(content, filePath);
 	};
 
-	const bundled = await bundle(resolvedPath, resolver);
+	const bundled: OpenApiSpec = await bundle(resolvedPath, resolver);
 	return bundled;
 }
 
