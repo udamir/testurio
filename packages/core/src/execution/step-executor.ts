@@ -167,7 +167,6 @@ export function toTestStepResult(result: StepExecutionResult, index: number): Te
 		type: result.step.type,
 		description: result.step.description ?? result.step.type,
 		componentName: result.step.componentName,
-		messageType: result.step.messageType,
 		passed: result.passed,
 		duration: result.duration,
 		error: result.error?.message,

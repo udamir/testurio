@@ -3,6 +3,7 @@
 .windsurf/
 .claude/
 .ai-kanban
+docs-site/.vitepress/.temp
 
 reports/*
 !reports/.gitkeep
