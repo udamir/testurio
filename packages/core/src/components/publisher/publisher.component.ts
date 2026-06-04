@@ -12,6 +12,7 @@ import type { MQSchemaInput, SchemaLike } from "../../validation";
 import { ValidationError } from "../../validation";
 import { BaseComponent } from "../base/base.component";
 import type { ITestCaseContext } from "../base/base.types";
+import { stampMetadata } from "../base/base.utils";
 import type { Handler, Step, ValueOrFactory } from "../base/step.types";
 import { resolveValue } from "../base/step.types";
 import type { DefaultTopics, IMQAdapter, IMQPublisherAdapter, Topics } from "../mq.base";
@@ -95,6 +96,7 @@ export class Publisher<
 		};
 
 		const payload = resolveValue(params.payload);
+		stampMetadata(step, { message: payload });
 
 		// Auto-validate outgoing message
 		if (this._validation?.validateMessages !== false) {
@@ -115,6 +117,7 @@ export class Publisher<
 		};
 
 		const messages = resolveValue(params.messages);
+		stampMetadata(step, { message: messages });
 
 		// Auto-validate each message in batch
 		if (this._validation?.validateMessages !== false) {

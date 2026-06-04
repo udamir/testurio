@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **`SubscriberOptions.autoSubscribe`** (#029) — Opt-in eager subscription on `Subscriber`. Accepts `true | string[]`. With `string[]`, the listed topics are subscribed and `startConsuming()` is invoked inside `Subscriber.doStart()` (before any test case runs). With `true`, topics are derived from `onMessage`/`waitMessage` hooks registered for the current test case and `startConsuming()` runs in the new executor Phase 1.5 — between hook registration and the first action step. Omitting the option preserves the lazy default behavior.
+- **`SubscriberOptions.autoSubscribe`** — Opt-in eager subscription on `Subscriber`. Accepts `true | string[]`. With `string[]`, the listed topics are subscribed and `startConsuming()` is invoked inside `Subscriber.doStart()` (before any test case runs). With `true`, topics are derived from `onMessage`/`waitMessage` hooks registered for the current test case and `startConsuming()` runs in the new executor Phase 1.5 — between hook registration and the first action step. Omitting the option preserves the lazy default behavior.
 
   ```typescript
   const events = new Subscriber('events', {
@@ -18,17 +18,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   });
   ```
 
-- **`KafkaAdapterConfig.groupJoinTimeoutMs`** (#029) — Configurable per-adapter timeout for `KafkaSubscriberAdapter.startConsuming()` to await the `consumer.events.GROUP_JOIN` event. Default `10000` ms (production) and `5000` ms (`testMode: true`). On expiry the call rejects with `ConsumerJoinTimeoutError`.
+- **`KafkaAdapterConfig.groupJoinTimeoutMs`** — Configurable per-adapter timeout for `KafkaSubscriberAdapter.startConsuming()` to await the `consumer.events.GROUP_JOIN` event. Default `10000` ms (production) and `5000` ms (`testMode: true`). On expiry the call rejects with `ConsumerJoinTimeoutError`.
 
-- **`Component.afterHooksRegistered?()`** (#029) — Optional lifecycle hook on the `Component` interface. The `StepExecutor` invokes it on every component after Phase 1 (`registerHook` parallel `Promise.all`) and before Phase 2 (the `executeStep` loop). Use it for setup that depends on the *full* set of hooks registered for a test case (e.g. `Subscriber` calling `startConsuming` once every topic is known). Rejections propagate exactly like Phase 1 failures and abort the test case.
+- **`Component.afterHooksRegistered?()`** — Optional lifecycle hook on the `Component` interface. The `StepExecutor` invokes it on every component after Phase 1 (`registerHook` parallel `Promise.all`) and before Phase 2 (the `executeStep` loop). Use it for setup that depends on the *full* set of hooks registered for a test case (e.g. `Subscriber` calling `startConsuming` once every topic is known). Rejections propagate exactly like Phase 1 failures and abort the test case.
 
 - **`ConsumerJoinTimeoutError`** (#029) — Named export from `@testurio/adapter-kafka`. Thrown by `KafkaSubscriberAdapter.startConsuming()` when `GROUP_JOIN` does not fire within `groupJoinTimeoutMs`. Carries `timeoutMs` for diagnostics.
 
 ### Fixed
 
-- **Kafka `startConsuming` now awaits `GROUP_JOIN`** (#029) — `KafkaSubscriberAdapter.startConsuming()` previously called `consumer.run()` and resolved immediately, before the consumer had joined its group. With `fromBeginning: false`, a `.waitMessage(...)` step placed after the action that publishes would miss the message — the consumer joined hundreds of ms later, started fetching from `latest`, and the message at the pre-join offset was never delivered. The method now registers a one-shot `consumer.events.GROUP_JOIN` listener, calls `consumer.run()`, and only resolves after the listener fires (or rejects with `ConsumerJoinTimeoutError` if the configured timeout elapses). Idempotent — repeat calls early-return.
+- **`AllureReporter.includePayloads` now actually attaches request/response payloads**. Previously the option was effectively a no-op — `convertStep` read from `step.metadata` but no component, executor, or projection ever wrote to it. 
+  
+- **`AllureReporter` surfaces both `request` AND `response` on the same step** — `extractPayload` now collects every recognized payload key on `step.metadata` instead of returning only the first match. Server hook steps that stamp both keys now produce both parameter rows / both attachments.
 
-- **CLI: OpenAPI generator output is now a single unified `operations` artifact** (#028). Previously the generator emitted three near-duplicate artifacts per spec (an `operations` map for types, a `{service}Schema` Protocol Schema bridge for runtime validation, and a hand-built `{Service}` interface). The duplication was the source of multiple drift bugs (case mismatch between emitters, body-less slots using different fallbacks, etc.). 
+- **Kafka `startConsuming` now awaits `GROUP_JOIN`** — `KafkaSubscriberAdapter.startConsuming()` previously called `consumer.run()` and resolved immediately, before the consumer had joined its group. With `fromBeginning: false`, a `.waitMessage(...)` step placed after the action that publishes would miss the message — the consumer joined hundreds of ms later, started fetching from `latest`, and the message at the pre-join offset was never delivered. The method now registers a one-shot `consumer.events.GROUP_JOIN` listener, calls `consumer.run()`, and only resolves after the listener fires (or rejects with `ConsumerJoinTimeoutError` if the configured timeout elapses). Idempotent — repeat calls early-return.
+
+- **CLI: OpenAPI generator output is now a single unified `operations` artifact**. Previously the generator emitted three near-duplicate artifacts per spec (an `operations` map for types, a `{service}Schema` Protocol Schema bridge for runtime validation, and a hand-built `{Service}` interface). The duplication was the source of multiple drift bugs (case mismatch between emitters, body-less slots using different fallbacks, etc.). 
   
 - **CLI: OpenAPI generator now includes all response status codes** The operations map's `response` field previously emitted only the first 2xx status, silently dropping every 4xx/5xx (and alternative 2xx) defined in the spec. Multi-response operations now emit `z.discriminatedUnion('code', [...])` with one `z.object({ code: z.literal(N), body: ... })` per status code, producing the inferred type `{ code: 200; body: ... } | { code: 400; body: never } | ...`. Single-response operations still use a plain `z.object(...)` (no union overhead).
 

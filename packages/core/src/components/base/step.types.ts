@@ -85,4 +85,21 @@ export interface Step<TType extends string = string, TParams = unknown> {
 	 * Used when creating Hook from Step.
 	 */
 	testCaseId?: string;
+
+	/**
+	 * Reporter-facing payload metadata.
+	 *
+	 * Components stamp request/response/message payload data here during
+	 * `executeStep` (or in hook handlers like `handleIncomingRequest`). The
+	 * runtime propagates the stamped object through `StepInfo` →
+	 * `StepExecutionResult` → `TestStepResult` so reporters (e.g.
+	 * `@testurio/reporter-allure` with `includePayloads`) can render per-step
+	 * request / response payloads.
+	 *
+	 * Recognized keys (read by `AllureReporter.convertStep` via `extractPayload`):
+	 * `request`, `response`, `message`, `payload`, `data`, `body`.
+	 *
+	 * Use the {@link stampMetadata} helper to merge writes safely.
+	 */
+	metadata?: Record<string, unknown>;
 }

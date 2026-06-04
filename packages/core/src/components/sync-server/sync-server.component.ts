@@ -22,7 +22,7 @@ import type {
 import type { SchemaLike, SyncSchemaInput } from "../../validation";
 import { ValidationError } from "../../validation";
 import type { ITestCaseContext } from "../base/base.types";
-import { DropMessageError, sleep } from "../base/base.utils";
+import { DropMessageError, sleep, stampMetadata } from "../base/base.utils";
 import type { Hook } from "../base/hook.types";
 import { ServiceComponent } from "../base/service.component";
 import type { Handler, Step } from "../base/step.types";
@@ -152,6 +152,10 @@ export class Server<P extends ISyncProtocol = ISyncProtocol> extends ServiceComp
 		const step = hook.step;
 		const isWaitStep = step.type === "waitRequest";
 
+		// Stamp incoming request payload before handlers run so it's visible
+		// even if a handler throws.
+		stampMetadata(step, { request });
+
 		try {
 			const result = await this.executeServerHandlers(step, message);
 
@@ -165,11 +169,14 @@ export class Server<P extends ISyncProtocol = ISyncProtocol> extends ServiceComp
 			}
 
 			if (result.type === "response") {
+				stampMetadata(step, { response: result.payload });
 				return result.payload as P["$response"];
 			}
 
 			if (this.isProxy) {
-				return this.forwardRequest(result.type, result.payload);
+				const forwarded = await this.forwardRequest(result.type, result.payload);
+				stampMetadata(step, { response: forwarded });
+				return forwarded;
 			}
 
 			return null;

@@ -29,7 +29,7 @@ import { createDeferred, type Deferred } from "../../utils";
 import type { AsyncSchemaInput, SchemaLike } from "../../validation";
 import { ValidationError } from "../../validation";
 import type { ITestCaseContext } from "../base/base.types";
-import { DropMessageError, sleep } from "../base/base.utils";
+import { DropMessageError, sleep, stampMetadata } from "../base/base.utils";
 import type { Hook } from "../base/hook.types";
 import { ServiceComponent } from "../base/service.component";
 import type { Handler, Step, ValueOrFactory } from "../base/step.types";
@@ -217,7 +217,8 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 		}
 
 		try {
-			// Wait for handleIncomingMessage to resolve (after executing handlers)
+			// Wait for handleIncomingMessage to resolve (after executing handlers).
+			// Metadata was already stamped on the step inside handleIncomingMessage.
 			await this.awaitHook(hook, timeout);
 		} finally {
 			if (!hook.persistent) {
@@ -332,6 +333,7 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 		};
 
 		const payload = resolveValue(params.payload);
+		stampMetadata(step, { message: payload });
 
 		// Auto-validate outgoing event
 		if (this._validation?.validateEvents !== false) {
@@ -363,6 +365,7 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 		};
 
 		const payload = resolveValue(params.payload);
+		stampMetadata(step, { message: payload });
 
 		// Auto-validate outgoing broadcast
 		if (this._validation?.validateEvents !== false) {
@@ -437,6 +440,10 @@ export class AsyncServer<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 
 		const isWaitStep = step.type === "waitMessage";
 		const context: ServerHandlerContext = { connectionId: connection.id };
+
+		// Stamp incoming message payload before handlers run so it's visible
+		// even if a handler throws.
+		stampMetadata(step, { message: message.payload });
 
 		try {
 			const result = await this.executeServerHandlers(step, incomingMessage, context);

@@ -563,7 +563,8 @@ describe("AllureReporter", () => {
 
 			const steps = result.steps as Array<{ attachments: Array<{ name: string; source: string; type: string }> }>;
 			expect(steps[0].attachments.length).toBeGreaterThan(0);
-			expect(steps[0].attachments[0].name).toBe("Payload");
+			// Attachment is named after the stamped key (per-key emission since FR-9 v2).
+			expect(steps[0].attachments[0].name).toBe("request");
 			expect(steps[0].attachments[0].type).toBe("application/json");
 		});
 

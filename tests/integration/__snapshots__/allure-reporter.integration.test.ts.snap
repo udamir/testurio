@@ -714,6 +714,13 @@ exports[`Allure Reporter Integration Tests > Multi-Component Chain Scenario > sh
           "name": "component",
           "value": "api",
         },
+        {
+          "name": "request",
+          "value": "{
+  "method": "GET",
+  "path": "/users"
+}",
+        },
       ],
       "stage": "finished",
       "status": "passed",
@@ -742,6 +749,25 @@ exports[`Allure Reporter Integration Tests > Multi-Component Chain Scenario > sh
           "name": "component",
           "value": "api",
         },
+        {
+          "name": "response",
+          "value": "{
+  "code": 200,
+  "headers": {
+    "connection": "keep-alive",
+    "content-type": "application/json",
+    "date": "<HTTP_DATE>",
+    "keep-alive": "timeout=5",
+    "transfer-encoding": "chunked"
+  },
+  "body": [
+    {
+      "id": 1,
+      "name": "Alice"
+    }
+  ]
+}",
+        },
       ],
       "stage": "finished",
       "status": "passed",
@@ -755,6 +781,17 @@ exports[`Allure Reporter Integration Tests > Multi-Component Chain Scenario > sh
         {
           "name": "component",
           "value": "api",
+        },
+        {
+          "name": "request",
+          "value": "{
+  "method": "POST",
+  "path": "/users",
+  "body": {
+    "name": "Charlie",
+    "email": "charlie@example.com"
+  }
+}",
         },
       ],
       "stage": "finished",
@@ -784,6 +821,24 @@ exports[`Allure Reporter Integration Tests > Multi-Component Chain Scenario > sh
           "name": "component",
           "value": "api",
         },
+        {
+          "name": "response",
+          "value": "{
+  "code": 201,
+  "headers": {
+    "connection": "keep-alive",
+    "content-type": "application/json",
+    "date": "<HTTP_DATE>",
+    "keep-alive": "timeout=5",
+    "transfer-encoding": "chunked"
+  },
+  "body": {
+    "id": 2,
+    "name": "Charlie",
+    "email": "charlie@example.com"
+  }
+}",
+        },
       ],
       "stage": "finished",
       "status": "passed",
@@ -797,6 +852,13 @@ exports[`Allure Reporter Integration Tests > Multi-Component Chain Scenario > sh
         {
           "name": "component",
           "value": "api",
+        },
+        {
+          "name": "request",
+          "value": "{
+  "method": "GET",
+  "path": "/health"
+}",
         },
       ],
       "stage": "finished",
@@ -825,6 +887,22 @@ exports[`Allure Reporter Integration Tests > Multi-Component Chain Scenario > sh
         {
           "name": "component",
           "value": "api",
+        },
+        {
+          "name": "response",
+          "value": "{
+  "code": 200,
+  "headers": {
+    "connection": "keep-alive",
+    "content-type": "application/json",
+    "date": "<HTTP_DATE>",
+    "keep-alive": "timeout=5",
+    "transfer-encoding": "chunked"
+  },
+  "body": {
+    "status": "healthy"
+  }
+}",
         },
       ],
       "stage": "finished",
@@ -1160,12 +1238,29 @@ exports[`Allure Reporter Integration Tests > Payload Capture Configuration > sho
   "statusDetails": {},
   "steps": [
     {
-      "attachments": [],
+      "attachments": [
+        {
+          "name": "request",
+          "source": "<ATTACHMENT_FILE>",
+          "type": "application/json",
+        },
+      ],
       "name": "Step 1: request - Request createUser",
       "parameters": [
         {
           "name": "component",
           "value": "api",
+        },
+        {
+          "name": "request",
+          "value": "{
+  "method": "POST",
+  "path": "/users",
+  "body": {
+    "name": "Test User",
+    "email": "test@example.com"
+  }
+}",
         },
       ],
       "stage": "finished",
@@ -1188,12 +1283,29 @@ exports[`Allure Reporter Integration Tests > Payload Capture Configuration > sho
       "steps": [],
     },
     {
-      "attachments": [],
+      "attachments": [
+        {
+          "name": "response",
+          "source": "<ATTACHMENT_FILE>",
+          "type": "application/json",
+        },
+      ],
       "name": "Step 3: onResponse - Handle response for createUser",
       "parameters": [
         {
           "name": "component",
           "value": "api",
+        },
+        {
+          "name": "response",
+          "value": "{
+  "code": 201,
+  "headers": {
+    "connection": "keep-alive",
+    "content-type": "application/json",
+    "date": "<HTTP_DATE>",
+    "keep-alive": "timeout=5",
+    "transfer-enc...",
         },
       ],
       "stage": "finished",

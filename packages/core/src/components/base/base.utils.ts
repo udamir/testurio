@@ -6,6 +6,7 @@
 
 import type { Message, MessageMatcher } from "../../protocols/base";
 import type { PayloadMatcher } from "./base.types";
+import type { Step } from "./step.types";
 
 // =============================================================================
 // Description Utility
@@ -112,4 +113,28 @@ export class TimeoutError extends Error {
  */
 export function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// =============================================================================
+// Step Metadata Helper
+// =============================================================================
+
+/**
+ * Merge a metadata patch onto a step in-place.
+ *
+ * The patch is shallow-merged over any existing `step.metadata`; later writes
+ * win on key collision. Used by component `executeStep` (and hook handlers
+ * like `handleIncomingRequest`) to record per-step payload data that reporters
+ * surface via `step.metadata.{request|response|message|payload|data|body}`.
+ *
+ * @example
+ * ```typescript
+ * stampMetadata(step, { request: data });
+ * // ... later, after response is received:
+ * stampMetadata(step, { response });
+ * // step.metadata === { request: data, response }
+ * ```
+ */
+export function stampMetadata(step: Step, patch: Record<string, unknown>): void {
+	step.metadata = { ...(step.metadata ?? {}), ...patch };
 }

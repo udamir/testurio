@@ -16,6 +16,7 @@ import type {
 import type { SchemaLike, SyncSchemaInput } from "../../validation";
 import { ValidationError } from "../../validation";
 import type { ITestCaseContext } from "../base/base.types";
+import { stampMetadata } from "../base/base.utils";
 import type { Hook } from "../base/hook.types";
 import { runWithRetry } from "../base/retry";
 import type { RetryPolicy } from "../base/retry.types";
@@ -111,6 +112,9 @@ export class Client<P extends ISyncProtocol = ISyncProtocol> extends ServiceComp
 			// Owns the loop, delivers only the terminal response to hooks.
 			const attempt = async (): Promise<P["$response"]> => {
 				const data = resolveValue(params.data);
+				// Stamp the latest attempt's request for the reporter. Overwriting
+				// is intentional — only the terminal attempt's input is interesting.
+				stampMetadata(step, { request: data });
 				if (this._validation?.validateRequests !== false) {
 					this.autoValidate(params.messageType, "request", data);
 				}
@@ -132,6 +136,7 @@ export class Client<P extends ISyncProtocol = ISyncProtocol> extends ServiceComp
 		// step error (matches pre-task-024 contract that schema-validation tests
 		// depend on). Then fire-and-forget the request promise with hook plumbing.
 		const data = resolveValue(params.data);
+		stampMetadata(step, { request: data });
 		if (this._validation?.validateRequests !== false) {
 			this.autoValidate(params.messageType, "request", data);
 		}
@@ -174,6 +179,7 @@ export class Client<P extends ISyncProtocol = ISyncProtocol> extends ServiceComp
 
 		try {
 			const response = await this.awaitHook(hook, timeout);
+			stampMetadata(step, { response });
 
 			// Auto-validate incoming response
 			if (this._validation?.validateResponses !== false) {

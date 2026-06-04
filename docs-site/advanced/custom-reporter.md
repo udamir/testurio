@@ -24,10 +24,28 @@ All methods except `onComplete` and `name` are optional. Implement only the even
 |-------|------|------|
 | `onStart` | Scenario begins | Scenario name, start time |
 | `onTestCaseStart` | Test case begins | Test case name |
-| `onStepComplete` | Each step finishes | Step result (name, status, duration, error) |
+| `onStepComplete` | Each step finishes | Step result (name, status, duration, error, `metadata`) |
 | `onTestCaseComplete` | Test case finishes | Full test case result with all steps |
 | `onComplete` | Scenario ends | Full test result with all test cases |
 | `onError` | Unhandled error | Error object |
+
+## Per-Step Payloads (`TestStepResult.metadata`)
+
+Components stamp request/response payloads on `step.metadata` during execution; the runtime propagates them to `TestStepResult.metadata`. Custom reporters can read these directly without enabling `TestScenario({ recording: true })`:
+
+```typescript
+onStepComplete(step: TestStepResult): void {
+  const meta = step.metadata;
+  if (meta?.request !== undefined) {
+    console.log(`Step ${step.stepNumber} request:`, meta.request);
+  }
+  if (meta?.response !== undefined) {
+    console.log(`Step ${step.stepNumber} response:`, meta.response);
+  }
+}
+```
+
+Recognized payload keys (stamped by built-in components): `request`, `response`, `message`, `payload`, `data`, `body`. The set of keys present depends on the component type and step type — see the [Reporting guide](../guide/reporting.md#per-step-requestresponse-payloads-includepayloads) for the full per-component contract.
 
 ## Basic Example: Console Reporter
 

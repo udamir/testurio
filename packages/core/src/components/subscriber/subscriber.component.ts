@@ -15,6 +15,7 @@ import type { MQSchemaInput, SchemaLike } from "../../validation";
 import { ValidationError } from "../../validation";
 import { BaseComponent } from "../base/base.component";
 import type { ITestCaseContext } from "../base/base.types";
+import { stampMetadata } from "../base/base.utils";
 import type { Hook } from "../base/hook.types";
 import type { Handler, Step } from "../base/step.types";
 import type { DefaultTopics, IMQAdapter, IMQSubscriberAdapter, Topic, Topics } from "../mq.base";
@@ -210,6 +211,7 @@ export class Subscriber<T extends Topics<T> = DefaultTopics, TMessage = unknown>
 		try {
 			// Await the hook (may already be resolved if message arrived)
 			const message = await this.awaitHook(hook, timeout);
+			stampMetadata(step, { message });
 
 			// Execute handlers with the message
 			await this.executeHandlers(step, message);
@@ -244,6 +246,10 @@ export class Subscriber<T extends Topics<T> = DefaultTopics, TMessage = unknown>
 		if (!hook?.step) {
 			return; // No matching hook - ignore
 		}
+
+		// Stamp incoming message for the reporter. For `waitMessage` the wait
+		// step also stamps after `awaitHook` returns — same value, no harm.
+		stampMetadata(hook.step, { message });
 
 		if (hook.step.type === "waitMessage") {
 			// Resolve the hook's pending - step will receive message

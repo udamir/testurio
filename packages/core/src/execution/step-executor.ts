@@ -155,6 +155,7 @@ function toStepInfo(step: Step): StepInfo {
 		componentName: step.component.name,
 		description: step.description,
 		messageType: params?.messageType as string | undefined,
+		metadata: step.metadata,
 	};
 }
 
@@ -167,10 +168,12 @@ export function toTestStepResult(result: StepExecutionResult, index: number): Te
 		type: result.step.type,
 		description: result.step.description ?? result.step.type,
 		componentName: result.step.componentName,
+		messageType: result.step.messageType,
 		passed: result.passed,
 		duration: result.duration,
 		error: result.error?.message,
 		stackTrace: result.error?.stack,
+		metadata: result.step.metadata,
 	};
 }
 

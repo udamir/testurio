@@ -175,7 +175,15 @@ function truncate(str: string, maxLength: number): string {
 }
 
 /**
- * Extract payload from step metadata
+ * Extract payload(s) from step metadata.
+ *
+ * Returns an object containing **every** recognized payload key present on
+ * `metadata` — components may stamp both `request` and `response` on the same
+ * step (e.g. a Server hook step receives a request and produces a mock
+ * response), and both should be surfaced. Recognized keys are looked up in a
+ * stable order so the produced parameter / attachment list is deterministic.
+ *
+ * Returns `undefined` when none of the recognized keys are present.
  */
 function extractPayload(metadata: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
 	if (!metadata) {
@@ -183,12 +191,13 @@ function extractPayload(metadata: Record<string, unknown> | undefined): Record<s
 	}
 	// Look for common payload keys
 	const payloadKeys = ["request", "response", "message", "payload", "data", "body"];
+	const result: Record<string, unknown> = {};
 	for (const key of payloadKeys) {
 		if (metadata[key] !== undefined) {
-			return { [key]: metadata[key] };
+			result[key] = metadata[key];
 		}
 	}
-	return undefined;
+	return Object.keys(result).length > 0 ? result : undefined;
 }
 
 /**
@@ -211,32 +220,34 @@ export function convertStep(
 		});
 	}
 
-	// Handle payload inclusion
+	// Handle payload inclusion. `extractPayload` may return multiple keys
+	// (e.g. { request, response } on a Server hook step) — emit one parameter
+	// row and one JSON attachment per key.
 	const payload = extractPayload(step.metadata);
 	if (payload && options.includePayloads) {
-		const payloadJson = JSON.stringify(payload, null, 2);
 		const maxSize = options.maxPayloadSize ?? 1000;
+		const includeParameters = options.includePayloads === "parameters" || options.includePayloads === "both";
+		const includeAttachments = options.includePayloads === "attachments" || options.includePayloads === "both";
 
-		if (options.includePayloads === "parameters" || options.includePayloads === "both") {
-			// Add as parameter (truncated)
-			for (const [key, value] of Object.entries(payload)) {
-				const valueStr = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+		for (const [key, value] of Object.entries(payload)) {
+			const valueStr = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+
+			if (includeParameters) {
 				parameters.push({
 					name: key,
 					value: truncate(valueStr, maxSize),
 				});
 			}
-		}
 
-		if ((options.includePayloads === "attachments" || options.includePayloads === "both") && writer) {
-			// Add as attachment (full content)
-			const content = Buffer.from(payloadJson, "utf-8");
-			const filename = writer.writeAttachment(`step-${stepIndex}-payload.json`, content, ContentType.JSON);
-			attachments.push({
-				name: "Payload",
-				source: filename,
-				type: ContentType.JSON,
-			});
+			if (includeAttachments && writer) {
+				const content = Buffer.from(valueStr, "utf-8");
+				const filename = writer.writeAttachment(`step-${stepIndex}-${key}.json`, content, ContentType.JSON);
+				attachments.push({
+					name: key,
+					source: filename,
+					type: ContentType.JSON,
+				});
+			}
 		}
 	}
 

@@ -23,6 +23,7 @@ import { generateId } from "../../utils";
 import type { AsyncSchemaInput, SchemaLike } from "../../validation";
 import { ValidationError } from "../../validation";
 import type { ITestCaseContext } from "../base/base.types";
+import { stampMetadata } from "../base/base.utils";
 import type { Hook } from "../base/hook.types";
 import { ServiceComponent } from "../base/service.component";
 import type { Handler, Step, ValueOrFactory } from "../base/step.types";
@@ -145,6 +146,10 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 		const connectParams =
 			typeof params.connectParams === "function" ? (params.connectParams as () => unknown)() : params.connectParams;
 
+		if (connectParams !== undefined) {
+			stampMetadata(step, { payload: connectParams });
+		}
+
 		await this.establishConnection(connectParams);
 	}
 
@@ -193,6 +198,7 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 		};
 
 		const payload = resolveValue(params.payload);
+		stampMetadata(step, { message: payload });
 
 		// Auto-validate outgoing message
 		if (this._validation?.validateMessages !== false) {
@@ -237,6 +243,7 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 		try {
 			// Wait for handleIncomingEvent to resolve
 			const payload = await this.awaitHook(hook, timeout);
+			stampMetadata(step, { message: payload });
 
 			// Execute handlers with the payload
 			await this.executeHandlers(step, payload);
@@ -281,6 +288,11 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 		if (!step) {
 			return;
 		}
+
+		// Stamp incoming event payload so the reporter can render it. For
+		// `waitEvent`, the wait step also stamps after `awaitHook` returns —
+		// the duplicate write is harmless (same value).
+		stampMetadata(step, { message: message.payload });
 
 		if (step.type === "waitEvent") {
 			// Resolve hook - wait step will receive payload

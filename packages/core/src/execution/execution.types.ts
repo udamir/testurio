@@ -73,6 +73,7 @@ export interface StepInfo {
 	componentName?: string;
 	description?: string;
 	messageType?: string;
+	metadata?: Record<string, unknown>;
 }
 
 /**

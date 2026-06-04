@@ -38,8 +38,8 @@ const scenario = new TestScenario({
 | `issueUrlPattern` | `string` | — | Issue link pattern (`{id}` placeholder) |
 | `defaultEpic` | `string` | — | Default epic for all tests |
 | `defaultFeature` | `string` | — | Default feature for all tests |
-| `includePayloads` | `"parameters" \| "attachments" \| "both"` | — | Include payloads in steps |
-| `maxPayloadSize` | `number` | `1000` | Max payload size for parameters mode |
+| `includePayloads` | `"parameters" \| "attachments" \| "both"` | — | Include per-step request/response payloads (see below) |
+| `maxPayloadSize` | `number` | `1000` | Max characters for parameters mode (attachments are full size) |
 
 ### Full Configuration Example
 
@@ -68,6 +68,37 @@ new AllureReporter({
   maxPayloadSize: 500,
 })
 ```
+
+### Per-Step Request/Response Payloads (`includePayloads`)
+
+When `includePayloads` is set, the Allure reporter renders each step's recorded request and response payloads as parameter rows, JSON file attachments, or both. **Payloads come from each component's `step.metadata`** — populated by the framework during `executeStep` — so this works regardless of whether `TestScenario({ recording: true })` is enabled.
+
+| Mode | Effect |
+|------|--------|
+| `"parameters"` | Adds `request` / `response` parameter rows (truncated to `maxPayloadSize`) |
+| `"attachments"` | Writes `step-N-request.json` / `step-N-response.json` attachment files (full content) |
+| `"both"` | Emits both parameter rows and attachments |
+| (omitted) | No payload data in the report — original behavior |
+
+#### What each component stamps
+
+| Component | Step type | Metadata keys |
+|-----------|-----------|---------------|
+| `Client` | `request` | `request` (resolved request body) |
+| `Client` | `onResponse` / `waitResponse` | `response` (awaited response) |
+| `Server` | `onRequest` / `waitRequest` | `request` (incoming) + `response` (mock or proxied result) |
+| `AsyncClient` | `connect` | `payload` (when `connectParams` provided) |
+| `AsyncClient` | `sendMessage` | `message` (resolved send payload) |
+| `AsyncClient` | `onEvent` / `waitEvent` | `message` (incoming event payload) |
+| `AsyncServer` | `onMessage` / `waitMessage` | `message` (incoming client message) |
+| `AsyncServer` | `sendEvent` / `broadcast` | `message` (outgoing payload) |
+| `Publisher` | `publish` / `publishBatch` | `message` (resolved payload / batch array) |
+| `Subscriber` | `onMessage` / `waitMessage` | `message` (incoming MQ message) |
+| `DataSource` | `exec` | `request` (description or `callback.toString()`) + `response` (callback result) |
+
+Steps without a payload (e.g. `assert`, `wait`, `disconnect`) produce no payload rows or attachments — only the standard `component` parameter.
+
+> **Note:** `Interaction` recording (`TestScenario({ recording: true })`) is a separate facility that populates `TestResult.interactions`. The reporter's `includePayloads` does **not** depend on it.
 
 ### Test Case Metadata
 

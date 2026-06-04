@@ -15,7 +15,7 @@
 
 import { BaseComponent } from "../base/base.component";
 import type { ITestCaseContext } from "../base/base.types";
-import { TimeoutError } from "../base/base.utils";
+import { stampMetadata, TimeoutError } from "../base/base.utils";
 import { runWithRetry } from "../base/retry";
 import type { RetryPolicy } from "../base/retry.types";
 import type { Handler, Step } from "../base/step.types";
@@ -113,6 +113,11 @@ export class DataSource<A extends DataSourceAdapter<unknown, unknown>> extends B
 			retry?: RetryPolicy<unknown>;
 		};
 
+		// Stamp the identifiable query BEFORE the loop is awaited, so that even
+		// a thrown / timed-out call still captures what was attempted. Prefer
+		// the user-supplied description; fall back to the callback source.
+		stampMetadata(step, { request: params.description ?? params.callback.toString() });
+
 		const client = this.getClient();
 		const attempt = (): Promise<unknown> => params.callback(client);
 
@@ -124,6 +129,10 @@ export class DataSource<A extends DataSourceAdapter<unknown, unknown>> extends B
 		const result: unknown = params.timeout
 			? await this.withTimeout(loop, params.timeout, params.description)
 			: await loop;
+
+		// Stamp response before handlers run so a failed assertion still leaves
+		// the response visible to the reporter.
+		stampMetadata(step, { response: result });
 
 		await this.executeHandlers(step, result);
 	}

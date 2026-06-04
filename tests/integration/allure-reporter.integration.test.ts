@@ -126,6 +126,12 @@ function normalizeForSnapshot(obj: unknown): unknown {
 		normalized = normalized.replace(/^[0-9a-f]{32}$/i, "<MD5_HASH>");
 		// Normalize file paths and line numbers in stack traces (handles both Windows and Unix paths)
 		normalized = normalized.replace(/at\s+[^\n]+\.(ts|js):\d+:\d+/g, "at <STACK_FRAME>");
+		// Normalize HTTP-format dates in response headers (RFC 7231 IMF-fixdate)
+		// e.g. "Thu, 04 Jun 2026 07:05:42 GMT"
+		normalized = normalized.replace(
+			/(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), \d{2} (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{4} \d{2}:\d{2}:\d{2} GMT/g,
+			"<HTTP_DATE>"
+		);
 		return normalized;
 	}
 

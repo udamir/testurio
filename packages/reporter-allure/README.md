@@ -112,8 +112,29 @@ const scenario = new TestScenario({
 | `issueUrlPattern` | `string` | - | URL pattern for issue links (use `{id}` placeholder) |
 | `defaultEpic` | `string` | - | Default epic for all tests |
 | `defaultFeature` | `string` | - | Default feature for all tests |
-| `includePayloads` | `"parameters"` \| `"attachments"` \| `"both"` | - | Include recorded payloads in Allure steps |
-| `maxPayloadSize` | `number` | `1000` | Maximum payload size for "parameters" mode |
+| `includePayloads` | `"parameters"` \| `"attachments"` \| `"both"` | - | Include per-step request/response payloads (see below) |
+| `maxPayloadSize` | `number` | `1000` | Max characters for `"parameters"` mode (attachments are full size) |
+
+### Payload Capture (`includePayloads`)
+
+Each component stamps its request/response payloads on `step.metadata` during execution. The reporter renders them per-step:
+
+| Mode | Effect |
+|------|--------|
+| `"parameters"` | Adds `request` / `response` parameter rows (inline, truncated to `maxPayloadSize`) |
+| `"attachments"` | Writes `step-N-request.json` / `step-N-response.json` attachment files (full content) |
+| `"both"` | Emits both |
+| (omitted) | No payload data — only the `component` parameter |
+
+Works regardless of `TestScenario({ recording: true })`. Stamped keys per component:
+
+- **`Client`** — `request` on `request` step, `response` on `onResponse` / `waitResponse`
+- **`Server`** — `request` + `response` on `onRequest` / `waitRequest` (response from mock handler or proxied call)
+- **`AsyncClient`** — `message` on `sendMessage`, `onEvent`, `waitEvent`; `payload` on `connect` (when params provided)
+- **`AsyncServer`** — `message` on `onMessage`, `waitMessage`, `sendEvent`, `broadcast`
+- **`Publisher`** — `message` on `publish` / `publishBatch`
+- **`Subscriber`** — `message` on `onMessage` / `waitMessage`
+- **`DataSource`** — `request` (description or `callback.toString()`) + `response` (callback return value) on `exec`
 
 ## Generating Reports
 
@@ -150,7 +171,8 @@ The reporter generates the following files in the results directory:
 - `{uuid}-result.json` - Individual test result for each test case
 - `{uuid}-container.json` - Container grouping test cases from a scenario
 - `environment.properties` - Environment information (when configured)
-- `{uuid}-attachment.{ext}` - Attachment files (when `includePayloads` is set)
+- `step-{N}-{key}.json` - Per-step payload attachments (when `includePayloads` is `"attachments"` or `"both"`), where `{key}` is `request` / `response` / `message` / etc. depending on the component
+- `{uuid}-attachment.{ext}` - Other attachment files
 
 ## License
 
