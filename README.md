@@ -32,7 +32,7 @@ npm install testurio --save-dev
 ## Quick Start
 
 ```typescript
-import { TestScenario, testCase, Client, Server, HttpProtocol } from 'testurio';
+import { TestScenario, testCase, Client, Server, HttpProtocol, expect } from 'testurio';
 
 // Define components with protocol
 const httpClient = new Client('client', {
@@ -64,7 +64,12 @@ const tc = testCase('Get user by ID', (test) => {
 
   client
     .onResponse('getUsers')
-    .assert((res) => res.body[0].id === 1);
+    .assert((res) => {
+      // Testurio-native `expect()` — zero dependency on vitest/jest/chai.
+      // Predicate returning `undefined` passes (no `return true;` needed).
+      expect(res.code).toBe(200);
+      expect(res.body).toMatchObject([{ id: 1, name: 'Alice' }]);
+    });
 });
 
 // Run the test

@@ -41,6 +41,7 @@ export default defineConfig({
             { text: 'Protocols', link: '/guide/protocols' },
             { text: 'Type Safety', link: '/guide/type-safety' },
             { text: 'Hooks & Mocking', link: '/guide/hooks' },
+            { text: 'Native expect()', link: '/guide/expect' },
             { text: 'Polling & Retry', link: '/guide/polling-and-retry' },
             { text: 'Proxy Mode', link: '/guide/proxy-mode' },
             { text: 'Schema Validation', link: '/guide/schema-validation' },

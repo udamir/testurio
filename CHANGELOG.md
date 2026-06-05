@@ -5,9 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.6.5] - 2026-06-03
+## [0.6.5] - Unreleased
 
 ### Added
+
+- **Testurio-native `expect()`** — Self-contained matcher API with zero dependencies on `jest`, `vitest`, or `chai`. Sync matchers only: `toBe`, `toEqual`, `toStrictEqual`, `toBeTruthy`, `toBeFalsy`, `toBeNull`, `toBeUndefined`, `toBeDefined`, `toBeGreaterThan(OrEqual)`, `toBeLessThan(OrEqual)`, `toBeCloseTo`, `toMatch`, `toContain`, `toMatchObject`, `toHaveLength`, `toHaveProperty`, plus `.not` negation on every matcher. Failure throws `ExpectAssertionError` whose `.message` is self-formatted with the matcher name, the user's source link (`at file:line:col`), an `Expected:`/`Received:` block, and (for collection matchers) a multi-line ANSI-colored `Diff:`.
+
+  ```typescript
+  import { expect } from "testurio";
+
+  api.onResponse("getUser").assert((res) => {
+    expect(res.code).toBe(200);              // no `return true;` needed
+    expect(res.body).toMatchObject({ id: 1 });
+  });
+  ```
+
+  Asymmetric matchers (`expect.any`), async chaining (`.resolves`/`.rejects`), snapshot, mock, and `expect.extend` are deliberately excluded from this MVP. The diff renderer emits ANSI codes unconditionally — reporters that don't render ANSI can strip via `replace(/\x1b\[\d+m/g, "")`.
 
 - **`SubscriberOptions.autoSubscribe`** — Opt-in eager subscription on `Subscriber`. Accepts `true | string[]`. With `string[]`, the listed topics are subscribed and `startConsuming()` is invoked inside `Subscriber.doStart()` (before any test case runs). With `true`, topics are derived from `onMessage`/`waitMessage` hooks registered for the current test case and `startConsuming()` runs in the new executor Phase 1.5 — between hook registration and the first action step. Omitting the option preserves the lazy default behavior.
 

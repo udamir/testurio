@@ -38,13 +38,26 @@ Hook builders provide a fluent API for chaining handlers:
 
 ### `.assert(fn)` / `.assert(description, fn)`
 
-Validate the payload. If the predicate returns `false`, the test fails.
+Validate the payload. The predicate fails the test when it returns `false`. Returning `true` or `undefined` (or any truthy value) passes.
 
 ```typescript
 api.onResponse('getUser')
   .assert((res) => res.code === 200)
   .assert('body should have name', (res) => res.body.name !== undefined);
 ```
+
+For richer failure messages — Expected/Received, structured diffs, source links — use Testurio's native [`expect()`](/guide/expect) inside the predicate:
+
+```typescript
+import { expect } from 'testurio';
+
+api.onResponse('getUser').assert((res) => {
+  expect(res.code).toBe(200);
+  expect(res.body).toMatchObject({ id: 1 });
+});
+```
+
+When an `expect()` matcher fails, it throws an `ExpectAssertionError` whose `.message` already contains the structured failure information — no `return true;` needed.
 
 ### `.mockResponse(fn)` / `.mockResponse(description, fn)`
 

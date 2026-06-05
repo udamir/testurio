@@ -21,6 +21,8 @@ export * from "./base.component";
 export * from "./base.types";
 // Utilities
 export * from "./base.utils";
+// Native expect API
+export * from "./expect";
 export * from "./hook.types";
 export * from "./hook-builder";
 // Retry / polling primitive

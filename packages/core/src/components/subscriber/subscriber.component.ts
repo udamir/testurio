@@ -362,9 +362,9 @@ export class Subscriber<T extends Topics<T> = DefaultTopics, TMessage = unknown>
 
 		switch (handler.type) {
 			case "assert": {
-				const predicate = params.predicate as (m: unknown) => boolean | Promise<boolean>;
+				const predicate = params.predicate as (m: unknown) => boolean | undefined | Promise<boolean | undefined>;
 				const result = await predicate(payload);
-				if (!result) {
+				if (result === false) {
 					const errorMsg = handler.description ? `Assertion failed: ${handler.description}` : "Assertion failed";
 					throw new Error(errorMsg);
 				}

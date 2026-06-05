@@ -350,9 +350,9 @@ export class AsyncClient<P extends IAsyncProtocol = IAsyncProtocol> extends Serv
 
 		switch (handler.type) {
 			case "assert": {
-				const predicate = params.predicate as (p: unknown) => boolean | Promise<boolean>;
+				const predicate = params.predicate as (p: unknown) => boolean | undefined | Promise<boolean | undefined>;
 				const result = await predicate(payload);
-				if (!result) {
+				if (result === false) {
 					const errorMsg = handler.description ? `Assertion failed: ${handler.description}` : "Assertion failed";
 					throw new Error(errorMsg);
 				}
