@@ -187,15 +187,12 @@ export function summarizeStepResults(results: StepExecutionResult[]): {
 	duration: number;
 	allPassed: boolean;
 } {
-	const passed = results.filter((r) => r.passed).length;
-	const failed = results.filter((r) => !r.passed).length;
-	const duration = results.reduce((sum, r) => sum + r.duration, 0);
-
+	const failed = results.filter((r) => !r.passed).length
 	return {
-		passed,
+		passed: results.filter((r) => r.passed).length,
 		failed,
 		total: results.length,
-		duration,
+		duration: results.reduce((sum, r) => sum + r.duration, 0),
 		allPassed: failed === 0,
 	};
 }

@@ -39,6 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Sync `Client`: fire-and-forget `request()` no longer leaks the request promise's rejection as a Node `unhandledRejection`**. Previously, when no `onResponse`/`waitResponse` step was registered for a request (or every matching hook lacked a `step`), `Client.executeRequest()` left the request promise unobserved.
+
 - **`AllureReporter.includePayloads` now actually attaches request/response payloads**. Previously the option was effectively a no-op — `convertStep` read from `step.metadata` but no component, executor, or projection ever wrote to it. 
   
 - **`AllureReporter` surfaces both `request` AND `response` on the same step** — `extractPayload` now collects every recognized payload key on `step.metadata` instead of returning only the first match. Server hook steps that stamp both keys now produce both parameter rows / both attachments.

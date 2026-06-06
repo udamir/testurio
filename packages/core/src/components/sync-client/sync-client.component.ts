@@ -141,6 +141,14 @@ export class Client<P extends ISyncProtocol = ISyncProtocol> extends ServiceComp
 			this.autoValidate(params.messageType, "request", data);
 		}
 		const requestPromise = this.request(params.messageType, data);
+		// Safety net: if no hook attaches its own .catch (empty matchingHooks, or
+		// every hook skipped by the `!hook.step` guard below), the request promise
+		// would be unobserved and a rejection (e.g. fetch failed during teardown)
+		// would surface as a Node unhandledRejection. Route orphan rejections
+		// through the scenario's unhandled-error machinery instead.
+		requestPromise.catch((error) => {
+			this.trackUnhandledError(error instanceof Error ? error : new Error(String(error)));
+		});
 		for (const hook of matchingHooks) {
 			if (!hook.step) continue;
 			requestPromise
