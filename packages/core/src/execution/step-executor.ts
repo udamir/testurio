@@ -187,7 +187,7 @@ export function summarizeStepResults(results: StepExecutionResult[]): {
 	duration: number;
 	allPassed: boolean;
 } {
-	const failed = results.filter((r) => !r.passed).length
+	const failed = results.filter((r) => !r.passed).length;
 	return {
 		passed: results.filter((r) => r.passed).length,
 		failed,
