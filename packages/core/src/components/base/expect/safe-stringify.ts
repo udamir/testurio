@@ -1,11 +1,3 @@
-/**
- * Safe Stringify (zero-dep)
- *
- * Self-contained for task 033 — owns its own copy so the expect API is
- * independent of any future shared assertion utilities. When task 032
- * lands, a follow-up composition task can dedupe.
- */
-
 export interface SafeStringifyOpts {
 	maxBytes: number;
 }

@@ -1,11 +1,3 @@
-/**
- * formatExpectFailure
- *
- * Builds the .message text for ExpectAssertionError. Self-formats the
- * Expected/Received/Diff/source-link block so the thrown error is fully
- * self-sufficient as it propagates up to the step executor.
- */
-
 import { safeStringify } from "./safe-stringify";
 import { formatSourceFrame, type SourceFrame } from "./source-frame";
 

@@ -1,12 +1,3 @@
-/**
- * expect() entry + Expectation<T> chain
- *
- * Single chain class with all matcher methods; conditional return types on
- * the `expect()` overloads narrow the visible matchers based on the actual
- * type. `.not` returns a NegatedExpectation that flips a `negated` flag the
- * underlying matchers respect.
- */
-
 import { toContainArray, toHaveLength, toHaveProperty, toMatchObject } from "./matchers/collection";
 import { toBe, toEqual, toStrictEqual } from "./matchers/equality";
 import {

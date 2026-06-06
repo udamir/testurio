@@ -1,5 +1,5 @@
 /**
- * Deep Equal (zero-dep)
+ * Deep Equal
  *
  * Loose + strict structural equality covering primitives, NaN, Date,
  * RegExp, Map, Set, typed arrays, arrays, plain objects, and circular

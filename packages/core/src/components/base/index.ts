@@ -32,3 +32,5 @@ export * from "./service.component";
 // Core types
 export * from "./step.types";
 export * from "./step-builder";
+// Expect
+export * from "./expect";
