@@ -67,26 +67,36 @@ export interface Codec<W extends string | Uint8Array = string | Uint8Array> {
 	readonly wireFormat: WireFormat;
 
 	/**
-	 * Encode data to wire format.
+	 * Encode application data into wire form.
 	 *
-	 * @param data - The data to encode
+	 * @param data - Application data to encode.
+	 * @param key  - Optional dispatch key. Adapters that own a routable
+	 *               identifier for the payload pass it here so codecs can
+	 *               dispatch internally (e.g. ProtobufCodec → message type).
+	 *               Concrete meaning is adapter-defined:
+	 *               - MQ adapters set it to the **concrete** topic name
+	 *                 (never a subscription pattern or glob mask).
+	 *               - HTTP adapters (future) set it to the operationId.
+	 *               - WS / TCP adapters typically leave it undefined.
+	 *               Codecs that don't dispatch ignore it.
 	 * @returns Encoded data (string or Uint8Array) or Promise thereof
 	 * @throws CodecError if encoding fails
 	 */
-	encode<D = unknown>(data: D): W | Promise<W>;
+	encode<D = unknown>(data: D, key?: string): W | Promise<W>;
 
 	/**
-	 * Decode wire format data to object.
+	 * Decode wire form into application data.
 	 *
 	 * Accepts both `string` and `Uint8Array` regardless of the codec's declared
 	 * `wireFormat`. Adapters pass raw transport bytes; the codec is responsible
 	 * for any normalization (e.g. UTF-8 decoding a `Uint8Array` for a text codec).
 	 *
 	 * @param wire - The wire format data to decode (string or bytes)
+	 * @param key  - Optional dispatch key (see `encode`).
 	 * @returns Decoded data or Promise thereof
 	 * @throws CodecError if decoding fails
 	 */
-	decode<D = unknown>(wire: string | Uint8Array): D | Promise<D>;
+	decode<D = unknown>(wire: string | Uint8Array, key?: string): D | Promise<D>;
 }
 
 /**

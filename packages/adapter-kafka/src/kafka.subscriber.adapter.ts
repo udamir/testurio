@@ -298,6 +298,18 @@ export class KafkaSubscriberAdapter implements IMQSubscriberAdapter<QueueMessage
 		}
 	}
 
+	/**
+	 * R1 / R6 (task 034): return the **concrete** topic the message arrived on,
+	 * for use as the codec dispatch key. KafkaJS resolves RegExp subscriptions
+	 * to concrete topics at delivery, so `payload.topic` is always concrete.
+	 *
+	 * Audit handle: grep `keyForCodec` to verify no adapter is passing a
+	 * subscription pattern or glob mask as the codec key.
+	 */
+	private keyForCodec(payload: EachMessagePayload): string {
+		return payload.topic;
+	}
+
 	private async handleMessage(payload: EachMessagePayload): Promise<void> {
 		if (!this.messageHandler) return;
 		// Soft-unsubscribe filter — topic may be in kafkaSubscribed but not active.
@@ -318,7 +330,8 @@ export class KafkaSubscriberAdapter implements IMQSubscriberAdapter<QueueMessage
 
 			// Decode payload — pass raw Buffer to the codec; wire-format
 			// normalization (text vs binary) is the codec's responsibility.
-			const decodedPayload = message.value ? await this.codec.decode(message.value) : null;
+			// R1: pass the CONCRETE topic (via `keyForCodec`) as the dispatch key.
+			const decodedPayload = message.value ? await this.codec.decode(message.value, this.keyForCodec(payload)) : null;
 
 			const metadata: KafkaMessageMetadata = {
 				partition,

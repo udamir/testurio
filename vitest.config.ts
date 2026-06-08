@@ -24,6 +24,7 @@ export default defineConfig({
       '@testurio/adapter-rabbitmq': resolve(__dirname, './packages/adapter-rabbitmq/src'),
       '@testurio/adapter-redis': resolve(__dirname, './packages/adapter-redis/src'),
       '@testurio/reporter-allure': resolve(__dirname, './packages/reporter-allure/src'),
+      '@testurio/codec-protobuf': resolve(__dirname, './packages/codec-protobuf/src'),
       '@testurio/cli': resolve(__dirname, './packages/cli/src'),
     },
   },

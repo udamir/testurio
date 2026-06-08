@@ -107,9 +107,12 @@ export class JsonCodec implements Codec<string> {
 	}
 
 	/**
-	 * Encode data to JSON string
+	 * Encode data to JSON string.
+	 *
+	 * The optional dispatch `_key` is accepted to satisfy the widened
+	 * `Codec.encode` signature; JsonCodec does not dispatch on it.
 	 */
-	encode<D>(data: D): string {
+	encode<D>(data: D, _key?: string): string {
 		try {
 			return JSON.stringify(data, this.replacer, this.space);
 		} catch (error) {
@@ -124,8 +127,11 @@ export class JsonCodec implements Codec<string> {
 	 * normalizes them to a UTF-8 string before parsing. This lets MQ adapters
 	 * pass raw transport bytes directly without any text/binary dispatch logic
 	 * leaking into the adapter layer.
+	 *
+	 * The optional dispatch `_key` is accepted to satisfy the widened
+	 * `Codec.decode` signature; JsonCodec does not dispatch on it.
 	 */
-	decode<D>(wire: string | Uint8Array): D {
+	decode<D>(wire: string | Uint8Array, _key?: string): D {
 		const text = typeof wire === "string" ? wire : Buffer.from(wire).toString("utf8");
 		try {
 			return JSON.parse(text, this.reviver) as D;

@@ -35,6 +35,7 @@
       "@testurio/adapter-rabbitmq": ["./packages/adapter-rabbitmq/src"],
       "@testurio/adapter-redis": ["./packages/adapter-redis/src"],
       "@testurio/reporter-allure": ["./packages/reporter-allure/src"],
+      "@testurio/codec-protobuf": ["./packages/codec-protobuf/src"],
       "@testurio/cli": ["./packages/cli/src"],
       "@testurio/cli/*": ["./packages/cli/src/*"]
     }

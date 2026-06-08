@@ -29,6 +29,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`ConsumerJoinTimeoutError`** — Named export from `@testurio/adapter-kafka`. Thrown when the Kafka subscriber adapter cannot confirm `GROUP_JOIN` within the configured timeout (initial subscribe AND the disconnect-reconnect restart path on new topics). Carries `timeoutMs` for diagnostics.
 
+- **Optional dispatch `key?: string` on `Codec.encode` / `Codec.decode`** — Lets a single codec instance pick a payload schema per call without keeping per-topic codec instances. Existing codecs continue to compile because the parameter is optional and unobserved. For MQ adapters the key is the concrete destination topic; HTTP / WS / TCP adapters can leave it undefined or pass an adapter-specific dispatch identifier in a follow-up.
+
+- **MQ adapters pass the concrete topic to the codec on every call.** Kafka, RabbitMQ, and Redis Pub/Sub all dispatch through `codec.encode(payload, topic)` and `codec.decode(wire, topic)`. The key is always the broker-side concrete identity — Kafka topic name, RabbitMQ routing key, Redis channel — never a subscription pattern, glob mask, or AMQP wildcard string. Dispatching codecs (such as the new `ProtobufCodec`) can rely on this invariant when matching bindings.
+
+- **New package `@testurio/codec-protobuf`** — First-class `ProtobufCodec` with ordered entries-array bindings: each entry pairs a matcher (`string` exact / `RegExp` / predicate `(key) => boolean`) with a fully-qualified protobuf type name. First match wins. One codec instance handles every topic — exact, RegExp, and predicate matchers can mix freely. Unmapped keys throw `CodecError` listing every configured entry. Ships a typed `defineBindings<TopicMap, Registry>()` helper that catches topic ↔ wire-type mismatches at codec-construction-site type-check, plus an `includePaths` option for `protoc -I include/path` semantics when loading `.proto` files with cross-package imports.
+
 ### Changed (BREAKING) — Subscriber per-test-case isolation
 
 - **`SubscriberOptions.adapter` is now an `IMQAdapter` factory** (was `IMQSubscriberAdapter`). Pass the broker adapter directly — the framework materializes a fresh subscriber adapter per test case. Migration: `new Subscriber('x', { adapter: await kafka.createSubscriber() })` → `new Subscriber('x', { adapter: kafka })`.
@@ -44,6 +50,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **CLI: `testurio generate` now reports every OpenAPI spec issue in one aggregated, location-tagged error.** Each broken field is listed with its JSON pointer in a single pass — no more fix-rerun-repeat against opaque messages.
+
+- **`JsonCodec.encode` and `JsonCodec.decode` signatures widen to accept (and ignore) the optional dispatch-key argument.** No behaviour change; existing callers compile unchanged.
 
 ### Fixed
 

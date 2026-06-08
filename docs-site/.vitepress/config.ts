@@ -114,6 +114,7 @@ export default defineConfig({
             { text: 'Custom Adapter', link: '/advanced/custom-adapter' },
             { text: 'Custom Reporter', link: '/advanced/custom-reporter' },
             { text: 'Custom Codec', link: '/advanced/custom-codec' },
+            { text: 'ProtobufCodec', link: '/advanced/protobuf-codec' },
           ]
         }
       ],

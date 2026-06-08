@@ -8,8 +8,8 @@ How to create a custom codec for serializing messages in async protocols (WebSoc
 interface Codec<W extends string | Uint8Array = string | Uint8Array> {
   name: string;
   wireFormat: WireFormat; // 'text' | 'binary'
-  encode<D>(data: D): W | Promise<W>;
-  decode<D>(wire: string | Uint8Array): D | Promise<D>;
+  encode<D>(data: D, key?: string): W | Promise<W>;
+  decode<D>(wire: string | Uint8Array, key?: string): D | Promise<D>;
 }
 ```
 
@@ -17,8 +17,22 @@ interface Codec<W extends string | Uint8Array = string | Uint8Array> {
 |-------|-------------|
 | `name` | Identifier for error reporting |
 | `wireFormat` | `'text'` for string-based, `'binary'` for `Uint8Array` |
-| `encode` | Serialize data to wire format (bound to `W`) |
-| `decode` | Deserialize wire payload back to data — always accepts both `string` and `Uint8Array` |
+| `encode` | Serialize data to wire format (bound to `W`). Optional `key` is the adapter-provided dispatch key — see below |
+| `decode` | Deserialize wire payload back to data — always accepts both `string` and `Uint8Array`. Optional `key` mirrors `encode` |
+
+### Dispatch Key
+
+`encode` and `decode` accept an optional `key?: string` — a per-call routable identifier that lets codecs pick a payload schema at runtime without keeping per-topic codec instances.
+
+Concrete meaning is adapter-defined:
+
+- **MQ adapters** set it to the **concrete** topic name. RabbitMQ uses `msg.fields.routingKey`; Redis Pub/Sub uses the actual `channel`; Kafka uses `payload.topic`. The key is NEVER a subscription pattern, glob mask, or AMQP wildcard string (R1 invariant) — dispatching codecs are entitled to assume the key is concrete.
+- **HTTP adapters** (future) will set it to the `operationId`.
+- **WS / TCP adapters** typically leave it `undefined`.
+
+Codecs that don't dispatch (such as `JsonCodec`) ignore the key. Codecs that do (such as `ProtobufCodec` from `@testurio/codec-protobuf`) resolve it through their bindings.
+
+> **Not the Kafka message key.** The codec dispatch `key` is unrelated to Kafka's per-message partitioning key (`PublishOptions.key`). They occupy different layers — partitioning lives on the producer options, dispatch lives on the codec call.
 
 ### Decode Input Invariant
 
@@ -49,6 +63,34 @@ const JsonCodec: Codec<string> = {
   decode: (data) => JSON.parse(data),
 };
 ```
+
+## Dispatching Codecs
+
+A codec that wants to dispatch per topic / per operation reads the optional `key` argument and switches on it:
+
+```typescript
+const orderOrUserCodec: Codec<Uint8Array> = {
+  name: 'order-or-user',
+  wireFormat: 'binary',
+  encode(data, key) {
+    switch (key) {
+      case 'orders.v1': return OrderEvent.encode(data).finish();
+      case 'users.v1':  return UserEvent.encode(data).finish();
+      default: throw new Error(`unbound key=${key}`);
+    }
+  },
+  decode(wire, key) {
+    const bytes = typeof wire === 'string' ? new TextEncoder().encode(wire) : wire;
+    switch (key) {
+      case 'orders.v1': return OrderEvent.decode(bytes).toJSON();
+      case 'users.v1':  return UserEvent.decode(bytes).toJSON();
+      default: throw new Error(`unbound key=${key}`);
+    }
+  },
+};
+```
+
+For protobuf specifically, `@testurio/codec-protobuf` ships the first-class `ProtobufCodec` with ordered entries-array bindings (string / RegExp / predicate matchers) — see [ProtobufCodec](/advanced/protobuf-codec).
 
 ## Creating a Custom Codec
 

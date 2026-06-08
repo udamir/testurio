@@ -29,6 +29,9 @@ importers:
       '@testcontainers/redpanda':
         specifier: ^11.12.0
         version: 11.14.0
+      '@testurio/codec-protobuf':
+        specifier: workspace:*
+        version: link:packages/codec-protobuf
       '@types/node':
         specifier: ^25.5.0
         version: 25.9.1
@@ -258,6 +261,28 @@ importers:
       tsup:
         specifier: ^8.5.1
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.15)(typescript@5.9.3)(yaml@2.9.0)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.0
+        version: 4.1.7(@types/node@25.9.1)(@vitest/coverage-v8@4.1.7)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.27.7)(jiti@2.7.0)(yaml@2.9.0))
+
+  packages/codec-protobuf:
+    dependencies:
+      protobufjs:
+        specifier: ^8.0.0
+        version: 8.4.2
+    devDependencies:
+      '@biomejs/biome':
+        specifier: ^2.4.7
+        version: 2.4.15
+      '@types/node':
+        specifier: ^25.5.0
+        version: 25.9.1
+      testurio:
+        specifier: workspace:*
+        version: link:../core
       typescript:
         specifier: ^5.9.3
         version: 5.9.3

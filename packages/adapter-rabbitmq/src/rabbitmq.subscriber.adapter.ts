@@ -128,6 +128,19 @@ export class RabbitMQSubscriberAdapter implements IMQSubscriberAdapter<QueueMess
 		return Array.from(this.subscribedTopics);
 	}
 
+	/**
+	 * R1 / R6 (task 034): return the **concrete** routing key the message arrived
+	 * on, for use as the codec dispatch key. MUST be the broker-delivered routing
+	 * key (`msg.fields.routingKey`), NEVER `findMatchingPattern(routingKey)`, the
+	 * matched subscription pattern, or any AMQP wildcard string like `"orders.*"`.
+	 *
+	 * Audit handle: grep `keyForCodec` to verify the codec dispatch key is the
+	 * concrete broker key.
+	 */
+	private keyForCodec(msg: ConsumeMessage): string {
+		return msg.fields.routingKey;
+	}
+
 	private async handleMessage(msg: ConsumeMessage): Promise<void> {
 		if (!this.messageHandler) {
 			return;
@@ -146,7 +159,9 @@ export class RabbitMQSubscriberAdapter implements IMQSubscriberAdapter<QueueMess
 
 			// Decode payload — pass raw Buffer to the codec; wire-format normalization
 			// (text vs binary) is the codec's responsibility, not the adapter's.
-			const decodedPayload = await this.codec.decode(msg.content);
+			// R1 (task 034): pass the CONCRETE routing key (via `keyForCodec`) as
+			// the codec dispatch key — NEVER a subscription pattern or AMQP wildcard.
+			const decodedPayload = await this.codec.decode(msg.content, this.keyForCodec(msg));
 
 			// Find which subscription pattern matched this routing key
 			const routingKey = msg.fields.routingKey;

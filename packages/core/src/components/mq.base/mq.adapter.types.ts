@@ -28,6 +28,14 @@ export interface IMQAdapter<TMessage = unknown, TOptions = unknown, TBatchMessag
 	/**
 	 * Create a publisher adapter.
 	 *
+	 * **Codec contract (R1, task 034):** Implementations MUST call
+	 * `codec.encode(payload, topic)` on every publish, passing the **concrete**
+	 * destination topic as the dispatch key. The key MUST be the broker-side
+	 * topic identity (Kafka: topic name; RabbitMQ: routing key; Redis: channel) —
+	 * NOT a subscription pattern, glob mask, or wildcard string. Dispatching
+	 * codecs (e.g. ProtobufCodec) rely on this invariant to resolve bindings
+	 * via exact / RegExp / predicate matchers.
+	 *
 	 * @param codec - Codec for message serialization
 	 */
 	createPublisher(codec: Codec): Promise<IMQPublisherAdapter<TOptions, TBatchMessage>>;
@@ -41,6 +49,19 @@ export interface IMQAdapter<TMessage = unknown, TOptions = unknown, TBatchMessag
 	 * the adapter at materialization time. The component never constructs `P`.
 	 * Per-call subscribe-level overrides flow through
 	 * `IMQSubscriberAdapter.subscribe(topics, params?)`.
+	 *
+	 * **Codec contract (R1, task 034):** Implementations MUST call
+	 * `codec.decode(wire, topic)` on every received message, passing the
+	 * **concrete** topic the message actually arrived on. Specifically:
+	 * - Kafka: `payload.topic` (the broker-resolved concrete topic — KafkaJS
+	 *   resolves RegExp subscriptions to concrete topics at delivery).
+	 * - RabbitMQ: `msg.fields.routingKey` (NOT `findMatchingPattern(routingKey)`,
+	 *   NOT any AMQP wildcard like `"orders.*"`).
+	 * - Redis Pub/Sub: `channel` (NOT `pattern ?? channel`, NOT any glob mask).
+	 *
+	 * Codecs are entitled to assume the key is concrete; pattern-aware dispatch
+	 * (RegExp, AMQP `*`/`#`, glob) lives in the codec author's matcher, not in
+	 * the adapter.
 	 *
 	 * @param codec - Codec for message deserialization (optional; adapter may default)
 	 */

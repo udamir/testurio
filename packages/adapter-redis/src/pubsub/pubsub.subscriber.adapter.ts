@@ -138,6 +138,23 @@ export class RedisPubSubSubscriberAdapter implements IMQSubscriberAdapter<QueueM
 		return Array.from(this.subscribedTopics);
 	}
 
+	/**
+	 * R1 / R6 (task 034): return the **concrete** channel the message arrived
+	 * on, for use as the codec dispatch key. MUST be `channel` — NEVER
+	 * `pattern ?? channel`, the subscription pattern, or any glob mask.
+	 *
+	 * The `_pattern` arg is present (and underscore-prefixed) so the helper's
+	 * intent — "I deliberately did not pick `pattern`" — is explicit. The
+	 * caller passes the subscription pattern only so a future reader cannot
+	 * miss that the choice between `channel` and `pattern` was considered.
+	 *
+	 * Audit handle: grep `keyForCodec` to verify no adapter is passing a
+	 * subscription pattern as the codec dispatch key.
+	 */
+	private keyForCodec(channel: string, _pattern?: string): string {
+		return channel;
+	}
+
 	private async handleMessage(channel: string, rawMessage: Buffer, pattern?: string): Promise<void> {
 		if (!this.messageHandler) {
 			return;
@@ -145,7 +162,8 @@ export class RedisPubSubSubscriberAdapter implements IMQSubscriberAdapter<QueueM
 
 		try {
 			// Decode envelope — pass raw bytes to the codec; the codec normalizes.
-			const envelope = (await this.codec.decode(rawMessage)) as MessageEnvelope;
+			// R1: the dispatch key is the CONCRETE channel, never `pattern ?? channel`.
+			const envelope = (await this.codec.decode(rawMessage, this.keyForCodec(channel, pattern))) as MessageEnvelope;
 
 			// Build Redis-specific metadata
 			const metadata: RedisPubSubMessageMetadata = {

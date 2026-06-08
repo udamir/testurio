@@ -350,9 +350,45 @@ Messages are automatically validated against the schema before publishing.
 
 Both `Publisher` and `Subscriber` accept an optional `codec` option. The default is JSON (`defaultJsonCodec`); pass any `Codec<string | Uint8Array>` to handle binary formats like Protocol Buffers, MessagePack, or Avro.
 
-The MQ adapter (Kafka, RabbitMQ, Redis Pub/Sub) passes raw transport bytes to the codec — text/binary normalization is the codec's job, not the adapter's. This means a single binary codec works across all three MQ adapters with no adapter-specific wiring.
+The MQ adapter (Kafka, RabbitMQ, Redis Pub/Sub) passes raw transport bytes to the codec — text/binary normalization is the codec's job, not the adapter's. MQ adapters also pass the **concrete** topic as the codec dispatch key on every `encode` / `decode` call, so a single codec instance can route per-topic to different message types.
 
-### Kafka with Protobuf
+### ProtobufCodec — one codec, many topics
+
+For protobuf specifically, use `@testurio/codec-protobuf` to skip the boilerplate. One codec instance handles every topic — exact, RegExp, and predicate matchers can mix freely:
+
+```typescript
+import { Publisher, Subscriber, TestScenario, testCase } from 'testurio';
+import { KafkaAdapter } from '@testurio/adapter-kafka';
+import { ProtobufCodec } from '@testurio/codec-protobuf';
+
+interface OrderEvent { orderId: string; amount: number; status: string }
+interface UserEvent { userId: string; action: string }
+interface MyTopics {
+  'orders.v1': OrderEvent;
+  'users.v1': UserEvent;
+  'users.v2': UserEvent;
+  'audit.signup': UserEvent;
+}
+
+const codec = new ProtobufCodec({
+  proto: './events.proto',
+  bindings: [
+    { match: 'orders.v1',                   type: 'pkg.OrderEvent' },
+    { match: /^users\.v\d+$/,               type: 'pkg.UserEvent' },
+    { match: (k) => k.startsWith('audit.'), type: 'pkg.UserEvent' },
+  ],
+});
+
+const adapter = new KafkaAdapter({ brokers: ['localhost:9092'] });
+const pub = new Publisher<MyTopics>('pub', { adapter, codec });
+const sub = new Subscriber<MyTopics>('sub', { adapter, codec });
+```
+
+First match wins. See [ProtobufCodec](/advanced/protobuf-codec) for the full reference (entries-array shape, typed `defineBindings` helper, `includePaths`, per-transport examples).
+
+### Kafka with a hand-rolled Protobuf codec
+
+When per-topic dispatch is not required (single message type, single topic, or fully custom dispatch logic), write a hand-rolled `Codec` directly:
 
 ```typescript
 import * as protobuf from 'protobufjs';

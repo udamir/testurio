@@ -47,7 +47,7 @@ export class KafkaPublisherAdapter implements IMQPublisherAdapter {
 			throw new Error("Publisher is not connected");
 		}
 
-		const encoded = await this.codec.encode(payload);
+		const encoded = await this.codec.encode(payload, topic);
 		const value = toKafkaValue(encoded);
 
 		await this.producer.send({
@@ -74,7 +74,7 @@ export class KafkaPublisherAdapter implements IMQPublisherAdapter {
 
 		const kafkaMessages = await Promise.all(
 			messages.map(async (msg) => {
-				const encoded = await this.codec.encode(msg.payload);
+				const encoded = await this.codec.encode(msg.payload, topic);
 				return {
 					key: msg.key ?? null,
 					value: toKafkaValue(encoded),

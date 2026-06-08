@@ -59,7 +59,7 @@ export class RabbitMQPublisherAdapter implements IMQPublisherAdapter {
 			throw new Error("Publisher is not connected");
 		}
 
-		const encoded = await this.codec.encode(payload);
+		const encoded = await this.codec.encode(payload, topic);
 		const buffer = toBuffer(encoded);
 
 		// Convert headers to AMQP format

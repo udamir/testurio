@@ -1,0 +1,55 @@
+{
+  "name": "@testurio/codec-protobuf",
+  "version": "0.6.6",
+  "description": "Protobuf codec for testurio Publisher/Subscriber — per-topic message-type dispatch via the codec dispatch key.",
+  "keywords": [
+    "testurio",
+    "protobuf",
+    "codec",
+    "mq",
+    "testing"
+  ],
+  "author": "Damir Yusipov",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/udamir/testurio.git",
+    "directory": "packages/codec-protobuf"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "lint": "biome check src",
+    "prepublish": "V=$(node -p \"require('../../package.json').version\") && npm pkg set version=$V peerDependencies.testurio=^$V && pnpm run lint && pnpm run build"
+  },
+  "dependencies": {
+    "protobufjs": "^8.0.0"
+  },
+  "peerDependencies": {
+    "testurio": "^0.7.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.7",
+    "@types/node": "^25.5.0",
+    "testurio": "workspace:*",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0"
+  }
+}
