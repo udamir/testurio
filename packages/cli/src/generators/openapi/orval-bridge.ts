@@ -70,23 +70,30 @@ export async function generateZodSchemas(
 					},
 				},
 			});
-		} catch {
+		} catch (err) {
+			logger?.debug(`Orval error object: ${stringifyError(err)}`);
+			const detail = extractOrvalErrorDetail(err);
 			throw new Error(
-				`Failed to generate Zod schemas from OpenAPI spec.\n` +
+				`Orval failed to generate Zod schemas from OpenAPI spec.\n` +
 					`  Input: ${source.input}\n` +
-					`  Verify the file is a valid OpenAPI 3.x specification.`
+					`  ${detail}\n\n` +
+					`  This usually indicates a schema shape Orval cannot handle. ` +
+					`Run \`testurio generate --verbose\` for the full stack.`
 			);
 		} finally {
 			process.stdout.write = origStdoutWrite;
 			process.stderr.write = origStderrWrite;
 		}
 
-		// Check output exists (Orval may silently fail without throwing)
+		// Check output exists (Orval may silently fail without throwing).
+		// In the normal flow this branch is unreachable — validation runs before
+		// Orval — but we keep it as a defensive guard for cases where Orval
+		// silently produces no file for a spec that the validator accepted.
 		if (!existsSync(tempOutputPath)) {
 			throw new Error(
-				`Schema generation produced no output.\n` +
+				`Orval produced no output for a spec that passed validation.\n` +
 					`  Input: ${source.input}\n` +
-					`  The OpenAPI spec may be invalid or unsupported.`
+					`  This is likely a bug — please open an issue with the spec attached.`
 			);
 		}
 
@@ -227,6 +234,57 @@ let biomeBinaryCache: string | null | undefined;
  * CLI runs from a tsup-built CJS bundle or ESM bundle without relying on
  * `import.meta`.
  */
+/**
+ * Walk the `err.cause` chain and join each link's message with `caused by:`.
+ * Orval often nests its real failure inside an outer error wrapper.
+ */
+function extractOrvalErrorDetail(err: unknown): string {
+	if (err instanceof Error) {
+		const chain: string[] = [err.message];
+		let cur: unknown = err.cause;
+		while (cur instanceof Error) {
+			chain.push(cur.message);
+			cur = cur.cause;
+		}
+		return chain.join("\n  caused by: ");
+	}
+	return String(err);
+}
+
+/**
+ * Stringify a caught error for debug logging. JSON.stringify drops Error fields
+ * (name/message/stack) and chokes on cycles, so we copy the visible fields and
+ * fall back to `String(err)` if anything blows up.
+ */
+function stringifyError(err: unknown): string {
+	if (err instanceof Error) {
+		try {
+			return JSON.stringify(
+				{ name: err.name, message: err.message, stack: err.stack, cause: err.cause },
+				replaceCircular()
+			);
+		} catch {
+			return `${err.name}: ${err.message}`;
+		}
+	}
+	try {
+		return JSON.stringify(err);
+	} catch {
+		return String(err);
+	}
+}
+
+function replaceCircular(): (key: string, value: unknown) => unknown {
+	const seen = new WeakSet<object>();
+	return (_key, value) => {
+		if (typeof value === "object" && value !== null) {
+			if (seen.has(value)) return "[Circular]";
+			seen.add(value);
+		}
+		return value;
+	};
+}
+
 function resolveBiomeBinary(): string | null {
 	if (biomeBinaryCache !== undefined) return biomeBinaryCache;
 	try {

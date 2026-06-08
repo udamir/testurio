@@ -10,6 +10,7 @@ import {
 } from "./operations-map.js";
 import { generateZodSchemas } from "./orval-bridge.js";
 import { bundleOpenApiSpec, readOpenApiSpec } from "./ref-bundler.js";
+import { validateOpenApiSpec } from "./validator.js";
 
 export class OpenApiGenerator implements Generator<OpenApiSource> {
 	readonly name = "openapi";
@@ -32,6 +33,13 @@ export class OpenApiGenerator implements Generator<OpenApiSource> {
 		// Step 1: Read and bundle the spec (resolves external $ref)
 		const rawSpec = await readOpenApiSpec(inputPath);
 		const bundledSpec = await bundleOpenApiSpec(inputPath);
+
+		// Step 1.4: Validate the bundled spec. Surfaces every schema/spec issue in
+		// one aggregated error so the user doesn't fix-rerun-repeat. Runs before
+		// operationId synthesis so error messages reference the user's original
+		// spec shape, not our synthesized one.
+		context.logger.info("Validating OpenAPI spec...");
+		await validateOpenApiSpec(bundledSpec, source);
 
 		// Step 1.5: Synthesize missing operationIds on BOTH specs so Orval and our parser agree.
 		// Deterministic — same (method, path) yields the same id, so calling on both is safe.

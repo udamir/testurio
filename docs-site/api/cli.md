@@ -107,6 +107,41 @@ import type { PetStore } from './petstore.schema';
 const protocol = new HttpProtocol<PetStore>();
 ```
 
+## Error Output
+
+`testurio generate` validates every OpenAPI spec with `@apidevtools/swagger-parser` before passing it to Orval. Invalid specs are reported with JSON-pointer paths to every offending node — all in one message, so you can fix every issue in a single pass.
+
+**Schema validation error:**
+
+```
+error: Invalid OpenAPI spec.
+  Input: ./api/openapi.yaml
+
+  Found 3 error(s):
+  1. /info: must have required property 'version'
+  2. /paths/~1pets/get/responses/200: must have required property 'description'
+  3. /paths/~1pets/post/requestBody: must have required property 'content'
+
+  Fix these and re-run.
+```
+
+**YAML/JSON parse error:**
+
+```
+error: Failed to parse YAML at ./api/openapi.yaml:12:5
+  Implicit map keys need to be on a single line at line 12, column 5
+```
+
+**Orval failure (rare — for specs that validate but trip an Orval limitation):**
+
+```
+error: Orval failed to generate Zod schemas from OpenAPI spec.
+  Input: ./api/openapi.yaml
+  Cannot read properties of undefined (reading 'discriminator')
+
+  This usually indicates a schema shape Orval cannot handle. Run `testurio generate --verbose` for the full stack.
+```
+
 ## Programmatic API
 
 ```typescript

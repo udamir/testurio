@@ -161,6 +161,10 @@ import type { PetStore } from './petstore.schema';
 const protocol = new HttpProtocol<PetStore>();
 ```
 
+## Error Output
+
+The OpenAPI generator validates every spec before invoking Orval, surfaces every issue at once with JSON-pointer paths, and tags YAML/JSON parse failures with file path + line:column. See the [CLI API reference](../api/cli.md#error-output) for example error messages.
+
 ## Programmatic API
 
 The package exports core utilities for programmatic usage:

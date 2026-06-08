@@ -1,0 +1,27 @@
+openapi: 3.0.0
+info:
+  title: Multi Error Spec
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+    post:
+      operationId: createPet
+      requestBody:
+        required: true
+      responses:
+        '201':
+          description: Created
+components:
+  schemas:
+    Pet:
+      type: object
+      properties:
+        id:
+          type: integer

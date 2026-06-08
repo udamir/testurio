@@ -41,11 +41,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Persistent / scenario-level Subscriber hooks removed.** `Subscriber.registerHook` now throws when `step.testCaseId === undefined` — that covers hooks registered outside a `testCase()` body AND hooks registered inside `scenario.init` / `scenario.stop` handlers. **There is no scenario-level subscription primitive in testurio.** Migration: move the hook into a `testCase()` body.
 
+### Changed
+
+- **CLI: `testurio generate` now reports every OpenAPI spec issue in one aggregated, location-tagged error.** Each broken field is listed with its JSON pointer in a single pass — no more fix-rerun-repeat against opaque messages.
+
 ### Fixed
 
 - **Redis Pub/Sub subscriber no longer leaks a Redis connection per test case.** `RedisPubsubSubscriberAdapter.close()` now releases the connection it owns; previously each test case left one Redis client open until process exit.
 
 - **Subscriber adapter errors and disconnects now fail only the originating test case.** Previously a single subscriber-side error failed the whole scenario and a single disconnect rejected every pending wait across every test case; now each test case runs on its own adapter and observes only its own failure.
+
+- **CLI: YAML / JSON parse errors from `testurio generate` now include the file path and `line:column`.**
+
+  ```
+  error: Failed to parse YAML at ./api/openapi.yaml:15:1
+    Missing closing "quote at line 15, column 1
+  ```
+
+- **CLI: Orval failures from `testurio generate` now surface Orval's own error message instead of a generic placeholder.** Pass `--verbose` for the full diagnostic.
 
 ## [0.6.5] - 2026-06-05
 
