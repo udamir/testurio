@@ -1,29 +1,23 @@
 /**
  * Subscriber Eager Consume Integration Tests
  *
- * Proves the Kafka consumer-join race is closed for both `autoSubscribe` modes
- * (`true` and `string[]`), and that the default (`undefined`) mode preserves
- * backward-compatible behavior with the dummy-`onMessage` mitigation pattern.
+ * Under task 037 v5.8 the Subscriber is always per-test-case and the consumer
+ * activates inside `adapter.subscribe(...)` (master's separate `startConsuming`
+ * was folded in). These tests prove the consumer-join race is still closed
+ * end-to-end:
+ *  - Test A — default `autoSubscribe: true` subscribes hook-derived topics in
+ *    Phase 1.5 (before any action step runs), so publish-before-wait works.
+ *  - Test B — `autoSubscribe: false` + imperative `ev.subscribe([...])`
+ *    exercises the explicit batched-subscribe path.
+ *  - Test C — `autoSubscribe: true` with a no-op `onMessage` proves the
+ *    topic auto-subscribes even when no wait step is present yet.
  *
- * These tests require Docker. They will be skipped automatically if Docker is
- * not available.
- *
- * **Race description.** Before this fix, `Subscriber.executeStep` lazily called
- * `startConsuming()` on the first subscriber step. Kafka's `consumer.run()`
- * schedules the runner loop and resolves *before* `GROUP_JOIN`, so a
- * `.waitMessage(...)` step placed AFTER the action that publishes would join
- * the group too late, miss the message, and time out. The fix is two-fold:
- *   1. `KafkaSubscriberAdapter.startConsuming()` now awaits `GROUP_JOIN`.
- *   2. `SubscriberOptions.autoSubscribe?: true | string[]` opts the consumer
- *      into eager subscription so it's hot before the first action runs.
- *
- * Each test creates its own adapter (fresh `groupId`) so the eager-mode tests
- * can use `fromBeginning: false` and still get a deterministic result — the
- * first GROUP_JOIN starts at end-of-log, so any message published *after*
- * `startConsuming` resolves is guaranteed to be delivered.
+ * Each test specifies an explicit `defaultSubscribeParams.groupId` so the
+ * shared-group opt-out path is exercised and `fromBeginning: false` gives a
+ * deterministic end-of-log start.
  */
 
-import { ConsumerJoinTimeoutError, KafkaAdapter } from "@testurio/adapter-kafka";
+import { KafkaAdapter } from "@testurio/adapter-kafka";
 import { Publisher, Subscriber, TestScenario, testCase } from "testurio";
 import { describe, expect, it } from "vitest";
 import { getKafkaConfig, isKafkaAvailable } from "../containers";
@@ -34,8 +28,10 @@ describe.skipIf(!isKafkaAvailable())("Subscriber Eager Consume", () => {
 		const adapter = new KafkaAdapter({
 			brokers: kafka.brokers,
 			clientId: `eager-true-${Date.now()}`,
-			groupId: `eager-true-group-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-			fromBeginning: false,
+			defaultSubscribeParams: {
+				groupId: `eager-true-group-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+				fromBeginning: false,
+			},
 			testMode: true,
 		});
 
@@ -77,35 +73,36 @@ describe.skipIf(!isKafkaAvailable())("Subscriber Eager Consume", () => {
 		}
 	});
 
-	it("Test B: autoSubscribe: ['topic'] closes the consumer-join race", async () => {
+	it("Test B: autoSubscribe: false + imperative subscribe([...]) batched activation", async () => {
 		const kafka = getKafkaConfig();
 		const adapter = new KafkaAdapter({
 			brokers: kafka.brokers,
 			clientId: `eager-list-${Date.now()}`,
-			groupId: `eager-list-group-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-			fromBeginning: false,
+			defaultSubscribeParams: {
+				groupId: `eager-list-group-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+				fromBeginning: false,
+			},
 			testMode: true,
 		});
 
 		try {
 			const publisher = new Publisher("pub", { adapter });
-			const subscriber = new Subscriber("sub", {
-				adapter,
-				autoSubscribe: ["eager-list-topic"],
-			});
+			const subscriber = new Subscriber("sub", { adapter, autoSubscribe: false });
 
 			const scenario = new TestScenario({
-				name: "autoSubscribe string[] race closed",
+				name: "autoSubscribe false + imperative subscribe([...])",
 				components: [subscriber, publisher],
 			});
 
-			// With autoSubscribe: ['eager-list-topic'], the consumer subscribes
-			// and joins the group during scenario.start() — before any test case
-			// step runs. Publish-then-wait order is safe.
-			const tc = testCase("publish before wait with explicit topic list", (test) => {
+			// `autoSubscribe: false` disables Phase 1.5 auto-subscribe. The
+			// explicit `subscribe(['eager-list-topic'])` step batches into one
+			// Kafka `consumer.subscribe + consumer.run` cycle and awaits
+			// GROUP_JOIN before returning — publish-then-wait afterwards is safe.
+			const tc = testCase("imperative subscribe before publish", (test) => {
 				const pub = test.use(publisher);
 				const sub = test.use(subscriber);
 
+				sub.subscribe(["eager-list-topic"]);
 				pub.publish("eager-list-topic", { kind: "order.filled", id: "list-1" });
 
 				sub
@@ -127,13 +124,15 @@ describe.skipIf(!isKafkaAvailable())("Subscriber Eager Consume", () => {
 		}
 	});
 
-	it("Test C: autoSubscribe undefined preserves backward-compatible behavior", async () => {
+	it("Test C: autoSubscribe true with a no-op onMessage hook auto-subscribes the topic", async () => {
 		const kafka = getKafkaConfig();
 		const adapter = new KafkaAdapter({
 			brokers: kafka.brokers,
-			clientId: `lazy-default-${Date.now()}`,
-			groupId: `lazy-default-group-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-			fromBeginning: false,
+			clientId: `auto-noop-${Date.now()}`,
+			defaultSubscribeParams: {
+				groupId: `auto-noop-group-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+				fromBeginning: false,
+			},
 			testMode: true,
 		});
 
@@ -142,19 +141,19 @@ describe.skipIf(!isKafkaAvailable())("Subscriber Eager Consume", () => {
 			const subscriber = new Subscriber("sub", { adapter });
 
 			const scenario = new TestScenario({
-				name: "Default lazy mode with dummy-onMessage mitigation",
+				name: "autoSubscribe true + no-op onMessage hook",
 				components: [subscriber, publisher],
 			});
 
-			// Default lazy behavior — startConsuming is triggered by the first
-			// subscriber step. The dummy `onMessage` step before the publish IS
-			// that first subscriber step, so `startConsuming()` runs (and now
-			// awaits GROUP_JOIN — Phase 1 adapter fix) before the publish.
-			const tc = testCase("dummy onMessage before publish still works", (test) => {
+			// `autoSubscribe: true` (default) — the `onMessage` hook contributes
+			// 'lazy-default-topic' to `_hookDerivedTopics`. Phase 1.5 issues
+			// `adapter.subscribe(['lazy-default-topic'])`, awaits GROUP_JOIN,
+			// and the publish then lands on a hot consumer.
+			const tc = testCase("no-op onMessage before publish wires up Phase 1.5 subscribe", (test) => {
 				const pub = test.use(publisher);
 				const sub = test.use(subscriber);
 
-				sub.onMessage("lazy-default-topic"); // dummy step — triggers eager startConsuming
+				sub.onMessage("lazy-default-topic"); // no-op handler — only registers the topic
 
 				pub.publish("lazy-default-topic", { kind: "order.filled", id: "lazy-1" });
 
@@ -178,41 +177,37 @@ describe.skipIf(!isKafkaAvailable())("Subscriber Eager Consume", () => {
 	});
 
 	// Manual-only test. Requires a broker that accepts the TCP connection but
-	// never lets the consumer join the group — easiest to reproduce by pointing
-	// at a dead port and waiting for kafkajs' own connect retry to expire after
-	// the broker is reachable but stuck. Gated to avoid flaky CI: set
-	// RUN_TIMEOUT_TEST=1 to run.
+	// never lets the consumer join the group. Under v5.8 the GROUP_JOIN happens
+	// inside the test case body (Phase 1.5), so the timeout surfaces as a
+	// failed TestScenario.run result — not as a rejected scenario.start().
+	// Gated to avoid flaky CI: set RUN_TIMEOUT_TEST=1 to run.
 	it.skipIf(!process.env.RUN_TIMEOUT_TEST)("Test D: GROUP_JOIN timeout produces ConsumerJoinTimeoutError", async () => {
-		// Point at an unreachable broker. KafkaAdapter.createSubscriber calls
-		// adapter.connect() — that may itself reject with a kafkajs connection
-		// error before we ever reach startConsuming. The autoSubscribe: true
-		// path that triggers startConsuming during scenario.start() is what we
-		// want to assert against.
 		const adapter = new KafkaAdapter({
 			brokers: ["localhost:1"],
 			clientId: `timeout-${Date.now()}`,
-			groupId: `timeout-group-${Date.now()}`,
+			defaultSubscribeParams: { groupId: `timeout-group-${Date.now()}` },
 			groupJoinTimeoutMs: 100,
 			connectionTimeout: 500,
 			requestTimeout: 500,
 		});
 
-		const subscriber = new Subscriber("sub", {
-			adapter,
-			autoSubscribe: ["timeout-topic"],
-		});
+		const subscriber = new Subscriber("sub", { adapter });
 
 		const scenario = new TestScenario({
 			name: "ConsumerJoinTimeoutError on unreachable broker",
 			components: [subscriber],
 		});
 
+		const tc = testCase("Phase 1.5 subscribe surfaces GROUP_JOIN timeout", (test) => {
+			const sub = test.use(subscriber);
+			sub.waitMessage("timeout-topic").timeout(2000);
+		});
+
 		try {
-			await expect(
-				scenario.start().then(async () => {
-					await scenario.stop();
-				})
-			).rejects.toSatisfy((err: unknown) => err instanceof ConsumerJoinTimeoutError);
+			const result = await scenario.run(tc);
+			expect(result.passed).toBe(false);
+			// The error message should reference GROUP_JOIN or the timeout window.
+			expect(result.error ?? "").toMatch(/GROUP_JOIN|ConsumerJoinTimeoutError/);
 		} finally {
 			try {
 				await adapter.dispose();

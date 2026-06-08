@@ -25,39 +25,53 @@ const sub = new Subscriber('kafka-sub', {
   adapter: new KafkaAdapter({
     brokers: ['localhost:9092'],
     clientId: 'test-consumer',
-    groupId: 'test-group',
+    // Omit defaultSubscribeParams.groupId for per-test-case auto-generated groupId.
+    // Provide it for shared-group opt-out.
   }),
 });
 ```
 
 ### Constructor Options
 
-| Option               | Type       | Description                                                                                                                                                                                              |
-| -------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `brokers`            | `string[]` | Kafka broker addresses                                                                                                                                                                                   |
-| `clientId`           | `string`   | _(optional)_ Kafka client identifier                                                                                                                                                                     |
-| `groupId`            | `string`   | _(optional)_ Consumer group ID (required for subscribers)                                                                                                                                                |
-| `fromBeginning`      | `boolean`  | _(optional, default `false`)_ Start consuming from offset 0 on first group join                                                                                                                          |
-| `testMode`           | `boolean`  | _(optional, default `false`)_ Optimized timeouts for integration tests                                                                                                                                   |
-| `groupJoinTimeoutMs` | `number`   | _(optional, default `10000`; `5000` when `testMode: true`)_ Max time `startConsuming()` waits for `GROUP_JOIN` before rejecting with `ConsumerJoinTimeoutError`. Only applies when at least one topic is subscribed. |
+| Option                   | Type                    | Description                                                                                                                                                                                                                |
+| ------------------------ | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `brokers`                | `string[]`              | Kafka broker addresses                                                                                                                                                                                                     |
+| `clientId`               | `string`                | _(optional)_ Kafka client identifier                                                                                                                                                                                       |
+| `defaultSubscribeParams` | `KafkaSubscribeParams`  | _(optional)_ Adapter-wide subscribe-time defaults. See [`KafkaSubscribeParams`](#kafkasubscribeparams) below.                                                                                                                |
+| `testMode`               | `boolean`               | _(optional, default `false`)_ Optimized timeouts for integration tests                                                                                                                                                     |
+| `groupJoinTimeoutMs`     | `number`                | _(optional, default `30000`; `5000` when `testMode: true`)_ Max time the subscriber adapter waits for `GROUP_JOIN` after `consumer.run()` before rejecting with `ConsumerJoinTimeoutError`.                                  |
 
-### `startConsuming` contract
+#### `KafkaSubscribeParams`
 
-`KafkaSubscriberAdapter.startConsuming()` resolves only after the consumer has
-joined its group (`consumer.events.GROUP_JOIN`). Any message published after
-`startConsuming()` returns is guaranteed to be delivered to subscribed topics.
+```typescript
+interface KafkaSubscribeParams {
+  groupId?: string;       // omit → auto-generated `testurio-${randomSuffix(8)}` per TC (recommended)
+  fromBeginning?: boolean;
+}
+```
 
-If `GROUP_JOIN` does not fire within `groupJoinTimeoutMs`, the method rejects
-with `ConsumerJoinTimeoutError` (named export). Use `Subscriber.autoSubscribe`
-to trigger `startConsuming` eagerly — see the
-[Kafka consumer-join timing](../examples/message-queues#kafka-consumer-join-timing-the-autosubscribe-option)
-example.
+Per-call overrides flow through the builder: `ev.subscribe('topic', { fromBeginning: true })`.
+
+> **Migration from master** — `KafkaAdapterConfig.groupId` and `KafkaAdapterConfig.fromBeginning` are removed; they move to `defaultSubscribeParams`.
+
+### Per-test-case isolation
+
+Under v0.6.5, `Subscriber` is always per-test-case isolated. The `KafkaAdapter` is a **factory** — every test case materializes its own `KafkaSubscriberAdapter` via `adapter.createSubscriber()`. With `defaultSubscribeParams.groupId` omitted (the recommended default), each TC's consumer group is unique: `testurio-${randomSuffix(8)}`. Auto-generated groupIds are tracked on the parent adapter and swept via one shared `admin().deleteGroups([...])` call at `dispose()` time — eliminating the cross-TC offset leak from master.
+
+### Subscribe contract
+
+`KafkaSubscriberAdapter.subscribe(topic | topics, params?)` is the single activation method (master's `startConsuming?()` is gone — folded in). On the first call, the adapter issues `consumer.subscribe({ topics })`, calls `consumer.run(...)`, and awaits `consumer.events.GROUP_JOIN`. Any message published after `subscribe` returns is guaranteed to be delivered.
+
+Adding a topic after the consumer is already running triggers a disconnect-reconnect restart that preserves per-topic `fromBeginning` for already-active topics.
+
+If `GROUP_JOIN` does not fire within `groupJoinTimeoutMs`, the call rejects with `ConsumerJoinTimeoutError` (named export).
 
 ### Features
 
-- Topic-based publishing and subscribing
-- Consumer group support
-- Batch publishing via `publishBatch()`
+- Topic-based publishing and subscribing under per-TC consumer-group isolation
+- Batched subscribe (single `consumer.subscribe + consumer.run` cycle per TC)
+- Disconnect-reconnect restart preserves per-topic `fromBeginning` for already-active topics
+- Auto-generated consumer-group sweep at scenario teardown via one shared admin client
 - Message key support for partitioning
-- JSON codec for message serialization
-- `GROUP_JOIN`-aware `startConsuming` (eliminates publish-before-join race)
+- Configurable codec for message serialization (JSON default; binary codecs supported)
+- `GROUP_JOIN`-aware subscribe (eliminates publish-before-join race)

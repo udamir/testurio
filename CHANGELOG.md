@@ -5,7 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.6.5] - Unreleased
+## [0.7.0] - Unreleased
+
+### Added
+
+- **`Subscriber` is now always per-test-case isolated** — Constructor takes the `IMQAdapter` **factory** directly; the framework materializes a fresh subscriber adapter per test case. Eliminates the cross-TC offset leak and the sequential-different-topics breakage that existed in master. **Zero-config default**: omit `defaultSubscribeParams.groupId` and the framework auto-generates `testurio-${randomSuffix(8)}` per TC so every test case gets its own consumer group. Opt out via `new KafkaAdapter({ ..., defaultSubscribeParams: { groupId: 'shared' } })` to share one group across TCs (Kafka partition-assignment semantics).
+
+  ```typescript
+  const kafka = new KafkaAdapter({ brokers: ['localhost:9092'] });
+  const events = new Subscriber('events', { adapter: kafka });
+  // Each TC gets a unique consumer group automatically.
+  ```
+
+- **`SubscriberStepBuilder.subscribe(topic?, params?)` and `unsubscribe(topic?)`** — Imperative declarative builder methods. Single topic, array, or empty-array shortcut (subscribes to all hook-derived topics for the TC / unsubscribes from all currently-held). `params` is `Partial<P>` for adapter-specific overrides (e.g. `ev.subscribe('orders', { fromBeginning: true })`).
+
+- **`KafkaSubscribeParams` and `KafkaAdapterConfig.defaultSubscribeParams`** — Per-subscribe params shape (`groupId?`, `fromBeginning?`) plus adapter-wide defaults bag. Per-call subscribe-level overrides flow through `ev.subscribe('topic', { fromBeginning: true })`.
+
+- **`SubscriberOptions.autoSubscribe: boolean`** — Whether the per-TC adapter auto-subscribes to topics referenced by `onMessage` / `waitMessage` / `waitMessageFrom` hooks. Defaults to `true`. (The v1 `Array<Topic>` form is removed — see Breaking Changes below.)
+
+- **`KafkaAdapterConfig.groupJoinTimeoutMs`** — Configurable per-adapter timeout for the Kafka subscriber to await the `consumer.events.GROUP_JOIN` event after `consumer.run()`. Default `30000` ms (production) and `5000` ms (`testMode: true`). On expiry the activation rejects with `ConsumerJoinTimeoutError`.
+
+- **`Component.afterHooksRegistered?(testCaseId)`** — Optional lifecycle hook on the `Component` interface, called between hook registration and step execution for every test case. Receives the originating `testCaseId` so per-TC components can branch on it. Rejections propagate exactly like hook-registration failures and abort the test case.
+
+- **`ConsumerJoinTimeoutError`** — Named export from `@testurio/adapter-kafka`. Thrown when the Kafka subscriber adapter cannot confirm `GROUP_JOIN` within the configured timeout (initial subscribe AND the disconnect-reconnect restart path on new topics). Carries `timeoutMs` for diagnostics.
+
+### Changed (BREAKING) — Subscriber per-test-case isolation
+
+- **`SubscriberOptions.adapter` is now an `IMQAdapter` factory** (was `IMQSubscriberAdapter`). Pass the broker adapter directly — the framework materializes a fresh subscriber adapter per test case. Migration: `new Subscriber('x', { adapter: await kafka.createSubscriber() })` → `new Subscriber('x', { adapter: kafka })`.
+
+- **`SubscriberOptions.autoSubscribe` no longer accepts `Array<Topic>`** — only `boolean` (default `true`). Migration: rely on hooks (`onMessage` / `waitMessage` derive their topics automatically). The remaining flag controls whether the per-TC adapter auto-subscribes to hook-derived topics.
+
+- **`KafkaAdapterConfig.groupId` and `KafkaAdapterConfig.fromBeginning` removed.** Replaced by nested `defaultSubscribeParams: { groupId?, fromBeginning? }`. **`groupId` is now optional** — omit it and the framework auto-generates `testurio-${randomSuffix(8)}` per test case. Migration: `new KafkaAdapter({ brokers, groupId: 'x', fromBeginning: true })` → `new KafkaAdapter({ brokers, defaultSubscribeParams: { groupId: 'x', fromBeginning: true } })`.
+
+- **`IMQSubscriberAdapter.startConsuming?()` removed from the interface.** Folded into `IMQSubscriberAdapter.subscribe(topic, params?)` — the first call activates the adapter's delivery loop. `IMQSubscriberAdapter.subscribe` and `unsubscribe` both widen to `string | string[]`.
+
+- **Persistent / scenario-level Subscriber hooks removed.** `Subscriber.registerHook` now throws when `step.testCaseId === undefined` — that covers hooks registered outside a `testCase()` body AND hooks registered inside `scenario.init` / `scenario.stop` handlers. **There is no scenario-level subscription primitive in testurio.** Migration: move the hook into a `testCase()` body.
+
+### Fixed
+
+- **Redis Pub/Sub subscriber no longer leaks a Redis connection per test case.** `RedisPubsubSubscriberAdapter.close()` now releases the connection it owns; previously each test case left one Redis client open until process exit.
+
+- **Subscriber adapter errors and disconnects now fail only the originating test case.** Previously a single subscriber-side error failed the whole scenario and a single disconnect rejected every pending wait across every test case; now each test case runs on its own adapter and observes only its own failure.
+
+## [0.6.5] - 2026-06-05
 
 ### Added
 
@@ -21,21 +63,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ```
 
   Asymmetric matchers (`expect.any`), async chaining (`.resolves`/`.rejects`), snapshot, mock, and `expect.extend` are deliberately excluded from this MVP. The diff renderer emits ANSI codes unconditionally — reporters that don't render ANSI can strip via `replace(/\x1b\[\d+m/g, "")`.
-
-- **`SubscriberOptions.autoSubscribe`** — Opt-in eager subscription on `Subscriber`. Accepts `true | string[]`. With `string[]`, the listed topics are subscribed and `startConsuming()` is invoked inside `Subscriber.doStart()` (before any test case runs). With `true`, topics are derived from `onMessage`/`waitMessage` hooks registered for the current test case and `startConsuming()` runs in the new executor Phase 1.5 — between hook registration and the first action step. Omitting the option preserves the lazy default behavior.
-
-  ```typescript
-  const events = new Subscriber('events', {
-    adapter: kafkaAdapter,
-    autoSubscribe: true, // single config knob — consumer joins group before any action runs
-  });
-  ```
-
-- **`KafkaAdapterConfig.groupJoinTimeoutMs`** — Configurable per-adapter timeout for `KafkaSubscriberAdapter.startConsuming()` to await the `consumer.events.GROUP_JOIN` event. Default `10000` ms (production) and `5000` ms (`testMode: true`). On expiry the call rejects with `ConsumerJoinTimeoutError`.
-
-- **`Component.afterHooksRegistered?()`** — Optional lifecycle hook on the `Component` interface. The `StepExecutor` invokes it on every component after Phase 1 (`registerHook` parallel `Promise.all`) and before Phase 2 (the `executeStep` loop). Use it for setup that depends on the *full* set of hooks registered for a test case (e.g. `Subscriber` calling `startConsuming` once every topic is known). Rejections propagate exactly like Phase 1 failures and abort the test case.
-
-- **`ConsumerJoinTimeoutError`** (#029) — Named export from `@testurio/adapter-kafka`. Thrown by `KafkaSubscriberAdapter.startConsuming()` when `GROUP_JOIN` does not fire within `groupJoinTimeoutMs`. Carries `timeoutMs` for diagnostics.
 
 ### Fixed
 

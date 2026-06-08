@@ -77,7 +77,7 @@ export async function executeSteps(
 		// hooks (e.g. Subscriber with autoSubscribe: true calling startConsuming
 		// after every topic is known) implement Component.afterHooksRegistered.
 		// Failures bubble up like Phase 1 failures and abort the test case.
-		await Promise.all(Array.from(components).map((c) => c.afterHooksRegistered?.() ?? Promise.resolve()));
+		await Promise.all(Array.from(components).map((c) => c.afterHooksRegistered?.(testCaseId) ?? Promise.resolve()));
 
 		// =========================================================================
 		// PHASE 2: Execute steps in order
@@ -132,9 +132,12 @@ export async function executeSteps(
 		// =========================================================================
 		// PHASE 3: Cleanup hooks (always runs, even on error)
 		// =========================================================================
+		// v5.6 — `clearHooks` widened to `void | Promise<void>` so per-TC
+		// components (Subscriber) can perform async per-TC teardown. Await each
+		// cleanup individually so a slow teardown does not block the next.
 		for (const component of components) {
 			try {
-				component.clearHooks(testCaseId);
+				await component.clearHooks(testCaseId);
 			} catch {
 				// Ignore cleanup errors
 			}

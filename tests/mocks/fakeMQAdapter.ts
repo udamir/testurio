@@ -163,27 +163,29 @@ class FakeMQSubscriberAdapter implements IMQSubscriberAdapter<FakeMessage> {
 		return this._isConnected;
 	}
 
-	async subscribe(topic: string): Promise<void> {
-		if (this.subscribedTopics.has(topic)) {
-			return; // Already subscribed
+	async subscribe(topic: string | string[]): Promise<void> {
+		const inputTopics = Array.isArray(topic) ? topic : [topic];
+		for (const t of inputTopics) {
+			if (this.subscribedTopics.has(t)) continue;
+			const unsubscribe = this.broker.subscribe(t, (deliveredTopic, message) => {
+				if (this.messageHandler && this._isConnected) {
+					this.messageHandler(deliveredTopic, message);
+				}
+			});
+			this.unsubscribes.set(t, unsubscribe);
+			this.subscribedTopics.add(t);
 		}
-
-		const unsubscribe = this.broker.subscribe(topic, (t, message) => {
-			if (this.messageHandler && this._isConnected) {
-				this.messageHandler(t, message);
-			}
-		});
-
-		this.unsubscribes.set(topic, unsubscribe);
-		this.subscribedTopics.add(topic);
 	}
 
-	async unsubscribe(topic: string): Promise<void> {
-		const unsubscribe = this.unsubscribes.get(topic);
-		if (unsubscribe) {
-			unsubscribe();
-			this.unsubscribes.delete(topic);
-			this.subscribedTopics.delete(topic);
+	async unsubscribe(topic: string | string[]): Promise<void> {
+		const inputTopics = Array.isArray(topic) ? topic : [topic];
+		for (const t of inputTopics) {
+			const unsubscribe = this.unsubscribes.get(t);
+			if (unsubscribe) {
+				unsubscribe();
+				this.unsubscribes.delete(t);
+				this.subscribedTopics.delete(t);
+			}
 		}
 	}
 

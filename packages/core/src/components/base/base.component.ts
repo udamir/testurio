@@ -16,7 +16,12 @@ export abstract class BaseComponent<TStepBuilder = unknown> implements Component
 	readonly name: string;
 	protected state: ComponentState = "created";
 	protected hooks: Hook[] = [];
-	protected unhandledErrors: Error[] = [];
+	/**
+	 * v5.5 — entries carry an optional `testCaseId` so per-TC components can
+	 * attribute errors to the originating TC. Single-arg `trackUnhandledError`
+	 * calls store `testCaseId: undefined` (scenario-level error).
+	 */
+	protected unhandledErrors: { error: Error; testCaseId?: string }[] = [];
 
 	constructor(name: string) {
 		this.name = name;
@@ -99,11 +104,30 @@ export abstract class BaseComponent<TStepBuilder = unknown> implements Component
 	// Error Tracking
 	// =========================================================================
 
-	protected trackUnhandledError(error: Error): void {
-		this.unhandledErrors.push(error);
+	/**
+	 * Track an unhandled error.
+	 *
+	 * **v5.5 widening (task 037)**: optional `testCaseId` so per-TC components
+	 * (e.g. `Subscriber` under per-test-case isolation) can attribute adapter
+	 * errors to the originating TC. Callers that omit `testCaseId` retain
+	 * today's scenario-level semantics.
+	 *
+	 * @param error - The error to record
+	 * @param testCaseId - Optional originating test case id (scenario-level when omitted)
+	 */
+	protected trackUnhandledError(error: Error, testCaseId?: string): void {
+		this.unhandledErrors.push({ error, testCaseId });
 	}
 
 	getUnhandledErrors(): Error[] {
+		return this.unhandledErrors.map((entry) => entry.error);
+	}
+
+	/**
+	 * Get unhandled errors with their originating test case id (if any).
+	 * v5.5 — used by `TestScenario` to attribute per-TC errors to the right TC.
+	 */
+	getUnhandledErrorEntries(): ReadonlyArray<{ error: Error; testCaseId?: string }> {
 		return [...this.unhandledErrors];
 	}
 
@@ -143,7 +167,12 @@ export abstract class BaseComponent<TStepBuilder = unknown> implements Component
 	 * @param testCaseId - If provided, clears only non-persistent hooks for this testCaseId.
 	 *                     If empty, clears all hooks.
 	 */
-	clearHooks(testCaseId?: string): void {
+	/**
+	 * v5.2 — return type widened to `void | Promise<void>` so per-TC components
+	 * can override with an async teardown body (e.g. `Subscriber` awaiting
+	 * per-TC adapter close). Base class remains synchronous.
+	 */
+	clearHooks(testCaseId?: string): void | Promise<void> {
 		if (testCaseId) {
 			this.hooks = this.hooks.filter((hook) => hook.persistent || hook.testCaseId !== testCaseId);
 		} else {

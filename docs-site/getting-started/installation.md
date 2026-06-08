@@ -12,15 +12,15 @@ The core `testurio` package includes the framework essentials and the built-in H
 ::: code-group
 
 ```bash [npm]
-npm install testurio --save-dev
+npm install testurio
 ```
 
 ```bash [pnpm]
-pnpm add testurio --save-dev
+pnpm add testurio
 ```
 
 ```bash [yarn]
-yarn add testurio --dev
+yarn add testurio
 ```
 
 :::
@@ -32,9 +32,9 @@ Install additional protocol packages based on the protocols you need to test:
 | Package | Protocol | Install |
 |---------|----------|---------|
 | `testurio` | HTTP | Included in core |
-| `@testurio/protocol-grpc` | gRPC (Unary & Streaming) | `npm install @testurio/protocol-grpc --save-dev` |
-| `@testurio/protocol-ws` | WebSocket | `npm install @testurio/protocol-ws --save-dev` |
-| `@testurio/protocol-tcp` | TCP | `npm install @testurio/protocol-tcp --save-dev` |
+| `@testurio/protocol-grpc` | gRPC (Unary & Streaming) | `npm install @testurio/protocol-grpc` |
+| `@testurio/protocol-ws` | WebSocket | `npm install @testurio/protocol-ws` |
+| `@testurio/protocol-tcp` | TCP | `npm install @testurio/protocol-tcp` |
 
 ## Adapter Packages
 
@@ -44,17 +44,17 @@ For message queues and data sources, install the corresponding adapter packages:
 
 | Package | Service | Install |
 |---------|---------|---------|
-| `@testurio/adapter-kafka` | Apache Kafka | `npm install @testurio/adapter-kafka --save-dev` |
-| `@testurio/adapter-rabbitmq` | RabbitMQ | `npm install @testurio/adapter-rabbitmq --save-dev` |
-| `@testurio/adapter-redis` | Redis Pub/Sub | `npm install @testurio/adapter-redis --save-dev` |
+| `@testurio/adapter-kafka` | Apache Kafka | `npm install @testurio/adapter-kafka` |
+| `@testurio/adapter-rabbitmq` | RabbitMQ | `npm install @testurio/adapter-rabbitmq` |
+| `@testurio/adapter-redis` | Redis Pub/Sub | `npm install @testurio/adapter-redis` |
 
 ### Data Sources
 
 | Package | Service | Peer Dependency | Install |
 |---------|---------|-----------------|---------|
-| `@testurio/adapter-redis` | Redis | `ioredis` | `npm install @testurio/adapter-redis ioredis --save-dev` |
-| `@testurio/adapter-pg` | PostgreSQL | `pg` | `npm install @testurio/adapter-pg pg --save-dev` |
-| `@testurio/adapter-mongo` | MongoDB | `mongodb` | `npm install @testurio/adapter-mongo mongodb --save-dev` |
+| `@testurio/adapter-redis` | Redis | `ioredis` | `npm install @testurio/adapter-redis ioredis` |
+| `@testurio/adapter-pg` | PostgreSQL | `pg` | `npm install @testurio/adapter-pg pg` |
+| `@testurio/adapter-mongo` | MongoDB | `mongodb` | `npm install @testurio/adapter-mongo mongodb` |
 
 ## CLI (Schema Generator)
 
@@ -69,7 +69,7 @@ npm install @testurio/cli --save-dev
 For Allure HTML test reports:
 
 ```bash
-npm install @testurio/reporter-allure --save-dev
+npm install @testurio/reporter-allure
 ```
 
 ## Test Runner

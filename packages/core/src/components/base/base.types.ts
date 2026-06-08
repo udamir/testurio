@@ -74,11 +74,14 @@ export interface Component<TStepBuilder = unknown> {
 	 * Failures bubble up identically to Phase 1 failures: any rejected
 	 * `afterHooksRegistered` aborts the test case before any action runs.
 	 *
-	 * Example use: a `Subscriber` configured with `autoSubscribe: true` calls
-	 * `startConsuming` here so the broker consumer joins the group before the
-	 * first action step (which may publish a message) executes.
+	 * **v5.6 widening (task 037)**: receives `testCaseId` so per-TC components
+	 * (e.g. `Subscriber` under per-test-case isolation) can branch on the
+	 * originating TC. Existing components that ignore the argument remain
+	 * source-compatible.
+	 *
+	 * @param testCaseId - Originating test case id
 	 */
-	afterHooksRegistered?(): Promise<void>;
+	afterHooksRegistered?(testCaseId: string): Promise<void>;
 
 	/**
 	 * Phase 2: Execute a step.
@@ -93,10 +96,15 @@ export interface Component<TStepBuilder = unknown> {
 	/**
 	 * Phase 3: Clear hooks.
 	 * Called by executor after step execution (success or error).
+	 *
+	 * **v5.2 widening (task 037)**: return type widened to `void | Promise<void>`
+	 * so per-TC components (e.g. `Subscriber`) can await per-TC adapter
+	 * teardown. Callers MUST `await` the result.
+	 *
 	 * @param testCaseId - If provided, removes non-persistent hooks with matching testCaseId.
 	 *                     If empty/undefined, clears all hooks.
 	 */
-	clearHooks(testCaseId?: string): void;
+	clearHooks(testCaseId?: string): void | Promise<void>;
 
 	// =========================================================================
 	// Error Tracking

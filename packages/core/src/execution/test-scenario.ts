@@ -448,8 +448,10 @@ export class TestScenario {
 		}
 
 		// Clear test case hooks from all components (only for this test case)
+		// v5.6 — `clearHooks` widened to `void | Promise<void>` so per-TC
+		// components (Subscriber) can perform async per-TC teardown.
 		for (const component of this.components.values()) {
-			component.clearHooks(testCase.testCaseId);
+			await component.clearHooks(testCase.testCaseId);
 		}
 
 		// Record interactions if enabled

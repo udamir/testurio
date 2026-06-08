@@ -98,37 +98,37 @@ export class RedisPubSubSubscriberAdapter implements IMQSubscriberAdapter<QueueM
 	}
 
 	/**
-	 * Subscribe to a topic dynamically.
+	 * Subscribe to a topic or batch of topics dynamically.
+	 * Redis pubsub starts delivering as soon as the subscribe ACK lands —
+	 * no separate startConsuming activation needed (no body to fold in).
 	 */
-	async subscribe(topic: string): Promise<void> {
-		if (this.subscribedTopics.has(topic)) {
-			return; // Already subscribed
+	async subscribe(topic: string | string[]): Promise<void> {
+		const inputTopics = Array.isArray(topic) ? topic : [topic];
+		for (const t of inputTopics) {
+			if (this.subscribedTopics.has(t)) continue;
+			if (this.usePatterns) {
+				await this.redis.psubscribe(t);
+			} else {
+				await this.redis.subscribe(t);
+			}
+			this.subscribedTopics.add(t);
 		}
-
-		if (this.usePatterns) {
-			await this.redis.psubscribe(topic);
-		} else {
-			await this.redis.subscribe(topic);
-		}
-
-		this.subscribedTopics.add(topic);
 	}
 
 	/**
-	 * Unsubscribe from a topic.
+	 * Unsubscribe from a topic or batch.
 	 */
-	async unsubscribe(topic: string): Promise<void> {
-		if (!this.subscribedTopics.has(topic)) {
-			return; // Not subscribed
+	async unsubscribe(topic: string | string[]): Promise<void> {
+		const inputTopics = Array.isArray(topic) ? topic : [topic];
+		for (const t of inputTopics) {
+			if (!this.subscribedTopics.has(t)) continue;
+			if (this.usePatterns) {
+				await this.redis.punsubscribe(t);
+			} else {
+				await this.redis.unsubscribe(t);
+			}
+			this.subscribedTopics.delete(t);
 		}
-
-		if (this.usePatterns) {
-			await this.redis.punsubscribe(topic);
-		} else {
-			await this.redis.unsubscribe(topic);
-		}
-
-		this.subscribedTopics.delete(topic);
 	}
 
 	/**
@@ -196,6 +196,16 @@ export class RedisPubSubSubscriberAdapter implements IMQSubscriberAdapter<QueueM
 		}
 		this._isConnected = false;
 		this.subscribedTopics.clear();
-		// Don't close Redis connection as it's managed separately
+		// v5.5 — release the dedicated Redis connection this adapter owns.
+		// Under per-TC materialization the subscriber adapter is constructed
+		// per test case and owns its connection end-to-end; leaving it open
+		// would leak one Redis client per TC. The parent `RedisPubsubAdapter`
+		// still walks its `subscriberRedisInstances` registry on `dispose()`
+		// as a safety net for adapters that never reach `close()`.
+		try {
+			await this.redis.quit();
+		} catch {
+			// Connection already torn down — ignore.
+		}
 	}
 }

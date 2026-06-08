@@ -91,34 +91,34 @@ export class RabbitMQSubscriberAdapter implements IMQSubscriberAdapter<QueueMess
 	}
 
 	/**
-	 * Subscribe to a topic (routing key) dynamically.
+	 * Subscribe to a topic or batch of topics (routing keys) dynamically.
+	 * Consumer is already running (started in `connect()`) — no separate
+	 * activation needed (no `startConsuming` to fold in).
 	 */
-	async subscribe(topic: string): Promise<void> {
-		if (this.subscribedTopics.has(topic)) {
-			return; // Already subscribed
-		}
-
+	async subscribe(topic: string | string[]): Promise<void> {
+		const inputTopics = Array.isArray(topic) ? topic : [topic];
 		if (!this.channel) {
 			throw new Error("Channel not connected");
 		}
-
-		// Bind queue to the topic as routing key
-		await this.channel.bindQueue(this.queueName, this.exchange, topic);
-		this.subscribedTopics.add(topic);
+		for (const t of inputTopics) {
+			if (this.subscribedTopics.has(t)) continue;
+			await this.channel.bindQueue(this.queueName, this.exchange, t);
+			this.subscribedTopics.add(t);
+		}
 	}
 
 	/**
-	 * Unsubscribe from a topic (routing key).
+	 * Unsubscribe from a topic or batch (routing keys).
 	 */
-	async unsubscribe(topic: string): Promise<void> {
-		if (!this.subscribedTopics.has(topic)) {
-			return; // Not subscribed
+	async unsubscribe(topic: string | string[]): Promise<void> {
+		const inputTopics = Array.isArray(topic) ? topic : [topic];
+		for (const t of inputTopics) {
+			if (!this.subscribedTopics.has(t)) continue;
+			if (this.channel) {
+				await this.channel.unbindQueue(this.queueName, this.exchange, t);
+			}
+			this.subscribedTopics.delete(t);
 		}
-
-		if (this.channel) {
-			await this.channel.unbindQueue(this.queueName, this.exchange, topic);
-		}
-		this.subscribedTopics.delete(topic);
 	}
 
 	/**

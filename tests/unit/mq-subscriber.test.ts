@@ -77,12 +77,31 @@ describe("Subscriber", () => {
 			await subscriber.stop();
 		});
 
-		it("should handle adapter connection failure", async () => {
+		it("should handle adapter connection failure during per-TC materialization", async () => {
+			// v5.8 — `start()` no longer materializes an adapter; per-TC
+			// materialization happens at `afterHooksRegistered` / first step.
+			// Connection failure surfaces during `ensureTestCaseEntry`.
 			const adapter = createFakeMQAdapter(broker, { failOnConnect: true });
 			const subscriber = new Subscriber("test-sub", { adapter });
 
-			await expect(subscriber.start()).rejects.toThrow(/Connection failed/);
-			expect(subscriber.getState()).toBe("error");
+			await subscriber.start();
+			expect(subscriber.getState()).toBe("started");
+
+			// Use an `onMessage` hook (no pending Deferred) so the failure path
+			// does not leave a pending hook to reject during stop.
+			const step: Step = {
+				id: "fail-step",
+				type: "onMessage",
+				component: subscriber,
+				mode: "hook",
+				params: { topics: ["orders"] },
+				handlers: [],
+				testCaseId: "tc-unit-test",
+			};
+			await subscriber.registerHook(step);
+			await expect(subscriber.afterHooksRegistered("tc-unit-test")).rejects.toThrow(/Connection failed/);
+
+			await subscriber.stop();
 		});
 	});
 
@@ -104,8 +123,10 @@ describe("Subscriber", () => {
 					timeout: 1000,
 				},
 				handlers: [],
+				testCaseId: "tc-unit-test",
 			};
 			await subscriber.registerHook(step);
+			await subscriber.afterHooksRegistered("tc-unit-test");
 
 			// Publish after small delay
 			setTimeout(() => {
@@ -138,8 +159,10 @@ describe("Subscriber", () => {
 					timeout: 50,
 				},
 				handlers: [],
+				testCaseId: "tc-unit-test",
 			};
 			await subscriber.registerHook(step);
+			await subscriber.afterHooksRegistered("tc-unit-test");
 
 			await expect(subscriber.executeStep(step)).rejects.toThrow(/Timeout/);
 
@@ -163,8 +186,10 @@ describe("Subscriber", () => {
 					timeout: 100,
 				},
 				handlers: [],
+				testCaseId: "tc-unit-test",
 			};
 			await subscriber.registerHook(step);
+			await subscriber.afterHooksRegistered("tc-unit-test");
 
 			// Wait for subscription to complete
 			await new Promise((resolve) => setTimeout(resolve, 10));
@@ -202,8 +227,10 @@ describe("Subscriber", () => {
 					timeout: 500,
 				},
 				handlers: [],
+				testCaseId: "tc-unit-test",
 			};
 			await subscriber.registerHook(step);
+			await subscriber.afterHooksRegistered("tc-unit-test");
 
 			// First message doesn't match
 			setTimeout(() => {
@@ -245,8 +272,10 @@ describe("Subscriber", () => {
 					topics: ["orders"],
 				},
 				handlers: [],
+				testCaseId: "tc-unit-test",
 			};
 			await subscriber.registerHook(step);
+			await subscriber.afterHooksRegistered("tc-unit-test");
 
 			// onMessage step is a no-op (hook mode)
 			await subscriber.executeStep(step);
@@ -282,8 +311,10 @@ describe("Subscriber", () => {
 					topics: ["orders"],
 				},
 				handlers: [assertHandler],
+				testCaseId: "tc-unit-test",
 			};
 			await subscriber.registerHook(step);
+			await subscriber.afterHooksRegistered("tc-unit-test");
 
 			broker.publish("orders", {
 				topic: "orders",
@@ -323,8 +354,10 @@ describe("Subscriber", () => {
 					topics: ["orders"],
 				},
 				handlers: [assertHandler],
+				testCaseId: "tc-unit-test",
 			};
 			await subscriber.registerHook(step);
+			await subscriber.afterHooksRegistered("tc-unit-test");
 
 			// Publish message without orderId
 			broker.publish("orders", {
@@ -369,8 +402,10 @@ describe("Subscriber", () => {
 					topics: ["orders"],
 				},
 				handlers: [dropHandler, transformHandler],
+				testCaseId: "tc-unit-test",
 			};
 			await subscriber.registerHook(step);
+			await subscriber.afterHooksRegistered("tc-unit-test");
 
 			broker.publish("orders", {
 				topic: "orders",
@@ -419,8 +454,10 @@ describe("Subscriber", () => {
 					timeout: 500,
 				},
 				handlers: [transformHandler],
+				testCaseId: "tc-unit-test",
 			};
 			await subscriber.registerHook(step);
+			await subscriber.afterHooksRegistered("tc-unit-test");
 
 			setTimeout(() => {
 				broker.publish("orders", {
@@ -458,8 +495,10 @@ describe("Subscriber", () => {
 					timeout: 500,
 				},
 				handlers: [],
+				testCaseId: "tc-unit-test",
 			};
 			await subscriber.registerHook(step);
+			await subscriber.afterHooksRegistered("tc-unit-test");
 
 			setTimeout(() => {
 				broker.publish("events", {
@@ -491,8 +530,10 @@ describe("Subscriber", () => {
 					topics: ["orders"],
 				},
 				handlers: [],
+				testCaseId: "tc-unit-test",
 			};
 			await subscriber.registerHook(step);
+			await subscriber.afterHooksRegistered("tc-unit-test");
 
 			await subscriber.stop();
 
@@ -530,8 +571,10 @@ describe("Subscriber", () => {
 					timeout: 500,
 				},
 				handlers: [],
+				testCaseId: "tc-unit-test",
 			};
 			await subscriber.registerHook(step);
+			await subscriber.afterHooksRegistered("tc-unit-test");
 
 			setTimeout(() => {
 				broker.publish("orders", {
@@ -590,6 +633,7 @@ describe("Subscriber", () => {
 				mode: "action",
 				params: {},
 				handlers: [],
+				testCaseId: "tc-unit-test",
 			};
 
 			await expect(subscriber.executeStep(step)).rejects.toThrow(/Unknown step type/);
@@ -615,6 +659,7 @@ describe("Subscriber Type Safety", () => {
 			mode: "hook",
 			params: { topics: ["any-topic"] },
 			handlers: [],
+			testCaseId: "tc-unit-test",
 		};
 		const step2: Step = {
 			id: "type-step-2",
@@ -623,10 +668,12 @@ describe("Subscriber Type Safety", () => {
 			mode: "hook",
 			params: { topics: ["another-topic"] },
 			handlers: [],
+			testCaseId: "tc-unit-test",
 		};
 
 		await subscriber.registerHook(step1);
 		await subscriber.registerHook(step2);
+		await subscriber.afterHooksRegistered("tc-unit-test");
 
 		await subscriber.stop();
 	});
@@ -651,6 +698,7 @@ describe("Subscriber Type Safety", () => {
 			mode: "hook",
 			params: { topics: ["order-created"] },
 			handlers: [],
+			testCaseId: "tc-unit-test",
 		};
 		const step2: Step = {
 			id: "type-step-4",
@@ -659,10 +707,12 @@ describe("Subscriber Type Safety", () => {
 			mode: "hook",
 			params: { topics: ["order-updated"] },
 			handlers: [],
+			testCaseId: "tc-unit-test",
 		};
 
 		await subscriber.registerHook(step1);
 		await subscriber.registerHook(step2);
+		await subscriber.afterHooksRegistered("tc-unit-test");
 
 		await subscriber.stop();
 	});

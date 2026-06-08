@@ -58,8 +58,7 @@ describe.skipIf(!isKafkaAvailable())("Kafka Protobuf Codec Integration", () => {
 		const adapter = new KafkaAdapter({
 			brokers: kafka.brokers,
 			clientId: `test-kafka-pb-${Date.now()}`,
-			groupId: `test-group-pb-${Date.now()}`,
-			fromBeginning: true,
+			defaultSubscribeParams: { groupId: `test-group-pb-${Date.now()}`, fromBeginning: true },
 			testMode: true,
 		});
 
@@ -99,15 +98,13 @@ describe.skipIf(!isKafkaAvailable())("Kafka Protobuf Codec Integration", () => {
 		const writerAdapter = new KafkaAdapter({
 			brokers: kafka.brokers,
 			clientId: `test-kafka-pb-bad-w-${Date.now()}`,
-			groupId: `test-group-pb-bad-w-${Date.now()}`,
-			fromBeginning: true,
+			defaultSubscribeParams: { groupId: `test-group-pb-bad-w-${Date.now()}`, fromBeginning: true },
 			testMode: true,
 		});
 		const readerAdapter = new KafkaAdapter({
 			brokers: kafka.brokers,
 			clientId: `test-kafka-pb-bad-r-${Date.now()}`,
-			groupId: `test-group-pb-bad-r-${Date.now()}`,
-			fromBeginning: true,
+			defaultSubscribeParams: { groupId: `test-group-pb-bad-r-${Date.now()}`, fromBeginning: true },
 			testMode: true,
 		});
 

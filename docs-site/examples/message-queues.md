@@ -30,7 +30,7 @@ const pub = new Publisher<OrderTopics>('order-pub', {
 });
 
 const sub = new Subscriber<OrderTopics>('order-sub', {
-  adapter: new KafkaAdapter({ brokers: ['localhost:9092'], groupId: 'test' }),
+  adapter: new KafkaAdapter({ brokers: ['localhost:9092'] }),
 });
 ```
 
@@ -74,10 +74,8 @@ const pub = new Publisher<OrderTopics>('order-pub', {
 });
 
 const sub = new Subscriber<OrderTopics>('order-sub', {
-  adapter: new KafkaAdapter({
-    brokers: ['localhost:9092'],
-    groupId: 'test-group',
-  }),
+  adapter: new KafkaAdapter({ brokers: ['localhost:9092'] }),
+  // Per-TC isolation: each TC gets its own `testurio-<random>` consumer group.
 });
 
 // Subscribers should be listed before Publishers
@@ -131,41 +129,15 @@ const sub = new Subscriber<OrderTopics>('redis-sub', {
 });
 ```
 
-## Kafka consumer-join timing (the `autoSubscribe` option)
+## Kafka consumer-join timing (per-TC isolation)
 
-For Kafka, the underlying `consumer.run()` schedules the runner loop and resolves
-*before* the `GROUP_JOIN` event fires. If your test publishes a message *before*
-the subscriber has joined the consumer group, that message lands at an offset
-the consumer never reads (with `fromBeginning: false`) — the `waitMessage` step
-hangs until its `.timeout(N)` fires.
+The `Subscriber` materializes a fresh `KafkaSubscriberAdapter` per test case. Phase 1.5 (after hook registration, before any action step) issues a single batched `consumer.subscribe + run` cycle for every topic referenced by `onMessage` / `waitMessage` / `waitMessageFrom` hooks in the TC and **awaits `GROUP_JOIN`**. Any publish that follows is guaranteed to be delivered.
 
-The race surfaces whenever the first subscriber step in a test case is a
-`waitMessage` placed *after* an action step that publishes:
-
-```typescript
-// Racy with default lazy behavior
-const tc = testCase('order flow', (test) => {
-  const api = test.use(orderApi);
-  const ev  = test.use(events);
-
-  api.request('placeOrder', { ... });           // backend publishes order.filled
-  api.onResponse('placeOrder').assert((r) => r.code === 200);
-
-  ev.waitMessage('order.filled', { ... });      // joins group AFTER publish — misses message
-});
-```
-
-### Recommended fix: `autoSubscribe: true`
-
-`true` mode tells the executor to call `startConsuming` *between* hook
-registration and the first action step. By that point Phase 1 has subscribed
-every topic referenced by `onMessage`/`waitMessage` hooks, so the consumer
-joins the group with the full topic set — no double declaration, no drift.
+### Zero-config — `autoSubscribe: true` is the default
 
 ```typescript
 const events = new Subscriber('events', {
-  adapter: new KafkaAdapter({ brokers: ['localhost:9092'], groupId: 'test-group' }),
-  autoSubscribe: true, // ← single config knob, deterministic delivery
+  adapter: new KafkaAdapter({ brokers: ['localhost:9092'] }),
 });
 
 const tc = testCase('order flow', (test) => {
@@ -175,37 +147,51 @@ const tc = testCase('order flow', (test) => {
   api.request('placeOrder', { ... });
   api.onResponse('placeOrder').assert((r) => r.code === 200);
 
-  ev.waitMessage('order.filled', { ... });      // deterministic
+  ev.waitMessage('order.filled', { ... });      // deterministic — Phase 1.5 joined the group
 });
 ```
 
-### Alternative: explicit topic list
+`KafkaAdapter` omits `defaultSubscribeParams.groupId` by default, so each TC gets its own consumer group `testurio-${randomSuffix(8)}` — independent streams, no cross-TC offset leak.
 
-If the topic set is statically known, pass it directly. The subscriber
-subscribes + joins the group inside `Subscriber.doStart()` — before any
-test case runs.
+### Imperative subscribe / unsubscribe
+
+For `autoSubscribe: false` mode (or for mid-test imperative control):
 
 ```typescript
 const events = new Subscriber('events', {
-  adapter: new KafkaAdapter({ brokers: ['localhost:9092'], groupId: 'test-group' }),
-  autoSubscribe: ['order.filled', 'order.rejected'],
+  adapter: new KafkaAdapter({ brokers: ['localhost:9092'] }),
+  autoSubscribe: false,
+});
+
+const tc = testCase('imperative subscribe', (test) => {
+  const ev = test.use(events);
+  ev.subscribe(['order.filled', 'order.rejected']);   // one Kafka subscribe+run cycle
+  // ... publish, wait, etc.
+  ev.unsubscribe();                                    // shortcut — all currently-held
 });
 ```
 
-> **Foot-gun:** topics drift. Adding a new `waitMessage('new.topic')` step
-> without updating the `string[]` falls back to the lazy path for that topic.
-> When in doubt, prefer `autoSubscribe: true`.
+### Shared groupId opt-out
+
+For tests that need Kafka partition-assignment semantics across TCs (e.g. load-balancing fan-out), provide an explicit `groupId`:
+
+```typescript
+const events = new Subscriber('events', {
+  adapter: new KafkaAdapter({
+    brokers: ['localhost:9092'],
+    defaultSubscribeParams: { groupId: 'shared', fromBeginning: true },
+  }),
+});
+// All TCs share the 'shared' consumer group.
+```
 
 ### Configuring the GROUP_JOIN timeout
 
-By default, `KafkaSubscriberAdapter.startConsuming()` waits up to 10s
-(5s under `testMode: true`) for `GROUP_JOIN` before rejecting with
-`ConsumerJoinTimeoutError`. Override via `KafkaAdapterConfig.groupJoinTimeoutMs`:
+By default, the subscriber adapter waits up to 30 s (5 s under `testMode: true`) for `GROUP_JOIN` before rejecting with `ConsumerJoinTimeoutError`. Override via `KafkaAdapterConfig.groupJoinTimeoutMs`:
 
 ```typescript
 new KafkaAdapter({
   brokers: ['localhost:9092'],
-  groupId: 'test-group',
   groupJoinTimeoutMs: 2000, // fail fast in tight integration suites
 });
 ```
@@ -273,7 +259,7 @@ const notifPub = new Publisher<NotificationTopics>('notif-pub', {
 });
 
 const notifSub = new Subscriber<NotificationTopics>('notif-sub', {
-  adapter: new KafkaAdapter({ brokers: ['localhost:9092'], groupId: 'notif-group' }),
+  adapter: new KafkaAdapter({ brokers: ['localhost:9092'] }),
 });
 
 const scenario = new TestScenario({
@@ -398,7 +384,7 @@ const orderProtobufCodec: Codec<Uint8Array> = {
   },
 };
 
-const adapter = new KafkaAdapter({ brokers: ['localhost:9092'], groupId: 'orders-test' });
+const adapter = new KafkaAdapter({ brokers: ['localhost:9092'] });
 
 const pub = new Publisher('order-pub', { adapter, codec: orderProtobufCodec });
 const sub = new Subscriber('order-sub', { adapter, codec: orderProtobufCodec });

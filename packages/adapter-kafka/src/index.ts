@@ -3,40 +3,45 @@
  *
  * Kafka MQ adapter for testurio Publisher/Subscriber components.
  *
- * @example
+ * @example Zero-config per-TC isolation (recommended)
  * ```typescript
- * import { Publisher, Subscriber } from "testurio";
+ * import { Publisher, Subscriber, TestScenario, testCase } from "testurio";
  * import { KafkaAdapter } from "@testurio/adapter-kafka";
  *
- * // Create adapter with Kafka configuration
- * const adapter = new KafkaAdapter({
- *   brokers: ["localhost:9092"],
- *   clientId: "my-app",
- *   groupId: "my-consumer-group",
+ * const adapter = new KafkaAdapter({ brokers: ["localhost:9092"] });
+ * // No groupId → each test case gets a unique `testurio-<random>` consumer group.
+ *
+ * const publisher = new Publisher("pub", { adapter });
+ * const subscriber = new Subscriber("sub", { adapter });
+ *
+ * const tc = testCase("publish + receive", (test) => {
+ *   const pub = test.use(publisher);
+ *   const sub = test.use(subscriber);
+ *   pub.publish("events", { type: "user.created", userId: "123" });
+ *   sub.waitMessage("events").assert((msg) => msg.payload?.type === "user.created");
  * });
  *
- * // Use with Publisher
- * const publisher = new Publisher("pub", { adapter });
- * await publisher.publish("events", { type: "user.created", userId: "123" });
+ * await new TestScenario({ name: "demo", components: [subscriber, publisher] }).run(tc);
+ * ```
  *
- * // Use with Subscriber
- * const subscriber = new Subscriber("sub", { adapter, topics: ["events"] });
- * subscriber.onMessage("events").assert((msg) => msg.payload.type !== undefined);
+ * @example Shared groupId across test cases (opt-in)
+ * ```typescript
+ * const adapter = new KafkaAdapter({
+ *   brokers: ["localhost:9092"],
+ *   defaultSubscribeParams: { groupId: "shared-events", fromBeginning: true },
+ * });
  * ```
  *
  * @packageDocumentation
  */
 
 // Main adapter
-export { KafkaAdapter } from "./kafka.adapter";
+export * from "./kafka.adapter";
 // Errors
-export { ConsumerJoinTimeoutError } from "./kafka.errors";
+export * from "./kafka.errors";
 // Individual adapters (for advanced use cases)
-export { KafkaPublisherAdapter } from "./kafka.publisher.adapter";
-export { KafkaSubscriberAdapter } from "./kafka.subscriber.adapter";
+export * from "./kafka.publisher.adapter";
+export * from "./kafka.subscriber.adapter";
 
 // Types
-export type { KafkaAdapterConfig, KafkaMessageMetadata } from "./kafka.types";
-
-// Type guards and utilities
-export { getKafkaOffset, getKafkaPartition, isKafkaMetadata } from "./kafka.types";
+export * from "./kafka.types";

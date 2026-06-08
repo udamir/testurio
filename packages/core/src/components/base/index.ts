@@ -23,6 +23,8 @@ export * from "./base.types";
 export * from "./base.utils";
 // Native expect API
 export * from "./expect";
+// Expect
+export * from "./expect";
 export * from "./hook.types";
 export * from "./hook-builder";
 // Retry / polling primitive
@@ -32,5 +34,3 @@ export * from "./service.component";
 // Core types
 export * from "./step.types";
 export * from "./step-builder";
-// Expect
-export * from "./expect";

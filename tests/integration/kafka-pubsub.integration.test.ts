@@ -26,8 +26,7 @@ describe.skipIf(!isKafkaAvailable())("Kafka Pub/Sub Integration", () => {
 		const adapter = new KafkaAdapter({
 			brokers: kafka.brokers,
 			clientId: `test-kafka-${Date.now()}`,
-			groupId: `test-group-${Date.now()}`,
-			fromBeginning: true,
+			defaultSubscribeParams: { groupId: `test-group-${Date.now()}`, fromBeginning: true },
 			testMode: true,
 		});
 
@@ -64,8 +63,7 @@ describe.skipIf(!isKafkaAvailable())("Kafka Pub/Sub Integration", () => {
 		const adapter = new KafkaAdapter({
 			brokers: kafka.brokers,
 			clientId: `test-kafka-${Date.now()}`,
-			groupId: `test-group-${Date.now()}`,
-			fromBeginning: true,
+			defaultSubscribeParams: { groupId: `test-group-${Date.now()}`, fromBeginning: true },
 			testMode: true,
 		});
 
@@ -107,8 +105,7 @@ describe.skipIf(!isKafkaAvailable())("Kafka Pub/Sub Integration", () => {
 		const adapter = new KafkaAdapter({
 			brokers: kafka.brokers,
 			clientId: `test-kafka-${Date.now()}`,
-			groupId: `test-group-${Date.now()}`,
-			fromBeginning: true,
+			defaultSubscribeParams: { groupId: `test-group-${Date.now()}`, fromBeginning: true },
 			testMode: true,
 		});
 
@@ -147,8 +144,7 @@ describe.skipIf(!isKafkaAvailable())("Kafka Pub/Sub Integration", () => {
 		const adapter = new KafkaAdapter({
 			brokers: kafka.brokers,
 			clientId: `test-kafka-${Date.now()}`,
-			groupId: `test-group-${Date.now()}`,
-			fromBeginning: true,
+			defaultSubscribeParams: { groupId: `test-group-${Date.now()}`, fromBeginning: true },
 			testMode: true,
 		});
 
@@ -185,8 +181,7 @@ describe.skipIf(!isKafkaAvailable())("Kafka Pub/Sub Integration", () => {
 		const adapter = new KafkaAdapter({
 			brokers: kafka.brokers,
 			clientId: `test-kafka-${Date.now()}`,
-			groupId: `test-group-${Date.now()}`,
-			fromBeginning: true,
+			defaultSubscribeParams: { groupId: `test-group-${Date.now()}`, fromBeginning: true },
 			testMode: true,
 		});
 
@@ -220,8 +215,7 @@ describe.skipIf(!isKafkaAvailable())("Kafka Pub/Sub Integration", () => {
 		const adapter = new KafkaAdapter({
 			brokers: kafka.brokers,
 			clientId: `test-kafka-${Date.now()}`,
-			groupId: `test-group-${Date.now()}`,
-			fromBeginning: true,
+			defaultSubscribeParams: { groupId: `test-group-${Date.now()}`, fromBeginning: true },
 			testMode: true,
 		});
 
@@ -260,8 +254,7 @@ describe.skipIf(!isKafkaAvailable())("Kafka Pub/Sub Integration", () => {
 		const adapter = new KafkaAdapter({
 			brokers: kafka.brokers,
 			clientId: `test-kafka-${Date.now()}`,
-			groupId: `test-group-${Date.now()}`,
-			fromBeginning: true,
+			defaultSubscribeParams: { groupId: `test-group-${Date.now()}`, fromBeginning: true },
 			testMode: true,
 		});
 
@@ -303,8 +296,7 @@ describe.skipIf(!isKafkaAvailable())("Kafka Pub/Sub Integration", () => {
 		const adapter = new KafkaAdapter({
 			brokers: kafka.brokers,
 			clientId: `test-kafka-${Date.now()}`,
-			groupId: `test-group-${Date.now()}`,
-			fromBeginning: true,
+			defaultSubscribeParams: { groupId: `test-group-${Date.now()}`, fromBeginning: true },
 			testMode: true,
 		});
 
@@ -354,16 +346,14 @@ describe.skipIf(!isKafkaAvailable())("Kafka Pub/Sub Integration", () => {
 		const adapter1 = new KafkaAdapter({
 			brokers: kafka.brokers,
 			clientId: `test-group-a-${timestamp}`,
-			groupId: `group-a-${timestamp}`,
-			fromBeginning: true,
+			defaultSubscribeParams: { groupId: `group-a-${timestamp}`, fromBeginning: true },
 			testMode: true,
 		});
 
 		const adapter2 = new KafkaAdapter({
 			brokers: kafka.brokers,
 			clientId: `test-group-b-${timestamp}`,
-			groupId: `group-b-${timestamp}`,
-			fromBeginning: true,
+			defaultSubscribeParams: { groupId: `group-b-${timestamp}`, fromBeginning: true },
 			testMode: true,
 		});
 

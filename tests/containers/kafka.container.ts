@@ -52,7 +52,26 @@ export async function startKafkaContainer(options?: KafkaContainerOptions): Prom
 	// RedpandaContainer requires explicit image parameter in v11.x+
 	// Do NOT call withExposedPorts() - RedpandaContainer already configures all ports internally
 	const image = options?.image ?? DEFAULT_REDPANDA_IMAGE;
-	const container = new RedpandaContainer(image);
+	const container = new RedpandaContainer(image)
+		// Overlay /etc/redpanda/.bootstrap.yaml with group_initial_rebalance_delay=0
+		// to eliminate the 3 s coordinator-rebalance penalty on first JoinGroup. The
+		// wrapper's stock bootstrap.yaml (kafka_enable_authorization / auto_create_topics_enabled)
+		// is preserved verbatim; we only append the rebalance setting. Last-write-wins for
+		// duplicate copy targets, so this overrides the wrapper's constructor copy.
+		// Redpanda cluster property is `group_initial_rebalance_delay` (no `_ms` suffix —
+		// rpk's `--set redpanda.group_initial_rebalance_delay=0ms` documented in
+		// docs-site/guides/kafka-test-broker.md:67). YAML integer = milliseconds.
+		.withCopyContentToContainer([
+			{
+				content: [
+					"kafka_enable_authorization: false",
+					"auto_create_topics_enabled: true",
+					"group_initial_rebalance_delay: 0",
+					"",
+				].join("\n"),
+				target: "/etc/redpanda/.bootstrap.yaml",
+			},
+		]);
 
 	const started = await container.start();
 

@@ -267,26 +267,45 @@ new Subscriber(name: string, options: SubscriberOptions)
 | `adapter`       | `IMQAdapter`          | MQ adapter instance                                                                                                                                                                                                                          |
 | `schema`        | `MQSchemaInput`       | _(optional)_ Topic-based schemas                                                                                                                                                                                                             |
 | `validation`    | `MQValidationOptions` | _(optional)_ Auto-validation settings                                                                                                                                                                                                        |
-| `autoSubscribe` | `true \| string[]`    | _(optional)_ Eager subscription mode. `string[]`: subscribe + `startConsuming` during `doStart()`. `true`: defer to executor's Phase 1.5 seam — topics derived from `onMessage`/`waitMessage` hooks. `undefined` (default): lazy. See below. |
+| `autoSubscribe` | `boolean`             | _(optional, default `true`)_ Whether Phase 1.5 auto-subscribes to hook-derived topics. See below. |
+
+> **Migration from master** — `adapter` previously took an already-materialized `IMQSubscriberAdapter`, and `autoSubscribe` accepted `true \| string[]`. Both have changed. The Subscriber now materializes a fresh per-test-case adapter on every TC.
 
 #### `autoSubscribe` modes
 
-For adapters whose `startConsuming` incurs consumer-group coordination latency (notably Kafka), the lazy default can race with action steps that publish before the consumer joins the group. `autoSubscribe` makes that subscription eager:
+| Mode      | Behavior                                                                                                                                                                |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `true`    | **Default.** Phase 1.5 issues a single batched `adapter.subscribe([...])` for every topic referenced by `onMessage` / `waitMessage` / `waitMessageFrom` hooks in the TC. |
+| `false`   | Imperative-only — the test must call `ev.subscribe(...)` explicitly. The empty-array shortcut `ev.subscribe()` subscribes to all hook-derived topics for the TC.         |
 
-| Mode          | When `startConsuming` runs                                                            | Topic source        | When to use                                                                                |
-| ------------- | ------------------------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------ |
-| `undefined`   | Lazy — first subscriber step in a test case                                           | step hooks (lazy)   | Default. Safe when the first subscriber step runs before any publishing action.            |
-| `string[]`    | `Subscriber.doStart()` — before any test case runs                                    | the array you pass  | Statically known topic set. **Foot-gun:** topics drift — adding a `.waitMessage('new.topic')` step without updating this list falls back to the lazy path for that topic. |
-| `true`        | Executor's Phase 1.5 — between hook registration and the first `executeStep`          | registered hooks    | Recommended for Kafka. Single config knob, no topic duplication, no drift risk.            |
-
-When the adapter supports the contract (e.g. `@testurio/adapter-kafka` v0.7+), `startConsuming` is guaranteed to resolve only **after** the consumer has joined its group — any message subsequently published on a subscribed topic is delivered.
+Adapters activate their delivery loop on first `subscribe` (master's separate `startConsuming` is gone — folded in). For Kafka this means one `consumer.subscribe + consumer.run` cycle per TC, with `GROUP_JOIN` awaited before resolving.
 
 ### Step Builder Methods
 
-| Method                         | Mode | Description                  |
-| ------------------------------ | ---- | ---------------------------- |
-| `onMessage(topic)`             | hook | Non-blocking message handler |
-| `waitMessage(topic, options?)` | wait | Block until message arrives  |
+| Method                                                  | Mode    | Description                                                                                                                  |
+| ------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `onMessage(topic, options?)`                            | hook    | Non-blocking message handler. Auto-subscribes the topic at Phase 1.5 (when `autoSubscribe: true`).                           |
+| `waitMessage(topic, options?)`                          | wait    | Block until a message arrives. Auto-subscribes the topic at Phase 1.5.                                                       |
+| `waitMessageFrom(topics, options?)`                     | wait    | Block until a message arrives on any of the given topics.                                                                    |
+| `subscribe(topic?, params?)`                            | action  | Imperative subscribe. `topic`: single, array, or omitted (shortcut → all hook-derived). `params`: adapter-specific overrides. |
+| `unsubscribe(topic?)`                                   | action  | Imperative unsubscribe. `topic`: single, array, or omitted (shortcut → all currently-held).                                  |
+
+> **Footgun** — the empty-array shortcut on `subscribe([])` / `unsubscribe([])` subscribes / unsubscribes from "all of them". When callers spread a computed array that may be empty (`ev.subscribe(computedTopics)` where `computedTopics: string[]`), guard at the call site: `if (computedTopics.length > 0) ev.subscribe(computedTopics);`
+
+#### Persistent / scenario-level hooks
+
+`Subscriber.registerHook` throws when `step.testCaseId === undefined` — that covers hooks registered outside a `testCase()` body, **and** hooks registered inside `scenario.init` / `scenario.stop` handlers. There is no scenario-level subscription primitive in testurio. Move the hook into a `testCase()` body.
+
+#### Performance — parallel test cases
+
+Each test case requires one broker coordinator-join (when a `Subscriber` is used in the TC). For N parallel TCs that means N concurrent join handshakes against a single broker partition leader.
+
+Recommended parallel-TC cap depends on broker `group.initial.rebalance.delay.ms`:
+
+- **With `KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0`** (recommended for testing — see [Kafka test-broker config](../guides/kafka-test-broker.md)): 8 – 16 parallel TCs on a single broker partition leader.
+- **With default `group.initial.rebalance.delay.ms=3000`**: ~3 parallel TCs to avoid coordinator-join contention.
+
+For higher fan-out, use a shared `groupId` opt-out (`new KafkaAdapter({ defaultSubscribeParams: { groupId: 'shared' } })`) and accept Kafka partition-assignment semantics.
 
 ## HttpProtocol
 
