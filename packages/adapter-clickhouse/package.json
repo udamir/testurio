@@ -1,6 +1,6 @@
 {
   "name": "@testurio/adapter-clickhouse",
-  "version": "0.6.5",
+  "version": "0.6.6",
   "description": "ClickHouse adapter for Testurio DataSource",
   "keywords": [
     "testurio",
@@ -42,7 +42,7 @@
     "@clickhouse/client": "^1.18.0"
   },
   "peerDependencies": {
-    "testurio": "^0.6.5"
+    "testurio": "^0.6.6"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.7",
