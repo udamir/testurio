@@ -1,6 +1,6 @@
 {
   "name": "@testurio/cli",
-  "version": "0.6.5",
+  "version": "0.6.6",
   "description": "CLI for Testurio - Generate type-safe schemas from OpenAPI and gRPC specs",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -40,7 +40,7 @@
     "zod": "^4.3.6"
   },
   "peerDependencies": {
-    "testurio": "^0.6.5"
+    "testurio": "^0.6.6"
   },
   "devDependencies": {
     "@types/node": "^25.5.0",

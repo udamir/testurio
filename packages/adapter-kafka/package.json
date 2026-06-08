@@ -1,6 +1,6 @@
 {
   "name": "@testurio/adapter-kafka",
-  "version": "0.6.5",
+  "version": "0.6.6",
   "description": "Kafka MQ adapter for testurio Publisher/Subscriber",
   "keywords": [
     "testurio",
@@ -43,7 +43,7 @@
     "kafkajs": "^2.2.4"
   },
   "peerDependencies": {
-    "testurio": "^0.6.5"
+    "testurio": "^0.6.6"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.7",
