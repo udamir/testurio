@@ -1,6 +1,6 @@
 {
   "name": "@testurio/codec-protobuf",
-  "version": "0.6.6",
+  "version": "0.7.0",
   "description": "Protobuf codec for testurio Publisher/Subscriber — per-topic message-type dispatch via the codec dispatch key.",
   "keywords": [
     "testurio",

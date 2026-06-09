@@ -70,8 +70,8 @@ interface ConnectionTestService {
 	};
 }
 
-// Port counter for this test file (16xxx range)
-let portCounter = 16000;
+// Port counter for this test file (23xxx range)
+let portCounter = 23000;
 function getNextPort(): number {
 	return portCounter++;
 }

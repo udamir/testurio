@@ -26,8 +26,8 @@ interface WsTestService {
 	};
 }
 
-// Port counter for this test file (19xxx range)
-let portCounter = 19000;
+// Port counter for this test file (25xxx range)
+let portCounter = 25000;
 function getNextPort(): number {
 	return portCounter++;
 }

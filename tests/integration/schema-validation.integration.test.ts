@@ -41,7 +41,7 @@ import { createFakeMQAdapter, createInMemoryBroker } from "../mocks/fakeMQAdapte
 // Port Management
 // ============================================================================
 
-let portCounter = 18000;
+let portCounter = 24000;
 function getNextPort(): number {
 	return portCounter++;
 }
