@@ -12,7 +12,7 @@
 
 import { existsSync } from "node:fs";
 import path from "node:path";
-import * as protobuf from "protobufjs";
+import protobuf from "protobufjs";
 import type { Codec, WireFormat } from "testurio";
 import { CodecError } from "testurio";
 

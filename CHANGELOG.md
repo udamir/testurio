@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.7.1] - 2026-06-09
+## [0.7.2] - 2026-06-09
 
 ### Added
 
@@ -56,6 +56,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`JsonCodec.encode` and `JsonCodec.decode` signatures widen to accept (and ignore) the optional dispatch-key argument.** No behaviour change; existing callers compile unchanged.
 
 ### Fixed
+
+- **`@testurio/codec-protobuf` no longer crashes with `TypeError: protobuf.Root is not a constructor` under native Node ESM.** The codec imported protobufjs via `import * as protobuf`, whose namespace places the real CommonJS module on `.default` under Node's ESM loader (cjs-module-lexer doesn't detect protobufjs's dynamically-assigned `Root`). Switched to a default import (`import protobuf from "protobufjs"`), which resolves correctly across native ESM, the CJS build, and the bundled test runner.
 
 - **Redis Pub/Sub subscriber no longer leaks a Redis connection per test case.** `RedisPubsubSubscriberAdapter.close()` now releases the connection it owns; previously each test case left one Redis client open until process exit.
 

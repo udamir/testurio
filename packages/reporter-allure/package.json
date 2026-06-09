@@ -1,6 +1,6 @@
 {
   "name": "@testurio/reporter-allure",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "Allure reporter for testurio - TestOps integration",
   "keywords": [
     "testurio",
@@ -42,7 +42,7 @@
     "allure-js-commons": "^3.6.0"
   },
   "peerDependencies": {
-    "testurio": "^0.7.1"
+    "testurio": "^0.7.2"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.7",

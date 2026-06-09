@@ -31,7 +31,7 @@ class DropMessageError extends Error {
 	}
 }
 
-export interface SubscriberOptions<T extends Topics<T> = DefaultTopics, TMessage = unknown, P = unknown> {
+export interface SubscriberOptions<_T extends Topics<_T> = DefaultTopics, TMessage = unknown, P = unknown> {
 	/**
 	 * MQ adapter **factory** (e.g. `KafkaAdapter`). The Subscriber materializes
 	 * a fresh `IMQSubscriberAdapter` per test case via `adapter.createSubscriber()`.

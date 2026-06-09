@@ -1,6 +1,6 @@
 {
   "name": "@testurio/codec-protobuf",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "Protobuf codec for testurio Publisher/Subscriber — per-topic message-type dispatch via the codec dispatch key.",
   "keywords": [
     "testurio",
@@ -43,7 +43,7 @@
     "protobufjs": "^8.0.0"
   },
   "peerDependencies": {
-    "testurio": "^0.7.1"
+    "testurio": "^0.7.2"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.7",
