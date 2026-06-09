@@ -154,7 +154,7 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(backendCalled).toBe(true);
 			expect(receivedMethod).toBe("GET");
 			expect(receivedPath).toBe("/users");
@@ -206,7 +206,7 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(receivedPayload).toEqual({
 				name: "Charlie",
 				email: "charlie@example.com",
@@ -260,7 +260,7 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(receivedHeaders).toMatchObject({
 				"x-proxy-added": "true",
 				"x-request-id": "req-12345",
@@ -320,7 +320,7 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(proxyReceivedRequest).toBe(true);
 			expect(backendCalled).toBe(false);
 			expect(responseData?.body).toMatchObject({
@@ -377,7 +377,7 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(backendCalled).toBe(false);
 			expect(responseData?.body).toMatchObject({
 				error: "Access denied by proxy",
@@ -460,7 +460,7 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(responses.getUsers?.body).toEqual([{ id: 1, name: "Alice" }]);
 			expect(responses.getOrders?.body).toEqual([{ id: 101, item: "Widget" }]);
 			expect(responses.postOrder?.body).toMatchObject({ id: 102, item: "Gadget" });
@@ -511,7 +511,7 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(backendReceivedRequest).toBe(true);
 			expect(receivedPath).toBe("/error");
 			expect(responseData.code).toBe(500);
@@ -552,7 +552,7 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			// The 404 comes from the backend mock server (no handler registered)
 			expect(responseData.code).toBe(404);
 			expect(responseData.body).toMatchObject({
@@ -599,7 +599,7 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(responseData.code).toBe(200);
 			expect(responseData.body).toEqual([{ id: 1, name: "Alice" }]);
 		});
@@ -633,7 +633,7 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should fail when chained assertion returns false", async () => {
@@ -702,7 +702,7 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(transformedData).toEqual([
 				{ id: 1, name: "Alice" },
 				{ id: 2, name: "Bob" },
@@ -736,7 +736,7 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should work alongside separate onResponse calls", async () => {
@@ -785,7 +785,7 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(response1.body).toEqual([{ id: 1, name: "Alice" }]);
 			expect(response2.body).toMatchObject({ id: 2, name: "Charlie" });
 		});
@@ -823,7 +823,7 @@ describe("Sync Protocol Chain: Client → Proxy → Mock", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(responseData.code).toBe(200);
 		});
 	});

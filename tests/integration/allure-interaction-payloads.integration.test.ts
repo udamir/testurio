@@ -126,7 +126,7 @@ describe("AllureReporter — per-step payloads via step.metadata (FR-9 v2)", () 
 
 		const result = await scenario.run(tc1, tc2);
 
-		expect(result.passed).toBe(true);
+		expect(result.passed, result.error).toBe(true);
 
 		const allureResults = readAllResultFiles(tempDir);
 		expect(allureResults).toHaveLength(2);
@@ -197,7 +197,7 @@ describe("AllureReporter — per-step payloads via step.metadata (FR-9 v2)", () 
 
 		const result = await scenario.run(tc);
 
-		expect(result.passed).toBe(true);
+		expect(result.passed, result.error).toBe(true);
 
 		const allureResults = readAllResultFiles(tempDir);
 		expect(allureResults).toHaveLength(1);

@@ -116,7 +116,7 @@ describe('User API', () => {
     });
 
     const result = await scenario.run(tc);
-    expect(result.passed).toBe(true);
+    expect(result.passed, result.error).toBe(true);
   });
 });
 ```

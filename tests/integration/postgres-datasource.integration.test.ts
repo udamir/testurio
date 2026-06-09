@@ -43,7 +43,7 @@ describe.skipIf(!isPostgresAvailable())("PostgreSQL DataSource Integration", () 
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(wasConnected).toBe(true);
 			expect(db.isStopped()).toBe(true);
 		});
@@ -71,7 +71,7 @@ describe.skipIf(!isPostgresAvailable())("PostgreSQL DataSource Integration", () 
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -124,7 +124,7 @@ describe.skipIf(!isPostgresAvailable())("PostgreSQL DataSource Integration", () 
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -196,7 +196,7 @@ describe.skipIf(!isPostgresAvailable())("PostgreSQL DataSource Integration", () 
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should update rows", async () => {
@@ -238,7 +238,7 @@ describe.skipIf(!isPostgresAvailable())("PostgreSQL DataSource Integration", () 
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should delete rows", async () => {
@@ -287,7 +287,7 @@ describe.skipIf(!isPostgresAvailable())("PostgreSQL DataSource Integration", () 
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should handle parameterized queries", async () => {
@@ -334,7 +334,7 @@ describe.skipIf(!isPostgresAvailable())("PostgreSQL DataSource Integration", () 
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -404,7 +404,7 @@ describe.skipIf(!isPostgresAvailable())("PostgreSQL DataSource Integration", () 
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should rollback transaction on error", async () => {
@@ -451,7 +451,7 @@ describe.skipIf(!isPostgresAvailable())("PostgreSQL DataSource Integration", () 
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should handle transfer between accounts", async () => {
@@ -510,7 +510,7 @@ describe.skipIf(!isPostgresAvailable())("PostgreSQL DataSource Integration", () 
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -598,7 +598,7 @@ describe.skipIf(!isPostgresAvailable())("PostgreSQL DataSource Integration", () 
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should handle NULL values", async () => {
@@ -652,7 +652,7 @@ describe.skipIf(!isPostgresAvailable())("PostgreSQL DataSource Integration", () 
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -721,7 +721,7 @@ describe.skipIf(!isPostgresAvailable())("PostgreSQL DataSource Integration", () 
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should perform JOIN queries", async () => {
@@ -794,7 +794,7 @@ describe.skipIf(!isPostgresAvailable())("PostgreSQL DataSource Integration", () 
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -935,7 +935,7 @@ describe.skipIf(!isPostgresAvailable())("PostgreSQL DataSource Integration", () 
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 });

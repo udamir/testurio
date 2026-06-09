@@ -96,7 +96,7 @@ describe.skipIf(!isKafkaAvailable())("ProtobufCodec multi-binding (Kafka)", () =
 		if (!result.passed) {
 			console.log("Multi-binding test failed:", JSON.stringify(result, null, 2));
 		}
-		expect(result.passed).toBe(true);
+		expect(result.passed, result.error).toBe(true);
 	}, 60_000);
 
 	it("throws CodecError when no entry matches the topic key", async () => {

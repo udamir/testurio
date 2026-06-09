@@ -242,7 +242,7 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -283,7 +283,7 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should handle fire-and-forget messages", async () => {
@@ -319,7 +319,7 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(receivedPayload).toMatchObject({
 				level: "info",
 				message: "User logged in",
@@ -358,7 +358,7 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -393,7 +393,7 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -427,7 +427,7 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -461,7 +461,7 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -493,7 +493,7 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(handlerCalled).toBe(true);
 			expect(receivedData).toBe("test");
 		});
@@ -551,7 +551,7 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(client1Received).toBe(true);
 			expect(client2Received).toBe(true);
 		});
@@ -594,7 +594,7 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(eventReceived).toBe(true);
 		});
 
@@ -634,7 +634,7 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(eventReceived).toBe(true);
 		});
 
@@ -687,7 +687,7 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(onEventReceived).toBe(true);
 			expect(waitEventReceived).toBe(true);
 		});
@@ -768,7 +768,7 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -803,7 +803,7 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -895,7 +895,7 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(clientReceived).toBe(true);
 		});
 
@@ -955,7 +955,7 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(client1Received).toBe(true);
 			expect(client2Received).toBe(false);
 		});
@@ -993,7 +993,7 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -1033,7 +1033,7 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(client1Received).toBe(true);
 		});
 	});
@@ -1119,7 +1119,7 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(disconnectCalled).toBe(true);
 		});
 	});
@@ -1184,7 +1184,7 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -1222,7 +1222,7 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 				});
 
 				const result = await scenario.run(tc);
-				expect(result.passed).toBe(true);
+				expect(result.passed, result.error).toBe(true);
 				expect(connectionLinked).toBe(true);
 			});
 
@@ -1249,7 +1249,7 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 				});
 
 				const result = await scenario.run(tc);
-				expect(result.passed).toBe(true);
+				expect(result.passed, result.error).toBe(true);
 			});
 		});
 
@@ -1290,7 +1290,7 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 				});
 
 				const result = await scenario.run(tc);
-				expect(result.passed).toBe(true);
+				expect(result.passed, result.error).toBe(true);
 				expect(disconnectDetected).toBe(true);
 			});
 
@@ -1358,7 +1358,7 @@ describe("Async Protocol Chain: Client → Proxy → Mock", () => {
 				});
 
 				const result = await scenario.run(tc);
-				expect(result.passed).toBe(true);
+				expect(result.passed, result.error).toBe(true);
 				expect(clientDetectedDisconnect).toBe(true);
 			});
 

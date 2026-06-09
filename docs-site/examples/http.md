@@ -229,12 +229,12 @@ describe('User API', () => {
 
   it('should get user by ID', async () => {
     const result = await scenario.run(getUserTest);
-    expect(result.passed).toBe(true);
+    expect(result.passed, result.error).toBe(true);
   });
 
   it('should create a user', async () => {
     const result = await scenario.run(createUserTest);
-    expect(result.passed).toBe(true);
+    expect(result.passed, result.error).toBe(true);
   });
 });
 ```

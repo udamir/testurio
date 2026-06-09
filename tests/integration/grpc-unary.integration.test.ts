@@ -289,7 +289,7 @@ describe("gRPC Unary Protocol Chain: Client → Mock", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(receivedPayload).toMatchObject({ user_id: 42 });
 			expect(responseData).toMatchObject({
 				user_id: 42,
@@ -353,7 +353,7 @@ describe("gRPC Unary Protocol Chain: Client → Mock", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(receivedPayload).toMatchObject({
 				customer_id: "CUST-001",
 				items: expect.arrayContaining([expect.objectContaining({ product_id: "PROD-1" })]),
@@ -407,7 +407,7 @@ describe("gRPC Unary Protocol Chain: Client → Mock", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(receivedKey).toBe("config:app");
 			expect(responseData.success).toMatchObject({
 				value: "application-config-data",
@@ -453,7 +453,7 @@ describe("gRPC Unary Protocol Chain: Client → Mock", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(receivedKey).toBe("nonexistent");
 			expect(responseData.error).toMatchObject({
 				code: 404,
@@ -523,7 +523,7 @@ describe("gRPC Unary Protocol Chain: Client → Mock", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(responses.getUser).toMatchObject({ user_id: 1, name: "Alice" });
 			expect(responses.listUsers).toMatchObject({ total: 2 });
 			expect(responses.deleteUser).toMatchObject({ deleted: true });
@@ -588,7 +588,7 @@ describe("gRPC Unary Protocol Chain: Client → Proxy → Mock", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(proxyReceivedPayload).toMatchObject({ user_id: 100 });
 			expect(receivedAtBackend).toMatchObject({ user_id: 100 });
 			expect(responseData).toMatchObject({
@@ -652,7 +652,7 @@ describe("gRPC Unary Protocol Chain: Client → Proxy → Mock", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(receivedAtBackend).toBeUndefined();
 			expect(responseData).toMatchObject({
 				order_id: "ORD-001",
@@ -708,7 +708,7 @@ describe("gRPC Unary Protocol Chain: Client → Proxy → Mock", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(backendCalled).toBe(false);
 			expect(responseData.error).toMatchObject({
 				code: 403,
@@ -775,7 +775,7 @@ describe("gRPC Unary Protocol Chain: Client → Proxy → Mock", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(proxyReceivedPayload).toMatchObject({ user_id: 42 });
 			expect(receivedPayload).toMatchObject({ user_id: 42 });
 			expect(responseData).toMatchObject({
@@ -824,7 +824,7 @@ describe("gRPC Unary Protocol Chain: Client → Proxy → Mock", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(responseData.error).toMatchObject({
 				code: 404,
 				message: "Resource not found",
@@ -885,7 +885,7 @@ describe("gRPC Unary Protocol Chain: Client → Proxy → Mock", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(backendReceivedRequest).toBe(true);
 			expect(responseData).toMatchObject({
 				user_id: 42,
@@ -948,7 +948,7 @@ describe("gRPC Unary Protocol Chain: Client → Proxy → Mock", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(receivedMetadata).toMatchObject({
 				authorization: "Bearer valid-token",
 			});
@@ -1018,7 +1018,7 @@ describe("gRPC Unary Protocol Chain: Client → Proxy → Mock", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(backendCalled).toBe(false);
 			expect(responseData.error).toMatchObject({
 				code: 401,

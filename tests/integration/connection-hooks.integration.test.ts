@@ -128,7 +128,7 @@ describe("Connection Linking", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should link multiple connections in order", async () => {
@@ -167,7 +167,7 @@ describe("Connection Linking", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -223,7 +223,7 @@ describe("Connection Linking", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should support multiple auth-based links", async () => {
@@ -288,7 +288,7 @@ describe("Connection Linking", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -344,7 +344,7 @@ describe("Connection Linking", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(aliceHandlerCalled).toBe(true);
 			expect(bobHandlerCalled).toBe(true);
 		});
@@ -398,7 +398,7 @@ describe("Connection Linking", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -447,7 +447,7 @@ describe("Connection Linking", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -494,7 +494,7 @@ describe("Connection Linking", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 
 			// Wait for disconnect callback with timeout
 			await Promise.race([
@@ -542,7 +542,7 @@ describe("Connection Linking", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 });

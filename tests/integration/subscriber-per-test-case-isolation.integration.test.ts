@@ -56,7 +56,7 @@ describe.skipIf(!isKafkaAvailable())("Subscriber Per-Test-Case Isolation (Kafka)
 			});
 
 			const result = await scenario.run([tc1, tc2]);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		} finally {
 			await adapter.dispose();
 		}
@@ -90,7 +90,7 @@ describe.skipIf(!isKafkaAvailable())("Subscriber Per-Test-Case Isolation (Kafka)
 			});
 
 			const result = await scenario.run([tcA, tcB]);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		} finally {
 			await adapter.dispose();
 		}
@@ -125,7 +125,7 @@ describe.skipIf(!isKafkaAvailable())("Subscriber Per-Test-Case Isolation (Kafka)
 			});
 
 			const result = await scenario.run(tcA, tcB);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		} finally {
 			await adapter.dispose();
 		}
@@ -159,7 +159,7 @@ describe.skipIf(!isKafkaAvailable())("Subscriber Per-Test-Case Isolation (Kafka)
 			});
 
 			const result = await scenario.run(tcA, tcB);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		} finally {
 			await adapter.dispose();
 		}
@@ -192,7 +192,7 @@ describe.skipIf(!isKafkaAvailable())("Subscriber Per-Test-Case Isolation (Kafka)
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		} finally {
 			await adapter.dispose();
 		}
@@ -224,7 +224,7 @@ describe.skipIf(!isKafkaAvailable())("Subscriber Per-Test-Case Isolation (Kafka)
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		} finally {
 			await adapter.dispose();
 		}
@@ -256,7 +256,7 @@ describe.skipIf(!isKafkaAvailable())("Subscriber Per-Test-Case Isolation (Kafka)
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		} finally {
 			await adapter.dispose();
 		}
@@ -290,7 +290,7 @@ describe.skipIf(!isKafkaAvailable())("Subscriber Per-Test-Case Isolation (Kafka)
 			});
 
 			const result = await scenario.run(tcA, tcB);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		} finally {
 			await adapter.dispose();
 		}
@@ -327,7 +327,7 @@ describe.skipIf(!isKafkaAvailable())("Subscriber Per-Test-Case Isolation (Kafka)
 			const start = Date.now();
 			const result = await scenario.run(tc);
 			const elapsed = Date.now() - start;
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			// Budget: one join (~3 s on testMode) + delivery (<2 s) ≈ ≤ 12 s. A
 			// restart-on-every-topic flow would burn ~3 s × 3 ≈ 9 s+ in joins alone.
 			expect(elapsed).toBeLessThan(12_000);
@@ -398,7 +398,7 @@ describe.skipIf(!isKafkaAvailable())("Subscriber Per-Test-Case Isolation (Kafka)
 			});
 
 			const result = await scenario.run(tcA, tcB);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		} finally {
 			await adapter.dispose();
 		}
@@ -503,7 +503,7 @@ describe.skipIf(!isKafkaAvailable())("Subscriber Per-Test-Case Isolation (Kafka)
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		} finally {
 			await adapter.dispose();
 		}
@@ -564,7 +564,7 @@ describe("Subscriber Per-Test-Case Isolation (Fake adapter)", () => {
 		});
 
 		const result = await scenario.run(tc);
-		expect(result.passed).toBe(true);
+		expect(result.passed, result.error).toBe(true);
 	});
 
 	// 5.9 — TC end closes per-TC adapter; subscribers map shrinks.
@@ -581,7 +581,7 @@ describe("Subscriber Per-Test-Case Isolation (Fake adapter)", () => {
 			sub.waitMessage("t-5-9").timeout(1000);
 		});
 		const result = await scenario.run(tc);
-		expect(result.passed).toBe(true);
+		expect(result.passed, result.error).toBe(true);
 
 		// Exactly one subscriber adapter was materialized (per-TC) and is now closed.
 		const created = adapter.getSubscriberAdapters();
@@ -610,7 +610,7 @@ describe("Subscriber Per-Test-Case Isolation (Fake adapter)", () => {
 		});
 
 		const result = await scenario.run([tc1, tc2]);
-		expect(result.passed).toBe(true);
+		expect(result.passed, result.error).toBe(true);
 	});
 
 	// 5.20 — per-TC adapter disconnect scope (timeout exercises clearHooks cleanup).

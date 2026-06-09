@@ -148,7 +148,7 @@ describe("TestScenario", () => {
 
 			const result = await testScenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(result.totalTests).toBe(1);
 			expect(result.passedTests).toBe(1);
 			expect(result.failedTests).toBe(0);
@@ -173,7 +173,7 @@ describe("TestScenario", () => {
 
 			const result = await testScenario.run(tc1, tc2);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(result.totalTests).toBe(2);
 			expect(result.passedTests).toBe(2);
 		});
@@ -219,7 +219,7 @@ describe("TestScenario", () => {
 
 			const result = await testScenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(initCalled).toHaveBeenCalled();
 		});
 
@@ -241,7 +241,7 @@ describe("TestScenario", () => {
 
 			const result = await testScenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(stopCalled).toHaveBeenCalled();
 		});
 
@@ -315,7 +315,7 @@ describe("TestScenario", () => {
 
 			const result = await testScenario.run([tc1, tc2]);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(result.totalTests).toBe(2);
 		});
 	});

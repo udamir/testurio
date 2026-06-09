@@ -45,7 +45,7 @@ describe.skipIf(!isRabbitMQAvailable())("RabbitMQ Pub/Sub Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should handle multiple messages on same routing key", async () => {
@@ -83,7 +83,7 @@ describe.skipIf(!isRabbitMQAvailable())("RabbitMQ Pub/Sub Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -119,7 +119,7 @@ describe.skipIf(!isRabbitMQAvailable())("RabbitMQ Pub/Sub Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should work with topic exchange using * wildcard", async () => {
@@ -153,7 +153,7 @@ describe.skipIf(!isRabbitMQAvailable())("RabbitMQ Pub/Sub Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should work with direct exchange", async () => {
@@ -185,7 +185,7 @@ describe.skipIf(!isRabbitMQAvailable())("RabbitMQ Pub/Sub Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should work with fanout exchange", async () => {
@@ -225,7 +225,7 @@ describe.skipIf(!isRabbitMQAvailable())("RabbitMQ Pub/Sub Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -265,7 +265,7 @@ describe.skipIf(!isRabbitMQAvailable())("RabbitMQ Pub/Sub Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -300,7 +300,7 @@ describe.skipIf(!isRabbitMQAvailable())("RabbitMQ Pub/Sub Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -340,7 +340,7 @@ describe.skipIf(!isRabbitMQAvailable())("RabbitMQ Pub/Sub Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -378,7 +378,7 @@ describe.skipIf(!isRabbitMQAvailable())("RabbitMQ Pub/Sub Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 });

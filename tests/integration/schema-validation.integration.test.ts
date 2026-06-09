@@ -156,7 +156,7 @@ describe("Schema Validation", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -206,7 +206,7 @@ describe("Schema Validation", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -256,7 +256,7 @@ describe("Schema Validation", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -299,7 +299,7 @@ describe("Schema Validation", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -353,7 +353,7 @@ describe("Schema Validation", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should fail when explicit schema validation fails", async () => {
@@ -461,7 +461,7 @@ describe("Schema Validation", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -511,7 +511,7 @@ describe("Schema Validation", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(false);
+			expect(result.passed, result.error).toBe(false);
 			expect(result.testCases[0].error).toBeDefined();
 			expect(result.testCases[0].error).toContain("Auto-validation failed");
 			expect(result.testCases[0].error).toContain("client");
@@ -676,7 +676,7 @@ describe("Schema Validation", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should skip request validation when validateRequests is false", async () => {
@@ -726,7 +726,7 @@ describe("Schema Validation", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -878,7 +878,7 @@ describe("Schema Validation", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should fail when async event fails explicit validation", async () => {
@@ -982,7 +982,7 @@ describe("Schema Validation", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -1047,7 +1047,7 @@ describe("Schema Validation", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -1199,7 +1199,7 @@ describe("Schema Validation", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should detect invalid outgoing events from AsyncServer via unhandled error", async () => {

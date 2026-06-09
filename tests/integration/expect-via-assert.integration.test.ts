@@ -59,7 +59,7 @@ describe("expect() via .assert() — D-3 truthiness flip", () => {
 		});
 
 		const result = await scenario.run(tc);
-		expect(result.passed).toBe(true);
+		expect(result.passed, result.error).toBe(true);
 	});
 
 	it("fails with Expected/Received + source link when expect fails", async () => {
@@ -140,7 +140,7 @@ describe("expect() via .assert() — D-3 truthiness flip", () => {
 		});
 
 		const result = await scenario.run(tc);
-		expect(result.passed).toBe(true);
+		expect(result.passed, result.error).toBe(true);
 	});
 
 	it(".not.toBe failure shows 'not.toBe' operator", async () => {
@@ -216,7 +216,7 @@ describe("backward compatibility — boolean predicates", () => {
 		});
 
 		const result = await scenario.run(tc);
-		expect(result.passed).toBe(true);
+		expect(result.passed, result.error).toBe(true);
 	});
 
 	it("returning false still fails with the generic message", async () => {

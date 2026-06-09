@@ -95,7 +95,7 @@ describe("AsyncClient Connection Control", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(received).toBe(true);
 		});
 
@@ -135,7 +135,7 @@ describe("AsyncClient Connection Control", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(received).toBe(true);
 		});
 
@@ -183,7 +183,7 @@ describe("AsyncClient Connection Control", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(received).toBe(true);
 			expect(factoryCallCount).toBe(1);
 		});
@@ -240,7 +240,7 @@ describe("AsyncClient Connection Control", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(firstMessageReceived).toBe(true);
 			expect(secondMessageReceived).toBe(true);
 		});
@@ -283,7 +283,7 @@ describe("AsyncClient Connection Control", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(received).toBe(true);
 		});
 
@@ -356,7 +356,7 @@ describe("AsyncClient Connection Control", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(received).toBe(true);
 		});
 
@@ -395,7 +395,7 @@ describe("AsyncClient Connection Control", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(received).toBe(true);
 		});
 
@@ -448,7 +448,7 @@ describe("AsyncClient Connection Control", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(firstMessageReceived).toBe(true);
 			expect(secondMessageReceived).toBe(true);
 		});
@@ -488,7 +488,7 @@ describe("AsyncClient Connection Control", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(received).toBe(true);
 		});
 	});
@@ -540,7 +540,7 @@ describe("AsyncClient Connection Control", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(received).toBe(true);
 		});
 
@@ -586,7 +586,7 @@ describe("AsyncClient Connection Control", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(received).toBe(true);
 		});
 
@@ -640,7 +640,7 @@ describe("AsyncClient Connection Control", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(received).toBe(true);
 			expect(factoryCallCount).toBe(1);
 		});
@@ -690,7 +690,7 @@ describe("AsyncClient Connection Control", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(received).toBe(true);
 		});
 
@@ -753,7 +753,7 @@ describe("AsyncClient Connection Control", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(firstMessageReceived).toBe(true);
 			expect(secondMessageReceived).toBe(true);
 		});

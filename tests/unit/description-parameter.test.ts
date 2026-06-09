@@ -84,7 +84,7 @@ describe("Description Parameter", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should support multiple assertions with descriptions", async () => {
@@ -121,7 +121,7 @@ describe("Description Parameter", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -197,7 +197,7 @@ describe("Description Parameter", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("delay() should accept description", async () => {
@@ -232,7 +232,7 @@ describe("Description Parameter", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(Date.now() - start).toBeGreaterThanOrEqual(50);
 		});
 
@@ -278,7 +278,7 @@ describe("Description Parameter", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -318,7 +318,7 @@ describe("Description Parameter", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("delay() should accept description and work correctly", async () => {
@@ -358,7 +358,7 @@ describe("Description Parameter", () => {
 			const result = await scenario.run(tc);
 
 			// Just verify the test passes - delay timing is handled by the framework
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -401,7 +401,7 @@ describe("Description Parameter", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("mockEvent() should work without description (backwards compatible)", async () => {
@@ -437,7 +437,7 @@ describe("Description Parameter", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 });

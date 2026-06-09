@@ -184,7 +184,7 @@ describe("TestCase", () => {
 
 			const result = await tc.execute(builder);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(result.totalSteps).toBe(2);
 			expect(result.passedSteps).toBe(2);
 		});

@@ -128,7 +128,7 @@ describe("WebSocket Error Scenarios Integration Tests", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should timeout when waiting for message that never arrives", async () => {
@@ -195,7 +195,7 @@ describe("WebSocket Error Scenarios Integration Tests", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should handle client disconnect gracefully", async () => {
@@ -229,7 +229,7 @@ describe("WebSocket Error Scenarios Integration Tests", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -286,7 +286,7 @@ describe("WebSocket Error Scenarios Integration Tests", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(messagesReceived).toContain(1);
 			expect(messagesReceived).toContain(2);
 		});
@@ -332,7 +332,7 @@ describe("WebSocket Error Scenarios Integration Tests", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 });

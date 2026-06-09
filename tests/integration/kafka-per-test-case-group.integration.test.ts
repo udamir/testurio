@@ -51,7 +51,7 @@ describe.skipIf(!isKafkaAvailable())("Kafka Per-TC Auto-Generated Consumer Group
 			});
 
 			const result = await scenario.run(tcA, tcB);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		} finally {
 			await adapter.dispose();
 		}
@@ -83,7 +83,7 @@ describe.skipIf(!isKafkaAvailable())("Kafka Per-TC Auto-Generated Consumer Group
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		} finally {
 			await adapter.dispose();
 		}

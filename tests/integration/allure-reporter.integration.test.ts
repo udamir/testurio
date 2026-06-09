@@ -267,7 +267,7 @@ describe("Allure Reporter Integration Tests", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 
 			const report = readAndNormalizeResults(tempDir);
 
@@ -324,7 +324,7 @@ describe("Allure Reporter Integration Tests", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 
 			const report = readAndNormalizeResults(tempDir);
 
@@ -394,7 +394,7 @@ describe("Allure Reporter Integration Tests", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 
 			const report = readAndNormalizeResults(tempDir);
 
@@ -496,7 +496,7 @@ describe("Allure Reporter Integration Tests", () => {
 
 			const result = await scenario.run(tc1, tc2, tc3);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(result.totalTests).toBe(3);
 
 			const report = readAndNormalizeResults(tempDir);
@@ -698,7 +698,7 @@ describe("Allure Reporter Integration Tests", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 
 			const report = readAndNormalizeResults(tempDir);
 
@@ -828,7 +828,7 @@ describe("Allure Reporter Integration Tests", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 
 			const report = readAndNormalizeResults(tempDir);
 

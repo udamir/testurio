@@ -81,7 +81,7 @@ describe("Dynamic Component Creation Integration", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(responseData?.body).toMatchObject({ created: "dynamically" });
 		});
 
@@ -134,7 +134,7 @@ describe("Dynamic Component Creation Integration", () => {
 
 			const result = await scenario.run([tc1, tc2]);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(responses).toHaveLength(2);
 			expect(responses[0]?.body).toMatchObject({ request: 1 });
 			expect(responses[1]?.body).toMatchObject({ request: 2 });
@@ -179,7 +179,7 @@ describe("Dynamic Component Creation Integration", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(responseData?.body).toMatchObject({ id: 123, status: "created" });
 		});
 
@@ -247,7 +247,7 @@ describe("Dynamic Component Creation Integration", () => {
 
 			const result = await scenario.run([tc1, tc2]);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(responses).toHaveLength(2);
 			expect(responses[0]?.body).toMatchObject({ test: 1 });
 			expect(responses[1]?.body).toMatchObject({ test: 2 });
@@ -294,7 +294,7 @@ describe("Dynamic Component Creation Integration", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(responseData?.body).toMatchObject({ static: true, dynamic: true });
 		});
 	});

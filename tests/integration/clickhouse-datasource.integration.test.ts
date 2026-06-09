@@ -40,7 +40,7 @@ describe.skipIf(!isClickHouseAvailable())("ClickHouse DataSource Integration", (
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(wasConnected).toBe(true);
 			expect(db.isStopped()).toBe(true);
 		});
@@ -69,7 +69,7 @@ describe.skipIf(!isClickHouseAvailable())("ClickHouse DataSource Integration", (
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(db.isStopped()).toBe(true);
 		});
 	});
@@ -125,7 +125,7 @@ describe.skipIf(!isClickHouseAvailable())("ClickHouse DataSource Integration", (
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -189,7 +189,7 @@ describe.skipIf(!isClickHouseAvailable())("ClickHouse DataSource Integration", (
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -278,7 +278,7 @@ describe.skipIf(!isClickHouseAvailable())("ClickHouse DataSource Integration", (
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -346,7 +346,7 @@ describe.skipIf(!isClickHouseAvailable())("ClickHouse DataSource Integration", (
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -411,7 +411,7 @@ describe.skipIf(!isClickHouseAvailable())("ClickHouse DataSource Integration", (
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("getClickHouseClient() should return the same raw client after init", async () => {
@@ -598,7 +598,7 @@ describe.skipIf(!isClickHouseAvailable())("ClickHouse DataSource Integration", (
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 });

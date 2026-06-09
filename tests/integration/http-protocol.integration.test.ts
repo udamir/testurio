@@ -88,7 +88,7 @@ describe("HTTP Protocol Integration Tests", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should handle POST request with body", async () => {
@@ -138,7 +138,7 @@ describe("HTTP Protocol Integration Tests", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(receivedBody?.data).toBe("new resource");
 		});
 
@@ -184,7 +184,7 @@ describe("HTTP Protocol Integration Tests", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should handle DELETE request", async () => {
@@ -230,7 +230,7 @@ describe("HTTP Protocol Integration Tests", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(deleteReceived).toBe(true);
 			expect(capturedReq).not.toBeNull();
 			expect((capturedReq as { params?: { id: string } })?.params?.id).toBe("789");
@@ -276,7 +276,7 @@ describe("HTTP Protocol Integration Tests", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should handle 500 Server Error", async () => {
@@ -317,7 +317,7 @@ describe("HTTP Protocol Integration Tests", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -369,7 +369,7 @@ describe("HTTP Protocol Integration Tests", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(receivedHeaders).toBeDefined();
 			// HTTP headers are case-insensitive, Node.js lowercases them
 			expect(receivedHeaders?.authorization ?? receivedHeaders?.Authorization).toBe("Bearer token123");
@@ -418,7 +418,7 @@ describe("HTTP Protocol Integration Tests", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -511,7 +511,7 @@ describe("HTTP Protocol Integration Tests", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(requestCount).toBe(1);
 		});
 	});

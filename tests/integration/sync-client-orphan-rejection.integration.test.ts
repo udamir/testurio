@@ -127,7 +127,7 @@ describe("Sync Client — orphan request rejection (task 036)", () => {
 		// the same race that the original failing test exhibits — by design,
 		// surfacing teardown rejections as test failures is deferred (see
 		// design.md → "Surfacing teardown rejections as failures").
-		expect(result.passed).toBe(true);
+		expect(result.passed, result.error).toBe(true);
 	}, 15_000);
 
 	it("Test C: request WITH onResponse — when the request rejects, the step failure surfaces via rejectHook (no duplicate failure from the fallback .catch)", async () => {

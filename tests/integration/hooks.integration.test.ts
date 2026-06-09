@@ -126,7 +126,7 @@ describe("Suite 3: Hook System Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -160,7 +160,7 @@ describe("Suite 3: Hook System Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -194,7 +194,7 @@ describe("Suite 3: Hook System Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(receivedPayload).toMatchObject({
 				event: "user_login",
 				userId: 123,
@@ -232,7 +232,7 @@ describe("Suite 3: Hook System Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -272,7 +272,7 @@ describe("Suite 3: Hook System Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(handlerCalled).toBe(true);
 		});
 	});

@@ -129,7 +129,7 @@ describe("Retry — SyncClient (HTTP)", () => {
 			const result = await scenario.run(tc);
 			const elapsed = Date.now() - t0;
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(attempts).toBe(3);
 			// 2 intervals of 1000ms minimum between 3 attempts.
 			expect(elapsed).toBeGreaterThanOrEqual(2000);
@@ -197,7 +197,7 @@ describe("Retry — SyncClient (HTTP)", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(attempts).toBe(2);
 		}, 10_000);
 
@@ -227,7 +227,7 @@ describe("Retry — SyncClient (HTTP)", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(attempts).toBeGreaterThanOrEqual(5);
 			expect(attempts).toBeLessThanOrEqual(8);
 		}, 10_000);
@@ -329,7 +329,7 @@ describe("Retry — SyncClient (HTTP)", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(attempts).toBe(1);
 		});
 
@@ -359,7 +359,7 @@ describe("Retry — SyncClient (HTTP)", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(attempts).toBe(5);
 		}, 10_000);
 
@@ -393,7 +393,7 @@ describe("Retry — SyncClient (HTTP)", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(assertCalls).toBe(1);
 		}, 10_000);
 	});
@@ -476,7 +476,7 @@ describe("Retry — SyncClient (HTTP)", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(attempts).toBe(3);
 		}, 10_000);
 
@@ -543,7 +543,7 @@ describe("Retry — SyncClient (HTTP)", () => {
 			const result = await scenario.run(tc);
 			const elapsed = Date.now() - t0;
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(attempts).toBeGreaterThanOrEqual(20);
 			expect(elapsed).toBeLessThan(2000);
 		}, 10_000);
@@ -583,7 +583,7 @@ describe("Retry — SyncClient (HTTP)", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(attempts).toBe(3);
 			expect(factoryCalls).toBe(3);
 		}, 10_000);
@@ -620,7 +620,7 @@ describe("Retry — SyncClient (HTTP)", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(attempts).toBe(3);
 		}, 10_000);
 	});

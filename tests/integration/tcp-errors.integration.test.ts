@@ -121,7 +121,7 @@ describe("TCP Error Scenarios Integration Tests", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should timeout when waiting for message that never arrives", async () => {
@@ -186,7 +186,7 @@ describe("TCP Error Scenarios Integration Tests", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should work with length-prefixed framing", async () => {
@@ -218,7 +218,7 @@ describe("TCP Error Scenarios Integration Tests", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -253,7 +253,7 @@ describe("TCP Error Scenarios Integration Tests", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 });

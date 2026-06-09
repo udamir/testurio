@@ -76,7 +76,7 @@ describe("Component Types Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(responseData.body).toEqual([{ id: 1, name: "Alice" }]);
 		});
 
@@ -120,7 +120,7 @@ describe("Component Types Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(responseReceived).toBe(true);
 		});
 	});
@@ -177,7 +177,7 @@ describe("Component Types Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(messageReceived).toBe(true);
 		});
 	});
@@ -250,7 +250,7 @@ describe("Component Types Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(httpResponseReceived).toBe(true);
 			expect(wsMessageReceived).toBe(true);
 		});
@@ -295,7 +295,7 @@ describe("Component Types Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(responseReceived).toBe(true);
 		});
 	});

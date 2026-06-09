@@ -48,7 +48,7 @@ describe("DataSource Integration", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(client.get("key")).toBe("value");
 			expect(db.isStopped()).toBe(true);
 		});
@@ -148,7 +148,7 @@ describe("DataSource Integration", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(executionOrder).toEqual(["db:setup", "server:response", "client:assert", "db:verify"]);
 		});
 
@@ -215,7 +215,7 @@ describe("DataSource Integration", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(operations).toEqual(["cache:check:1", "http:request", "cache:set", "cache:verify"]);
 		});
 	});
@@ -265,7 +265,7 @@ describe("DataSource Integration", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should support multiple chained assertions", async () => {
@@ -297,7 +297,7 @@ describe("DataSource Integration", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -422,7 +422,7 @@ describe("DataSource Integration", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(cacheClient.get("cached:user:1")).toEqual({ id: 1, name: "John" });
 		});
 	});
@@ -476,7 +476,7 @@ describe("DataSource Integration", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			// The step description should contain the exec description
 			expect(result.testCases[0].steps[0].description).toContain("fetch from cache");
 		});

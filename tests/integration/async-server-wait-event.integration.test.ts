@@ -119,7 +119,7 @@ describe("AsyncServer waitEvent (Proxy Mode)", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(eventCaptured).toBe(true);
 		});
 	});
@@ -171,7 +171,7 @@ describe("AsyncServer waitEvent (Proxy Mode)", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(matchedEvent).toBe(true);
 		});
 	});
@@ -228,7 +228,7 @@ describe("AsyncServer waitEvent (Proxy Mode)", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(assertRan).toBe(true);
 		});
 	});

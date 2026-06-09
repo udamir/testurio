@@ -120,7 +120,7 @@ describe("gRPC Streaming Protocol Chain: Client → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should handle multiple streaming messages", async () => {
@@ -152,7 +152,7 @@ describe("gRPC Streaming Protocol Chain: Client → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -189,7 +189,7 @@ describe("gRPC Streaming Protocol Chain: Client → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -226,7 +226,7 @@ describe("gRPC Streaming Protocol Chain: Client → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -265,7 +265,7 @@ describe("gRPC Streaming Protocol Chain: Client → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -304,7 +304,7 @@ describe("gRPC Streaming Protocol Chain: Client → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -347,7 +347,7 @@ describe("gRPC Streaming Protocol Chain: Client → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 });
@@ -387,7 +387,7 @@ describe("gRPC Streaming Protocol Chain: Client → Proxy → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should allow proxy to intercept streaming messages", async () => {
@@ -428,7 +428,7 @@ describe("gRPC Streaming Protocol Chain: Client → Proxy → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(backendReceived).toBe(false);
 		});
 
@@ -466,7 +466,7 @@ describe("gRPC Streaming Protocol Chain: Client → Proxy → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 });

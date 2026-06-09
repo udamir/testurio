@@ -82,7 +82,7 @@ describe.skipIf(!isClickHouseAvailable())("Retry — DataSource (ClickHouse)", (
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		}, 15_000);
 
 		it("D-2: fails after ~5000 ms when row never appears", async () => {
@@ -160,7 +160,7 @@ describe.skipIf(!isClickHouseAvailable())("Retry — DataSource (ClickHouse)", (
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		}, 10_000);
 
 		it("D-4: options form `.retry(pred, { timeout, interval })`", async () => {
@@ -196,7 +196,7 @@ describe.skipIf(!isClickHouseAvailable())("Retry — DataSource (ClickHouse)", (
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		}, 10_000);
 	});
 
@@ -240,7 +240,7 @@ describe.skipIf(!isClickHouseAvailable())("Retry — DataSource (ClickHouse)", (
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(execCalls).toBeGreaterThan(1);
 		}, 10_000);
 	});
@@ -288,7 +288,7 @@ describe.skipIf(!isClickHouseAvailable())("Retry — DataSource (ClickHouse)", (
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(assertCalls).toBe(1);
 		}, 10_000);
 	});
@@ -332,7 +332,7 @@ describe.skipIf(!isClickHouseAvailable())("Retry — DataSource (ClickHouse)", (
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		}, 15_000);
 
 		it("D-8: fails fast with retryOnError: false", async () => {

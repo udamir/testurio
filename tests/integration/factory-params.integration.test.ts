@@ -100,7 +100,7 @@ describe("Factory Step Parameters", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(token).toBe("tok-secret-123");
 		});
 
@@ -137,7 +137,7 @@ describe("Factory Step Parameters", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -204,7 +204,7 @@ describe("Factory Step Parameters", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(sessionId).toBe("sess-abc");
 		});
 	});
@@ -267,7 +267,7 @@ describe("Factory Step Parameters", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 });

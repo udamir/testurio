@@ -40,7 +40,7 @@ describe.skipIf(!isRedisAvailable())("Redis DataSource Integration", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(wasConnected).toBe(true);
 			expect(cache.isStopped()).toBe(true);
 		});
@@ -75,7 +75,7 @@ describe.skipIf(!isRedisAvailable())("Redis DataSource Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should set and get JSON objects", async () => {
@@ -112,7 +112,7 @@ describe.skipIf(!isRedisAvailable())("Redis DataSource Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should delete keys", async () => {
@@ -153,7 +153,7 @@ describe.skipIf(!isRedisAvailable())("Redis DataSource Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should handle non-existent keys", async () => {
@@ -179,7 +179,7 @@ describe.skipIf(!isRedisAvailable())("Redis DataSource Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -215,7 +215,7 @@ describe.skipIf(!isRedisAvailable())("Redis DataSource Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should set expiration on existing key", async () => {
@@ -259,7 +259,7 @@ describe.skipIf(!isRedisAvailable())("Redis DataSource Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -305,7 +305,7 @@ describe.skipIf(!isRedisAvailable())("Redis DataSource Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should increment hash field", async () => {
@@ -336,7 +336,7 @@ describe.skipIf(!isRedisAvailable())("Redis DataSource Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -384,7 +384,7 @@ describe.skipIf(!isRedisAvailable())("Redis DataSource Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -426,7 +426,7 @@ describe.skipIf(!isRedisAvailable())("Redis DataSource Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -468,7 +468,7 @@ describe.skipIf(!isRedisAvailable())("Redis DataSource Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -507,7 +507,7 @@ describe.skipIf(!isRedisAvailable())("Redis DataSource Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should execute multi/exec transaction", async () => {
@@ -542,7 +542,7 @@ describe.skipIf(!isRedisAvailable())("Redis DataSource Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -596,7 +596,7 @@ describe.skipIf(!isRedisAvailable())("Redis DataSource Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -695,7 +695,7 @@ describe.skipIf(!isRedisAvailable())("Redis DataSource Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 });

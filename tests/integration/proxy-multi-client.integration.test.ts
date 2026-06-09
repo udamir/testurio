@@ -156,7 +156,7 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(receivedMessages).toHaveLength(3);
 			expect(receivedMessages).toContain("alice");
 			expect(receivedMessages).toContain("bob");
@@ -212,7 +212,7 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 
 			// Verify session isolation
 			expect(sessionMessages.get("c1")).toEqual(["msg1", "msg2"]);
@@ -270,7 +270,7 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(client1ReceivedWrongMessage).toBe(false);
 			expect(client2ReceivedWrongMessage).toBe(false);
 		});
@@ -310,7 +310,7 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(backendReceivedMessage).toBe(true);
 		});
 
@@ -354,7 +354,7 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(clientReceivedEvent).toBe(true);
 		});
 
@@ -388,7 +388,7 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(receivedPayload).toEqual({ clientId: "preserve-test", data: "important-data" });
 		});
 	});
@@ -431,7 +431,7 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(messageCount).toBe(1); // Should be exactly 1, not more
 		});
 
@@ -472,7 +472,7 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			// Each seq should appear exactly once
 			expect(receivedSeqs.sort()).toEqual([1, 2, 3, 4, 5]);
 		});
@@ -514,7 +514,7 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(receivedResponses).toEqual([1]); // Should be exactly [1], not [1, 1]
 		});
 	});
@@ -567,7 +567,7 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(backendReceivedUser).toBe("ALICE"); // Transformed, not "alice"
 		});
 
@@ -619,7 +619,7 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(clientReceivedStatus).toBe("OK"); // Transformed, not "ok"
 		});
 
@@ -660,7 +660,7 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(backendReceivedData).toBe("TRANSFORMED");
 			expect(backendReceivedData).not.toBe("original");
 		});
@@ -730,7 +730,7 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			// The matcher for c2 should only have captured client2's message
 			expect(messagesFromClient2).toEqual(["from-client2"]);
 			// The matcher for c1 should have captured client1's message
@@ -802,7 +802,7 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			// The filtered handler should NOT have been triggered by client1's message
 			expect(handlerTriggeredByClient1).toBe(false);
 			// The filtered handler SHOULD have been triggered by client2's message
@@ -865,7 +865,7 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			// waitMessage should have captured only client2's message
 			expect(context.waitMessagePayload).not.toBeNull();
 			expect(context.waitMessagePayload?.clientId).toBe("c2");
@@ -913,7 +913,7 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			// Without matcher filter, both messages should have been received
 			expect(receivedClientIds).toContain("user1");
 			expect(receivedClientIds).toContain("user2");
@@ -960,7 +960,7 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			// All 10 messages should have been processed by the single handler
 			expect(receivedSeqs).toHaveLength(10);
 			expect(receivedSeqs.sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
@@ -1005,7 +1005,7 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(receivedSeqs).toHaveLength(MESSAGE_COUNT);
 		});
 
@@ -1059,7 +1059,7 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			// Total: 3 clients * 10 messages = 30 messages
 			expect(receivedMessages).toHaveLength(MESSAGES_PER_CLIENT * 3);
 			// Verify each client sent all their messages
@@ -1115,7 +1115,7 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 
 			const result = await scenario.run(tc);
 
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(receivedSeqs).toHaveLength(MESSAGE_COUNT);
 			// All messages should arrive at backend after at least DELAY_MS
 			// (delays run in parallel for async processing)
@@ -1166,7 +1166,7 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should not affect other sessions when one client disconnects", async () => {
@@ -1211,7 +1211,7 @@ describe("AsyncServer Proxy Mode - Multi-Client", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 });

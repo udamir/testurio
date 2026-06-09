@@ -88,7 +88,7 @@ describe.skipIf(!isKafkaAvailable())("Kafka Protobuf Codec Integration", () => {
 		if (!result.passed) {
 			console.log("Test failed. Result:", JSON.stringify(result, null, 2));
 		}
-		expect(result.passed).toBe(true);
+		expect(result.passed, result.error).toBe(true);
 	});
 
 	it("should surface a CodecError when payload bytes don't match the protobuf schema", async () => {

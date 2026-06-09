@@ -55,7 +55,7 @@ describe.skipIf(!isKafkaAvailable())("Kafka Pub/Sub Integration", () => {
 		if (!result.passed) {
 			console.log("Test failed. Result:", JSON.stringify(result, null, 2));
 		}
-		expect(result.passed).toBe(true);
+		expect(result.passed, result.error).toBe(true);
 	});
 
 	it("should handle multiple messages on same topic", async () => {
@@ -97,7 +97,7 @@ describe.skipIf(!isKafkaAvailable())("Kafka Pub/Sub Integration", () => {
 		if (!result.passed) {
 			console.log("Multiple messages test failed:", JSON.stringify(result, null, 2));
 		}
-		expect(result.passed).toBe(true);
+		expect(result.passed, result.error).toBe(true);
 	});
 
 	it("should support multiple topics", async () => {
@@ -136,7 +136,7 @@ describe.skipIf(!isKafkaAvailable())("Kafka Pub/Sub Integration", () => {
 		});
 
 		const result = await scenario.run(tc);
-		expect(result.passed).toBe(true);
+		expect(result.passed, result.error).toBe(true);
 	});
 
 	it("should include Kafka-specific metadata", async () => {
@@ -173,7 +173,7 @@ describe.skipIf(!isKafkaAvailable())("Kafka Pub/Sub Integration", () => {
 		});
 
 		const result = await scenario.run(tc);
-		expect(result.passed).toBe(true);
+		expect(result.passed, result.error).toBe(true);
 	});
 
 	it("should support message keys", async () => {
@@ -207,7 +207,7 @@ describe.skipIf(!isKafkaAvailable())("Kafka Pub/Sub Integration", () => {
 		});
 
 		const result = await scenario.run(tc);
-		expect(result.passed).toBe(true);
+		expect(result.passed, result.error).toBe(true);
 	});
 
 	it("should support message headers", async () => {
@@ -246,7 +246,7 @@ describe.skipIf(!isKafkaAvailable())("Kafka Pub/Sub Integration", () => {
 		});
 
 		const result = await scenario.run(tc);
-		expect(result.passed).toBe(true);
+		expect(result.passed, result.error).toBe(true);
 	});
 
 	it("should handle rapid message publishing", async () => {
@@ -288,7 +288,7 @@ describe.skipIf(!isKafkaAvailable())("Kafka Pub/Sub Integration", () => {
 		if (!result.passed) {
 			console.log("Rapid publishing test failed:", JSON.stringify(result, null, 2));
 		}
-		expect(result.passed).toBe(true);
+		expect(result.passed, result.error).toBe(true);
 	});
 
 	it("should support batch publishing", async () => {
@@ -335,7 +335,7 @@ describe.skipIf(!isKafkaAvailable())("Kafka Pub/Sub Integration", () => {
 		});
 
 		const result = await scenario.run(tc);
-		expect(result.passed).toBe(true);
+		expect(result.passed, result.error).toBe(true);
 	});
 
 	it("should support independent consumer groups", async () => {
@@ -386,7 +386,7 @@ describe.skipIf(!isKafkaAvailable())("Kafka Pub/Sub Integration", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		} finally {
 			await adapter1.dispose();
 			await adapter2.dispose();

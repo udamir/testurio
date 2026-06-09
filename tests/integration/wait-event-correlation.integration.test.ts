@@ -111,7 +111,7 @@ describe("Wait Event Correlation", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should correlate events with matchers when wait order differs from send order", async () => {
@@ -156,7 +156,7 @@ describe("Wait Event Correlation", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should consume events in FIFO order for interleaved send-wait pattern", async () => {
@@ -199,7 +199,7 @@ describe("Wait Event Correlation", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -241,7 +241,7 @@ describe("Wait Event Correlation", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should correlate messages when wait order differs from send order", async () => {
@@ -280,7 +280,7 @@ describe("Wait Event Correlation", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 });

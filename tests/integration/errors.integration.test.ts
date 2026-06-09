@@ -145,7 +145,7 @@ describe("Error Scenarios Integration Tests", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -242,7 +242,7 @@ describe("Error Scenarios Integration Tests", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(responseData).toBeDefined();
 		});
 	});

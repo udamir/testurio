@@ -67,7 +67,7 @@ describe.skipIf(!isKafkaAvailable())("Subscriber Eager Consume", () => {
 			if (!result.passed) {
 				console.log("Test A failed. Result:", JSON.stringify(result, null, 2));
 			}
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		} finally {
 			await adapter.dispose();
 		}
@@ -118,7 +118,7 @@ describe.skipIf(!isKafkaAvailable())("Subscriber Eager Consume", () => {
 			if (!result.passed) {
 				console.log("Test B failed. Result:", JSON.stringify(result, null, 2));
 			}
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		} finally {
 			await adapter.dispose();
 		}
@@ -170,7 +170,7 @@ describe.skipIf(!isKafkaAvailable())("Subscriber Eager Consume", () => {
 			if (!result.passed) {
 				console.log("Test C failed. Result:", JSON.stringify(result, null, 2));
 			}
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		} finally {
 			await adapter.dispose();
 		}

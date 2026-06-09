@@ -154,7 +154,7 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should handle fire-and-forget messages", async () => {
@@ -190,7 +190,7 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(receivedPayload).toMatchObject({
 				level: "info",
 				message: "User logged in",
@@ -229,7 +229,7 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 
 		it("should handle multiple message exchanges", async () => {
@@ -258,7 +258,7 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -304,7 +304,7 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(receivedPayload).toMatchObject({
 				customerId: "CUST-001",
 				items: expect.arrayContaining([expect.objectContaining({ productId: "PROD-1" })]),
@@ -343,7 +343,7 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -375,7 +375,7 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 
@@ -412,7 +412,7 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 			expect(handlerCalled).toBe(true);
 			expect(receivedData).toBe("test");
 		});
@@ -449,7 +449,7 @@ describe("WebSocket Protocol Chain: Client → Mock", () => {
 			});
 
 			const result = await scenario.run(tc);
-			expect(result.passed).toBe(true);
+			expect(result.passed, result.error).toBe(true);
 		});
 	});
 });

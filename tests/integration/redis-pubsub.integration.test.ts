@@ -47,7 +47,7 @@ describe.skipIf(!isRedisAvailable())("Redis Pub/Sub Integration", () => {
 		if (!result.passed) {
 			console.log("Test failed. Result:", JSON.stringify(result, null, 2));
 		}
-		expect(result.passed).toBe(true);
+		expect(result.passed, result.error).toBe(true);
 	});
 
 	it("should handle multiple messages on same topic", async () => {
@@ -89,7 +89,7 @@ describe.skipIf(!isRedisAvailable())("Redis Pub/Sub Integration", () => {
 		if (!result.passed) {
 			console.log("Multiple messages test failed:", JSON.stringify(result, null, 2));
 		}
-		expect(result.passed).toBe(true);
+		expect(result.passed, result.error).toBe(true);
 	});
 
 	it("should support multiple topics", async () => {
@@ -128,7 +128,7 @@ describe.skipIf(!isRedisAvailable())("Redis Pub/Sub Integration", () => {
 		});
 
 		const result = await scenario.run(tc);
-		expect(result.passed).toBe(true);
+		expect(result.passed, result.error).toBe(true);
 	});
 
 	it("should support pattern subscriptions", async () => {
@@ -162,7 +162,7 @@ describe.skipIf(!isRedisAvailable())("Redis Pub/Sub Integration", () => {
 		});
 
 		const result = await scenario.run(tc);
-		expect(result.passed).toBe(true);
+		expect(result.passed, result.error).toBe(true);
 	});
 
 	it("should handle multiple subscribers with shared adapter", async () => {
@@ -202,7 +202,7 @@ describe.skipIf(!isRedisAvailable())("Redis Pub/Sub Integration", () => {
 		});
 
 		const result = await scenario.run(tc);
-		expect(result.passed).toBe(true);
+		expect(result.passed, result.error).toBe(true);
 	});
 
 	it("should handle rapid message publishing", async () => {
@@ -244,6 +244,6 @@ describe.skipIf(!isRedisAvailable())("Redis Pub/Sub Integration", () => {
 		if (!result.passed) {
 			console.log("Rapid publishing test failed:", JSON.stringify(result, null, 2));
 		}
-		expect(result.passed).toBe(true);
+		expect(result.passed, result.error).toBe(true);
 	});
 });
