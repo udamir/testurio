@@ -100,6 +100,20 @@ export interface ProtobufCodecOptions {
 	 * cases want. Override to get base64 strings or `Array`s.
 	 */
 	decodeOptions?: protobuf.IConversionOptions;
+
+	/**
+	 * protobufjs `keepCase` parse option, controlling field naming for both
+	 * decode output and encode input. Applied symmetrically at `.proto` load
+	 * time, so encode and decode always agree on field naming.
+	 *
+	 * - `false` (default) — protobufjs's native behaviour: field names are
+	 *   converted to `camelCase` (`{ orderId: … }`).
+	 *
+	 * - `true` — preserve the original `.proto` field names (conventionally
+	 *   `snake_case`). `decode` emits `{ order_id: … }`; `encode` reads the
+	 *   same.
+	 */
+	keepCase?: boolean;
 }
 
 interface ResolvedEntry {
@@ -135,7 +149,11 @@ export class ProtobufCodec implements Codec<Uint8Array> {
 				return defaultResolve(origin, target);
 			};
 		}
-		this.root.loadSync(options.proto);
+		// `keepCase` defaults to false to match protobufjs's native behaviour:
+		// field names are converted to camelCase for both encode and decode. Set
+		// to true to preserve the original `.proto` field names (snake_case).
+		const keepCase = options.keepCase ?? false;
+		this.root.loadSync(options.proto, { keepCase });
 
 		// Resolve every type up front — typos throw at construction, not runtime.
 		this.entries = options.bindings.map((entry) => ({

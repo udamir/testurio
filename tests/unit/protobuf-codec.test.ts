@@ -262,6 +262,63 @@ describe("ProtobufCodec", () => {
 		});
 	});
 
+	describe("keepCase", () => {
+		it("defaults to camelCase for decode output and encode input", () => {
+			const codec = new ProtobufCodec({
+				proto: PROTO_PATH,
+				bindings: [{ match: "orders.v1", type: "testurio.mq.OrderEvent" }],
+			});
+			const bytes = codec.encode({ orderId: "o-1", amount: 1, status: "NEW" }, "orders.v1");
+			expect(codec.decode<OrderEvent>(bytes, "orders.v1")).toEqual({
+				orderId: "o-1",
+				amount: 1,
+				status: "NEW",
+			});
+		});
+
+		it("keepCase: false uses camelCase for decode output and encode input", () => {
+			const codec = new ProtobufCodec({
+				proto: PROTO_PATH,
+				keepCase: false,
+				bindings: [{ match: "orders.v1", type: "testurio.mq.OrderEvent" }],
+			});
+			const bytes = codec.encode({ orderId: "o-1", amount: 1, status: "NEW" }, "orders.v1");
+			expect(codec.decode<OrderEvent>(bytes, "orders.v1")).toEqual({
+				orderId: "o-1",
+				amount: 1,
+				status: "NEW",
+			});
+		});
+
+		it("keepCase: true uses snake_case for decode output and encode input", () => {
+			const codec = new ProtobufCodec({
+				proto: PROTO_PATH,
+				keepCase: true,
+				bindings: [{ match: "orders.v1", type: "testurio.mq.OrderEvent" }],
+			});
+			const bytes = codec.encode({ order_id: "o-1", amount: 1, status: "NEW" }, "orders.v1");
+			expect(codec.decode<{ order_id: string; amount: number; status: string }>(bytes, "orders.v1")).toEqual({
+				order_id: "o-1",
+				amount: 1,
+				status: "NEW",
+			});
+		});
+
+		it("keepCase: true ignores camelCase encode input (unknown field dropped)", () => {
+			const codec = new ProtobufCodec({
+				proto: PROTO_PATH,
+				keepCase: true,
+				bindings: [{ match: "orders.v1", type: "testurio.mq.OrderEvent" }],
+			});
+			const bytes = codec.encode({ orderId: "o-1", amount: 1, status: "NEW" }, "orders.v1");
+			expect(codec.decode<{ order_id: string; amount: number; status: string }>(bytes, "orders.v1")).toEqual({
+				order_id: "",
+				amount: 1,
+				status: "NEW",
+			});
+		});
+	});
+
 	describe("decodeOptions", () => {
 		it("A9: bytes fields round-trip as Uint8Array under the default decodeOptions", () => {
 			const codec = new ProtobufCodec({

@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.7.0] - Unreleased
+## [0.7.1] - 2026-06-09
 
 ### Added
 
@@ -34,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **MQ adapters pass the concrete topic to the codec on every call.** Kafka, RabbitMQ, and Redis Pub/Sub all dispatch through `codec.encode(payload, topic)` and `codec.decode(wire, topic)`. The key is always the broker-side concrete identity — Kafka topic name, RabbitMQ routing key, Redis channel — never a subscription pattern, glob mask, or AMQP wildcard string. Dispatching codecs (such as the new `ProtobufCodec`) can rely on this invariant when matching bindings.
 
 - **New package `@testurio/codec-protobuf`** — First-class `ProtobufCodec` with ordered entries-array bindings: each entry pairs a matcher (`string` exact / `RegExp` / predicate `(key) => boolean`) with a fully-qualified protobuf type name. First match wins. One codec instance handles every topic — exact, RegExp, and predicate matchers can mix freely. Unmapped keys throw `CodecError` listing every configured entry. Ships a typed `defineBindings<TopicMap, Registry>()` helper that catches topic ↔ wire-type mismatches at codec-construction-site type-check, plus an `includePaths` option for `protoc -I include/path` semantics when loading `.proto` files with cross-package imports.
+
+- **`ProtobufCodec` `keepCase?: boolean` option** — Top-level field-naming control forwarded to protobufjs's parser at `.proto` load time, applied symmetrically to both decode output and encode input. Defaults to `false` (protobufjs's native `camelCase`, e.g. `{ orderId }`); set `keepCase: true` to preserve the original `.proto` field names verbatim (conventionally `snake_case`, e.g. `{ order_id }`).
 
 ### Changed (BREAKING) — Subscriber per-test-case isolation
 

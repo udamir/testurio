@@ -91,6 +91,25 @@ CodecError: Failed to decode message with protobuf codec: No binding entry match
 
 No silent fallback. Mixed-codec setups (JSON for some topics, protobuf for others) should use separate `Publisher` / `Subscriber` instances.
 
+## `keepCase`
+
+protobufjs's `keepCase` parse option, controlling field naming for **both** decode output and encode input. Applied at `.proto` load time so encode and decode always agree.
+
+| Value             | Behaviour                                                                                                                            |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `false` (default) | protobufjs's native behaviour — field names are converted to `camelCase` (`{ orderId: … }`).                                         |
+| `true`            | Preserve the original `.proto` field names (conventionally `snake_case`). `decode` emits `{ order_id: … }`; `encode` reads the same. |
+
+```typescript
+// camelCase (default)
+new ProtobufCodec({ proto: "./events.proto", bindings });
+// → decode: { orderId: "o-1", amount: 1 }
+
+// snake_case
+new ProtobufCodec({ proto: "./events.proto", keepCase: true, bindings });
+// → decode: { order_id: "o-1", amount: 1 }
+```
+
 ## `decodeOptions`
 
 Defaults to `{ defaults: true, longs: String, enums: String }`. `bytes` is intentionally omitted so binary fields round-trip as `Uint8Array` via protobufjs's native default. Override per the `protobufjs.IConversionOptions` shape.

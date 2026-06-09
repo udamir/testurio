@@ -121,7 +121,24 @@ new ProtobufCodec({
 });
 ```
 
-`keepCase` is left at protobufjs's default (`false`): proto `snake_case` fields become `camelCase` on the JS side. Override with `{ ...defaults, keepCase: true }` if you want the proto names verbatim.
+## `keepCase`
+
+Top-level `keepCase?: boolean` option, forwarded to protobufjs's parser at `.proto` load time. It controls field naming for **both** decode output and encode input, so encode and decode always agree.
+
+| Value             | Behaviour                                                                                                                            |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `false` (default) | protobufjs's native behaviour — proto `snake_case` fields become `camelCase` on the JS side (`{ orderId: … }`).                       |
+| `true`            | Preserve the original `.proto` field names verbatim (conventionally `snake_case`). `decode` emits `{ order_id: … }`; `encode` reads the same. |
+
+```typescript
+// camelCase (default)
+new ProtobufCodec({ proto: './events.proto', bindings: [/* … */] });
+// → decode: { orderId: 'o-1', amount: 1 }
+
+// snake_case
+new ProtobufCodec({ proto: './events.proto', keepCase: true, bindings: [/* … */] });
+// → decode: { order_id: 'o-1', amount: 1 }
+```
 
 ## Loading `.proto` files with dependencies
 
