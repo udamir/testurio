@@ -1,6 +1,6 @@
 {
   "name": "testurio-monorepo",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "private": true,
   "description": "Testurio monorepo - Declarative E2E/integration testing framework",
   "author": "Damir Yusipov",

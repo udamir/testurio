@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.3] - unreleased
+
+### Fixed
+
+- **`.assert()` predicates may now omit a return value without a type error.** An expect-only body such as `.assert((res) => { expect(res.code).toBe(200); })` already passed at runtime but failed to type-check, forcing a trailing `return true;`. The predicate return type now accepts `void`, so expect-only assertions compile as written.
+
+- **`Client.request().retry(...)` no longer crashes the runner on retry exhaustion when a downstream `onResponse` / `waitResponse` step is registered.** Previously, the `RetryTimeoutError` (or rethrown attempt error under `retryOnError: false`) propagated cleanly as a failed step but left the matching response-hook pending in a rejected-without-observer state, which Node escalated to `unhandledRejection` — terminating the runner mid-scenario and dropping subsequent test cases. The framework now marks the rejection as observed before triggering it; existing `awaitHook` consumers continue to receive the original error unchanged.
+
 ## [0.7.2] - 2026-06-09
 
 ### Added

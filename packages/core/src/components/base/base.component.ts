@@ -266,6 +266,14 @@ export abstract class BaseComponent<TStepBuilder = unknown> implements Component
 	 */
 	protected rejectHook(hook: Hook, error: Error): void {
 		if (hook.pending) {
+			// Mark the rejection as observed BEFORE triggering it. If no awaiter
+			// ever attaches (e.g. SyncClient retry exhaustion under failFast skips
+			// the onResponse step), this no-op handler prevents Node from
+			// escalating the orphan reject to unhandledRejection. The original
+			// promise still propagates the error to any `await hook.pending.promise`
+			// chain (.catch returns a new promise; the source promise keeps its
+			// rejection state).
+			hook.pending.promise.catch(() => {});
 			hook.pending.reject(error);
 		}
 		if (!hook.persistent) {

@@ -29,8 +29,8 @@ export class SyncClientHookBuilder<TResponse = unknown> extends BaseHookBuilder 
 	 * @returns this for chaining
 	 */
 	assert(
-		descriptionOrPredicate: string | ((response: TResponse) => boolean | Promise<boolean>),
-		predicate?: (response: TResponse) => boolean | Promise<boolean>
+		descriptionOrPredicate: string | ((response: TResponse) => boolean | void | Promise<boolean | void>),
+		predicate?: (response: TResponse) => boolean | void | Promise<boolean | void>
 	): this {
 		const [description, fn] =
 			typeof descriptionOrPredicate === "string"

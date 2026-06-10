@@ -29,8 +29,8 @@ export class AsyncServerHookBuilder<TPayload = unknown> extends BaseHookBuilder 
 	 * @returns this for chaining
 	 */
 	assert(
-		descriptionOrPredicate: string | ((payload: TPayload) => boolean | Promise<boolean>),
-		predicate?: (payload: TPayload) => boolean | Promise<boolean>
+		descriptionOrPredicate: string | ((payload: TPayload) => boolean | void | Promise<boolean | void>),
+		predicate?: (payload: TPayload) => boolean | void | Promise<boolean | void>
 	): this {
 		const [description, fn] =
 			typeof descriptionOrPredicate === "string"

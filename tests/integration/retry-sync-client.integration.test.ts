@@ -28,6 +28,10 @@ interface RetryHttpService {
 		request: { method: "GET"; path: "/resource" };
 		response: { code: 200 | 500; body: { id: string; ts: number } };
 	};
+	getOrder: {
+		request: { method: "GET"; path: "/v1/orders/1" };
+		response: { code: 200; body: { id: number; state: "PENDING" | "FILLED" | "CANCELLED" } };
+	};
 }
 
 // Port counter for this test file (22xxx range — see CLAUDE.md port allocation).
@@ -632,4 +636,88 @@ describe("Retry — SyncClient (HTTP)", () => {
 	// integration tests; the per-attempt validation behaviour is documented in
 	// the design (§2.2) and follows naturally from the `attempt()` closure
 	// being the integration point for both retry and auto-validation.
+
+	// ==========================================================================
+	// Unhandled rejection — orphan hook pending (task 042)
+	// ==========================================================================
+	// When a `Client.request().retry(...)` step exhausts retries, `executeRequest`
+	// rejects every matching response-hook pending Deferred before rethrowing. With
+	// the default `failFast: true`, the consumer step (`onResponse` / `waitResponse`)
+	// that would have awaited that pending never runs, so the rejected Deferred has
+	// no observer and Node escalates the rejection to `unhandledRejection`, killing
+	// the test runner. These cases reproduce the user-reported pattern and the
+	// "sibling test cases are dropped" failure mode.
+
+	describe("Unhandled rejection — orphan hook pending", () => {
+		it("I-17: retry exhaustion with downstream onResponse does not crash the process", async () => {
+			const port = getNextPort();
+			const { client, server } = buildPair(port);
+
+			const scenario = new TestScenario({ name: "I-17", components: [server, client] });
+			scenario.init((test) => {
+				test
+					.use(server)
+					.onRequest("getOrder", { method: "GET", path: "/v1/orders/1" })
+					.mockResponse(() => ({ code: 200, body: { id: 1, state: "PENDING" } }));
+			});
+
+			const TERMINAL_STATES = new Set(["FILLED", "CANCELLED"]);
+			const tc = testCase("I-17 orphan rejection — user-reported pattern", (test) => {
+				const api = test.use(client);
+				api
+					.request("getOrder", () => ({ method: "GET" as const, path: "/v1/orders/1" as const }))
+					.retry(({ body }) => !body.state || !TERMINAL_STATES.has(body.state), { timeout: 800, interval: 200 })
+					.onResponse()
+					.assert("Order should be terminal", (r) => r.body.state === "FILLED");
+			});
+
+			const result = await scenario.run(tc);
+
+			expect(result.passed).toBe(false);
+			const errMsg = result.testCases[0].steps.find((s) => !s.passed)?.error;
+			expect(errMsg).toContain("Retry exhausted");
+			expect(errMsg).toContain('Client.request("getOrder")');
+			// Implicit assertion: vitest aborts the file on unhandled rejection by
+			// default, so reaching this line at all means the orphan rejection was
+			// observed and no process crash occurred.
+		}, 10_000);
+
+		it("I-18: retry exhaustion does not corrupt sibling test cases in the same scenario", async () => {
+			const port = getNextPort();
+			const { client, server } = buildPair(port);
+
+			const scenario = new TestScenario({ name: "I-18", components: [server, client] });
+			scenario.init((test) => {
+				const mock = test.use(server);
+				mock
+					.onRequest("getOrder", { method: "GET", path: "/v1/orders/1" })
+					.mockResponse(() => ({ code: 200, body: { id: 1, state: "PENDING" } }));
+				mock
+					.onRequest("getResource", { method: "GET", path: "/resource" })
+					.mockResponse(() => ({ code: 200, body: { id: "ok", ts: 1 } }));
+			});
+
+			const TERMINAL_STATES = new Set(["FILLED", "CANCELLED"]);
+			const tc1 = testCase("I-18 TC1 — retry exhaustion", (test) => {
+				const api = test.use(client);
+				api
+					.request("getOrder", () => ({ method: "GET" as const, path: "/v1/orders/1" as const }))
+					.retry(({ body }) => !body.state || !TERMINAL_STATES.has(body.state), { timeout: 800, interval: 200 })
+					.onResponse()
+					.assert("Order should be terminal", (r) => r.body.state === "FILLED");
+			});
+
+			const tc2 = testCase("I-18 TC2 — vanilla request after sibling crash", (test) => {
+				const api = test.use(client);
+				api.request("getResource", { method: "GET", path: "/resource" });
+				api.onResponse("getResource").assert((res) => res.code === 200);
+			});
+
+			const result = await scenario.run([tc1, tc2]);
+
+			expect(result.testCases.length).toBe(2);
+			expect(result.testCases[0].passed).toBe(false);
+			expect(result.testCases[1].passed).toBe(true);
+		}, 15_000);
+	});
 });

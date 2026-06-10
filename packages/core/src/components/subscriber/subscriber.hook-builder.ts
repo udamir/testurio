@@ -24,8 +24,8 @@ export class SubscriberHookBuilder<TMessage> extends BaseHookBuilder {
 	 * @param predicate - Predicate function if description provided
 	 */
 	assert(
-		descriptionOrPredicate: string | ((message: TMessage) => boolean | Promise<boolean>),
-		predicate?: (message: TMessage) => boolean | Promise<boolean>
+		descriptionOrPredicate: string | ((message: TMessage) => boolean | void | Promise<boolean | void>),
+		predicate?: (message: TMessage) => boolean | void | Promise<boolean | void>
 	): this {
 		const description = typeof descriptionOrPredicate === "string" ? descriptionOrPredicate : undefined;
 		const fn = typeof descriptionOrPredicate === "function" ? descriptionOrPredicate : predicate;
