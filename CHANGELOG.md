@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.7.3] - unreleased
 
+### Added
+
+- **Allure report now shows per-step assertions as nested sub-steps.** Every `.assert()` call (across `Client`, `Server`, `AsyncClient`, `AsyncServer`, `Subscriber`, and `DataSource`) records pass and fail results onto the owning step. The Allure HTML report renders each assertion as a nested sub-step under the parent with its own pass/fail status, the assertion description as the name, and the failure message on failure — so chains of multiple `.assert()` calls on the same hook are visible per-assertion instead of collapsed into a single pass/fail.
+
+- **Allure report now shows per-step duration.** Each step in the report carries `start` and `stop` timestamps, so the Allure UI renders a duration badge per step and an accurate timeline.
+
+### Changed
+
+- **`AllureReporter` renders JSON payloads via the Allure JSON viewer.** When `includePayloads` is set, every stamped payload (request, response, message, …) is written as an `application/json` attachment; the Allure 3.x report's built-in JSON viewer prettifies, syntax-highlights, and folds it on click. Replaces the previous flat parameter-row rendering, which the Allure UI collapsed to a single-line string with no syntax highlighting.
+
+### Deprecated
+
+- **`AllureReporterOptions.includePayloads: "parameters"`** is deprecated as an alias for `"attachments"`. Set `includePayloads: "attachments"` to silence the one-time warning emitted at reporter construction. **`AllureReporterOptions.maxPayloadSize`** is deprecated and no longer applied to payloads — attachments are written at full size and the Allure JSON viewer handles folding. Both options remain on the type for backward compatibility and are slated for removal in a future major.
+
 ### Fixed
 
 - **`.assert()` predicates may now omit a return value without a type error.** An expect-only body such as `.assert((res) => { expect(res.code).toBe(200); })` already passed at runtime but failed to type-check, forcing a trailing `return true;`. The predicate return type now accepts `void`, so expect-only assertions compile as written.

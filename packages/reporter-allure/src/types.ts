@@ -33,17 +33,26 @@ export interface AllureReporterOptions {
 	defaultFeature?: string;
 
 	/**
-	 * Include recorded payloads in Allure steps
+	 * Include recorded payloads in Allure steps.
+	 *
+	 * Payloads always render as `application/json` attachments — the Allure
+	 * 3.x JSON viewer prettifies, syntax-highlights, and folds them on click.
+	 *
 	 * - undefined: Don't include payloads (default)
-	 * - "parameters": Add payloads as step parameters (inline, truncated to maxPayloadSize)
-	 * - "attachments": Add payloads as JSON file attachments (full content)
-	 * - "both": Add as both parameters and attachments
+	 * - "attachments": Add payloads as JSON file attachments (canonical value)
+	 * - "both": Alias for "attachments" (kept for backward compatibility)
+	 * - "parameters": @deprecated alias for "attachments" — previously rendered
+	 *   payloads as flat parameter rows, which the Allure UI collapses to a
+	 *   single-line string with no syntax highlighting. A one-time warning is
+	 *   emitted at reporter construction when this value is used.
 	 */
 	includePayloads?: "parameters" | "attachments" | "both";
 
 	/**
-	 * Maximum payload size for "parameters" mode (default: 1000 characters)
-	 * Payloads exceeding this limit are truncated with "..." suffix
+	 * @deprecated No longer applied to payloads. Attachments are written at
+	 * full size; the Allure JSON viewer handles folding. Kept on the type so
+	 * existing user configs continue to type-check; a one-time warning is
+	 * emitted at reporter construction when this is set.
 	 */
 	maxPayloadSize?: number;
 }

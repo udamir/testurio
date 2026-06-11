@@ -38,8 +38,8 @@ const scenario = new TestScenario({
 | `issueUrlPattern` | `string` | — | Issue link pattern (`{id}` placeholder) |
 | `defaultEpic` | `string` | — | Default epic for all tests |
 | `defaultFeature` | `string` | — | Default feature for all tests |
-| `includePayloads` | `"parameters" \| "attachments" \| "both"` | — | Include per-step request/response payloads (see below) |
-| `maxPayloadSize` | `number` | `1000` | Max characters for parameters mode (attachments are full size) |
+| `includePayloads` | `"parameters" \| "attachments" \| "both"` | — | Include per-step request/response payloads as JSON attachments (see below). `"parameters"` is a deprecated alias for `"attachments"`. |
+| `maxPayloadSize` | `number` | — | **Deprecated.** No longer applied to payloads — attachments are written at full size. |
 
 ### Full Configuration Example
 
@@ -64,21 +64,20 @@ new AllureReporter({
   defaultEpic: 'E-Commerce Platform',
   defaultFeature: 'API',
 
-  includePayloads: 'both',
-  maxPayloadSize: 500,
+  includePayloads: 'attachments',
 })
 ```
 
 ### Per-Step Request/Response Payloads (`includePayloads`)
 
-When `includePayloads` is set, the Allure reporter renders each step's recorded request and response payloads as parameter rows, JSON file attachments, or both. **Payloads come from each component's `step.metadata`** — populated by the framework during `executeStep` — so this works regardless of whether `TestScenario({ recording: true })` is enabled.
+When `includePayloads` is set, the Allure reporter writes each step's recorded request and response payloads as `application/json` attachments. The Allure 3.x HTML report's built-in JSON viewer prettifies, syntax-highlights, and folds them on click. **Payloads come from each component's `step.metadata`** — populated by the framework during `executeStep` — so this works regardless of whether `TestScenario({ recording: true })` is enabled.
 
 | Mode | Effect |
 |------|--------|
-| `"parameters"` | Adds `request` / `response` parameter rows (truncated to `maxPayloadSize`) |
-| `"attachments"` | Writes `step-N-request.json` / `step-N-response.json` attachment files (full content) |
-| `"both"` | Emits both parameter rows and attachments |
-| (omitted) | No payload data in the report — original behavior |
+| `"attachments"` | Writes `step-N-request.json` / `step-N-response.json` attachment files (full content). **Canonical value.** |
+| `"both"` | Alias for `"attachments"`, kept for backward compatibility. |
+| `"parameters"` | **Deprecated** alias for `"attachments"` — previously rendered payloads as flat parameter rows, which the Allure UI collapses to a single-line string with no syntax highlighting. A one-time warning is emitted at reporter construction when this value is used. |
+| (omitted) | No payload data in the report. |
 
 #### What each component stamps
 
@@ -96,9 +95,29 @@ When `includePayloads` is set, the Allure reporter renders each step's recorded 
 | `Subscriber` | `onMessage` / `waitMessage` | `message` (incoming MQ message) |
 | `DataSource` | `exec` | `request` (description or `callback.toString()`) + `response` (callback result) |
 
-Steps without a payload (e.g. `assert`, `wait`, `disconnect`) produce no payload rows or attachments — only the standard `component` parameter.
+Steps without a payload (e.g. `assert`, `wait`, `disconnect`) produce no attachments — only the standard `component` parameter.
 
 > **Note:** `Interaction` recording (`TestScenario({ recording: true })`) is a separate facility that populates `TestResult.interactions`. The reporter's `includePayloads` does **not** depend on it.
+
+### Per-Step Duration
+
+Every step in the Allure report carries `start` and `stop` timestamps, so the UI shows a per-step duration badge and renders an accurate timeline view. The values come from the framework's existing `StepExecutionResult.startTime` / `endTime` clocks — no extra configuration is required.
+
+### Per-Step Assertions
+
+Every `.assert(predicate)` call across the framework — on `Client.onResponse`, `Server.onRequest`, `AsyncClient.onEvent`, `AsyncServer.onMessage`, `Subscriber.onMessage`, `DataSource.exec`, plus matchers in `base/expect` — now records its result onto the owning step. The Allure report renders each recorded assertion as a **nested sub-step** beneath the step that registered it, with its own status (PASSED / FAILED), the assertion description as the name, and the failure message in `statusDetails.message` on failure.
+
+This makes a chain of multiple `.assert()` calls on the same hook readable: a single failing matcher no longer hides the passes that came before it. Example:
+
+```typescript
+api
+  .onResponse('getUsers')
+  .assert('code is 200', (res) => res.code === 200)
+  .assert('body has at least one user', (res) => res.body.length > 0)
+  .assert('first user has id', (res) => typeof res.body[0]?.id === 'number');
+```
+
+In the Allure report, the parent `Step N: onResponse - …` step shows three nested sub-steps with their per-assertion descriptions and statuses.
 
 ### Test Case Metadata
 

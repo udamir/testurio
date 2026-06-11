@@ -15,6 +15,8 @@
  * - BaseHookBuilder: Handler registration, no execution logic
  */
 
+// Assertion recording helper
+export * from "./assertion-recording";
 // Base classes
 export * from "./base.component";
 // Base types

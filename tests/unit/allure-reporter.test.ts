@@ -21,7 +21,7 @@ import {
 	Status,
 } from "@testurio/reporter-allure";
 import type { TestCaseMetadata, TestCaseResult, TestResult, TestStepResult } from "testurio";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("AllureReporter", () => {
 	let tempDir: string;
@@ -43,6 +43,8 @@ describe("AllureReporter", () => {
 		componentName: "api",
 		passed: true,
 		duration: 50,
+		startTime: 1_700_000_000_000,
+		endTime: 1_700_000_000_050,
 		...overrides,
 	});
 
@@ -505,37 +507,53 @@ describe("AllureReporter", () => {
 			expect(requestParams).toHaveLength(0);
 		});
 
-		it("should add payload as parameter when mode is 'parameters'", () => {
-			const reporter = new AllureReporter({ resultsDir: tempDir, includePayloads: "parameters" });
-			const result = runAndGetResult(
-				reporter,
-				createTestCaseResult({
-					steps: [createStepResult({ metadata: { request: { body: "test data" } } })],
-				})
-			);
+		it("aliases 'parameters' to 'attachments' (deprecated) and writes a JSON attachment", () => {
+			const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+			try {
+				const reporter = new AllureReporter({ resultsDir: tempDir, includePayloads: "parameters" });
+				const result = runAndGetResult(
+					reporter,
+					createTestCaseResult({
+						steps: [createStepResult({ metadata: { request: { body: "test data" } } })],
+					})
+				);
 
-			const steps = result.steps as Array<{ parameters: Array<{ name: string; value: string }> }>;
-			expect(steps[0].parameters.some((p) => p.name === "request")).toBe(true);
+				const steps = result.steps as Array<{
+					parameters: Array<{ name: string }>;
+					attachments: Array<{ name: string; type: string }>;
+				}>;
+				expect(steps[0].parameters.some((p) => p.name === "request")).toBe(false);
+				expect(steps[0].attachments.some((a) => a.name === "request")).toBe(true);
+				expect(warnSpy.mock.calls.some(([msg]) => String(msg).includes('"parameters" is deprecated'))).toBe(true);
+			} finally {
+				warnSpy.mockRestore();
+			}
 		});
 
-		it("should truncate payload to maxPayloadSize with '...' suffix", () => {
-			const longData = "x".repeat(2000);
-			const reporter = new AllureReporter({
-				resultsDir: tempDir,
-				includePayloads: "parameters",
-				maxPayloadSize: 100,
-			});
-			const result = runAndGetResult(
-				reporter,
-				createTestCaseResult({
-					steps: [createStepResult({ metadata: { request: longData } })],
-				})
-			);
+		it("warns that maxPayloadSize is deprecated and is not applied to payloads", () => {
+			const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+			try {
+				const longData = "x".repeat(2000);
+				const reporter = new AllureReporter({
+					resultsDir: tempDir,
+					includePayloads: "attachments",
+					maxPayloadSize: 100,
+				});
+				runAndGetResult(
+					reporter,
+					createTestCaseResult({
+						steps: [createStepResult({ metadata: { request: longData } })],
+					})
+				);
 
-			const steps = result.steps as Array<{ parameters: Array<{ name: string; value: string }> }>;
-			const requestParam = steps[0].parameters.find((p) => p.name === "request");
-			expect(requestParam?.value.length).toBeLessThanOrEqual(100);
-			expect(requestParam?.value.endsWith("...")).toBe(true);
+				const attachmentFiles = fs.readdirSync(tempDir).filter((f) => f.includes("-attachment."));
+				expect(attachmentFiles.length).toBeGreaterThan(0);
+				const written = fs.readFileSync(path.join(tempDir, attachmentFiles[0]), "utf-8");
+				expect(written.length).toBeGreaterThan(1000);
+				expect(warnSpy.mock.calls.some(([msg]) => String(msg).includes("maxPayloadSize is deprecated"))).toBe(true);
+			} finally {
+				warnSpy.mockRestore();
+			}
 		});
 
 		it("should create attachment file when mode is 'attachments'", () => {
@@ -563,12 +581,11 @@ describe("AllureReporter", () => {
 
 			const steps = result.steps as Array<{ attachments: Array<{ name: string; source: string; type: string }> }>;
 			expect(steps[0].attachments.length).toBeGreaterThan(0);
-			// Attachment is named after the stamped key (per-key emission since FR-9 v2).
 			expect(steps[0].attachments[0].name).toBe("request");
 			expect(steps[0].attachments[0].type).toBe("application/json");
 		});
 
-		it("should include both parameter and attachment when mode is 'both'", () => {
+		it("writes a single JSON attachment under 'both' mode (no payload Parameter row)", () => {
 			const reporter = new AllureReporter({ resultsDir: tempDir, includePayloads: "both" });
 			const result = runAndGetResult(
 				reporter,
@@ -582,12 +599,9 @@ describe("AllureReporter", () => {
 				attachments: Array<{ name: string }>;
 			}>;
 
-			// Should have parameter
-			expect(steps[0].parameters.some((p) => p.name === "request")).toBe(true);
-			// Should have attachment
+			expect(steps[0].parameters.some((p) => p.name === "request")).toBe(false);
 			expect(steps[0].attachments.length).toBeGreaterThan(0);
 
-			// Should have attachment file
 			const files = fs.readdirSync(tempDir);
 			const attachmentFiles = files.filter((f) => f.includes("-attachment."));
 			expect(attachmentFiles.length).toBeGreaterThan(0);

@@ -64,6 +64,20 @@ export class AllureReporter implements TestReporter {
 			testCaseUuids: [],
 			currentSteps: [],
 		};
+
+		if (options?.includePayloads === "parameters") {
+			console.warn(
+				'[AllureReporter] includePayloads: "parameters" is deprecated and now behaves as "attachments". ' +
+					"JSON payloads render in the Allure JSON viewer with prettification and syntax highlighting. " +
+					'Update your reporter config to "attachments" to silence this warning.'
+			);
+		}
+		if (options?.maxPayloadSize !== undefined) {
+			console.warn(
+				"[AllureReporter] maxPayloadSize is deprecated and no longer applied to payloads. " +
+					"Attachments are written at full size; the Allure JSON viewer handles folding."
+			);
+		}
 	}
 
 	/**

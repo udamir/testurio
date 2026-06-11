@@ -131,11 +131,12 @@ describe("AllureReporter — per-step payloads via step.metadata (FR-9 v2)", () 
 		const allureResults = readAllResultFiles(tempDir);
 		expect(allureResults).toHaveLength(2);
 
-		// Every test case should have at least one step with a `request` parameter
-		// (the client `request` step) and one with a `response` parameter
+		// Every test case should have at least one step with a `request` attachment
+		// (the client `request` step) and one with a `response` attachment
 		// (either the server's mockResponse hook step or the client's onResponse step).
+		// Per task 044, payloads no longer render as Parameter rows — only as JSON attachments.
 		for (const allureResult of allureResults) {
-			const stepWithRequest = allureResult.steps.find((s) => s.parameters.some((p) => p.name === "request"));
+			const stepWithRequest = allureResult.steps.find((s) => s.attachments.some((a) => a.name === "request"));
 			expect(stepWithRequest).toBeDefined();
 			const requestAttachment = stepWithRequest?.attachments.find((a) => a.name === "request");
 			expect(requestAttachment).toBeDefined();
@@ -143,7 +144,7 @@ describe("AllureReporter — per-step payloads via step.metadata (FR-9 v2)", () 
 			expect(fs.existsSync(requestPath)).toBe(true);
 			expect(() => JSON.parse(fs.readFileSync(requestPath, "utf-8"))).not.toThrow();
 
-			const stepWithResponse = allureResult.steps.find((s) => s.parameters.some((p) => p.name === "response"));
+			const stepWithResponse = allureResult.steps.find((s) => s.attachments.some((a) => a.name === "response"));
 			expect(stepWithResponse).toBeDefined();
 			const responseAttachment = stepWithResponse?.attachments.find((a) => a.name === "response");
 			expect(responseAttachment).toBeDefined();

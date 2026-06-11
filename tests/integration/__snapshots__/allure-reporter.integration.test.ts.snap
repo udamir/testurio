@@ -86,9 +86,11 @@ exports[`Allure Reporter Integration Tests > Complex Multi-Step Workflow > shoul
         },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
       "steps": [],
+      "stop": "<TIMESTAMP>",
     },
     {
       "attachments": [],
@@ -100,9 +102,11 @@ exports[`Allure Reporter Integration Tests > Complex Multi-Step Workflow > shoul
         },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
       "steps": [],
+      "stop": "<TIMESTAMP>",
     },
     {
       "attachments": [],
@@ -114,9 +118,21 @@ exports[`Allure Reporter Integration Tests > Complex Multi-Step Workflow > shoul
         },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
-      "steps": [],
+      "steps": [
+        {
+          "attachments": [],
+          "name": "Assertion 1",
+          "parameters": [],
+          "stage": "finished",
+          "status": "passed",
+          "statusDetails": {},
+          "steps": [],
+        },
+      ],
+      "stop": "<TIMESTAMP>",
     },
     {
       "attachments": [],
@@ -128,9 +144,11 @@ exports[`Allure Reporter Integration Tests > Complex Multi-Step Workflow > shoul
         },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
       "steps": [],
+      "stop": "<TIMESTAMP>",
     },
     {
       "attachments": [],
@@ -142,9 +160,11 @@ exports[`Allure Reporter Integration Tests > Complex Multi-Step Workflow > shoul
         },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
       "steps": [],
+      "stop": "<TIMESTAMP>",
     },
     {
       "attachments": [],
@@ -156,9 +176,21 @@ exports[`Allure Reporter Integration Tests > Complex Multi-Step Workflow > shoul
         },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
-      "steps": [],
+      "steps": [
+        {
+          "attachments": [],
+          "name": "Assertion 1",
+          "parameters": [],
+          "stage": "finished",
+          "status": "passed",
+          "statusDetails": {},
+          "steps": [],
+        },
+      ],
+      "stop": "<TIMESTAMP>",
     },
     {
       "attachments": [],
@@ -170,9 +202,11 @@ exports[`Allure Reporter Integration Tests > Complex Multi-Step Workflow > shoul
         },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
       "steps": [],
+      "stop": "<TIMESTAMP>",
     },
     {
       "attachments": [],
@@ -184,9 +218,11 @@ exports[`Allure Reporter Integration Tests > Complex Multi-Step Workflow > shoul
         },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
       "steps": [],
+      "stop": "<TIMESTAMP>",
     },
     {
       "attachments": [],
@@ -198,9 +234,21 @@ exports[`Allure Reporter Integration Tests > Complex Multi-Step Workflow > shoul
         },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
-      "steps": [],
+      "steps": [
+        {
+          "attachments": [],
+          "name": "Assertion 1",
+          "parameters": [],
+          "stage": "finished",
+          "status": "passed",
+          "statusDetails": {},
+          "steps": [],
+        },
+      ],
+      "stop": "<TIMESTAMP>",
     },
   ],
   "stop": "<TIMESTAMP>",
@@ -255,9 +303,11 @@ exports[`Allure Reporter Integration Tests > Failure Scenarios > should generate
         },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
       "steps": [],
+      "stop": "<TIMESTAMP>",
     },
     {
       "attachments": [],
@@ -269,9 +319,11 @@ exports[`Allure Reporter Integration Tests > Failure Scenarios > should generate
         },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
       "steps": [],
+      "stop": "<TIMESTAMP>",
     },
     {
       "attachments": [],
@@ -283,6 +335,7 @@ exports[`Allure Reporter Integration Tests > Failure Scenarios > should generate
         },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "broken",
       "statusDetails": {
         "message": "Cannot read properties of null (reading 'prop')",
@@ -298,7 +351,20 @@ exports[`Allure Reporter Integration Tests > Failure Scenarios > should generate
     at <STACK_FRAME>)
     at <STACK_FRAME>)",
       },
-      "steps": [],
+      "steps": [
+        {
+          "attachments": [],
+          "name": "Assertion 1",
+          "parameters": [],
+          "stage": "finished",
+          "status": "failed",
+          "statusDetails": {
+            "message": "Cannot read properties of null (reading 'prop')",
+          },
+          "steps": [],
+        },
+      ],
+      "stop": "<TIMESTAMP>",
     },
   ],
   "stop": "<TIMESTAMP>",
@@ -353,9 +419,11 @@ exports[`Allure Reporter Integration Tests > Failure Scenarios > should generate
         },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
       "steps": [],
+      "stop": "<TIMESTAMP>",
     },
     {
       "attachments": [],
@@ -367,9 +435,11 @@ exports[`Allure Reporter Integration Tests > Failure Scenarios > should generate
         },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
       "steps": [],
+      "stop": "<TIMESTAMP>",
     },
     {
       "attachments": [],
@@ -381,6 +451,7 @@ exports[`Allure Reporter Integration Tests > Failure Scenarios > should generate
         },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "failed",
       "statusDetails": {
         "message": "expected +0 to be 5 // Object.is equality",
@@ -396,7 +467,20 @@ exports[`Allure Reporter Integration Tests > Failure Scenarios > should generate
     at <STACK_FRAME>)
     at <STACK_FRAME>)",
       },
-      "steps": [],
+      "steps": [
+        {
+          "attachments": [],
+          "name": "Assertion 1",
+          "parameters": [],
+          "stage": "finished",
+          "status": "failed",
+          "statusDetails": {
+            "message": "expected +0 to be 5 // Object.is equality",
+          },
+          "steps": [],
+        },
+      ],
+      "stop": "<TIMESTAMP>",
     },
   ],
   "stop": "<TIMESTAMP>",
@@ -452,9 +536,11 @@ exports[`Allure Reporter Integration Tests > Failure Scenarios > should generate
           },
         ],
         "stage": "finished",
+        "start": "<TIMESTAMP>",
         "status": "passed",
         "statusDetails": {},
         "steps": [],
+        "stop": "<TIMESTAMP>",
       },
       {
         "attachments": [],
@@ -466,9 +552,11 @@ exports[`Allure Reporter Integration Tests > Failure Scenarios > should generate
           },
         ],
         "stage": "finished",
+        "start": "<TIMESTAMP>",
         "status": "passed",
         "statusDetails": {},
         "steps": [],
+        "stop": "<TIMESTAMP>",
       },
       {
         "attachments": [],
@@ -480,6 +568,7 @@ exports[`Allure Reporter Integration Tests > Failure Scenarios > should generate
           },
         ],
         "stage": "finished",
+        "start": "<TIMESTAMP>",
         "status": "failed",
         "statusDetails": {
           "message": "expected 'degraded' to be 'healthy' // Object.is equality",
@@ -495,7 +584,20 @@ exports[`Allure Reporter Integration Tests > Failure Scenarios > should generate
     at <STACK_FRAME>)
     at <STACK_FRAME>)",
         },
-        "steps": [],
+        "steps": [
+          {
+            "attachments": [],
+            "name": "Assertion 1",
+            "parameters": [],
+            "stage": "finished",
+            "status": "failed",
+            "statusDetails": {
+              "message": "expected 'degraded' to be 'healthy' // Object.is equality",
+            },
+            "steps": [],
+          },
+        ],
+        "stop": "<TIMESTAMP>",
       },
     ],
     "stop": "<TIMESTAMP>",
@@ -534,9 +636,11 @@ exports[`Allure Reporter Integration Tests > Failure Scenarios > should generate
           },
         ],
         "stage": "finished",
+        "start": "<TIMESTAMP>",
         "status": "passed",
         "statusDetails": {},
         "steps": [],
+        "stop": "<TIMESTAMP>",
       },
       {
         "attachments": [],
@@ -548,9 +652,11 @@ exports[`Allure Reporter Integration Tests > Failure Scenarios > should generate
           },
         ],
         "stage": "finished",
+        "start": "<TIMESTAMP>",
         "status": "passed",
         "statusDetails": {},
         "steps": [],
+        "stop": "<TIMESTAMP>",
       },
       {
         "attachments": [],
@@ -562,9 +668,21 @@ exports[`Allure Reporter Integration Tests > Failure Scenarios > should generate
           },
         ],
         "stage": "finished",
+        "start": "<TIMESTAMP>",
         "status": "passed",
         "statusDetails": {},
-        "steps": [],
+        "steps": [
+          {
+            "attachments": [],
+            "name": "Assertion 1",
+            "parameters": [],
+            "stage": "finished",
+            "status": "passed",
+            "statusDetails": {},
+            "steps": [],
+          },
+        ],
+        "stop": "<TIMESTAMP>",
       },
     ],
     "stop": "<TIMESTAMP>",
@@ -631,9 +749,11 @@ exports[`Allure Reporter Integration Tests > Multi-Component Chain Scenario > sh
         },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
       "steps": [],
+      "stop": "<TIMESTAMP>",
     },
     {
       "attachments": [],
@@ -645,9 +765,11 @@ exports[`Allure Reporter Integration Tests > Multi-Component Chain Scenario > sh
         },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
       "steps": [],
+      "stop": "<TIMESTAMP>",
     },
     {
       "attachments": [],
@@ -659,9 +781,21 @@ exports[`Allure Reporter Integration Tests > Multi-Component Chain Scenario > sh
         },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
-      "steps": [],
+      "steps": [
+        {
+          "attachments": [],
+          "name": "Assertion 1",
+          "parameters": [],
+          "stage": "finished",
+          "status": "passed",
+          "statusDetails": {},
+          "steps": [],
+        },
+      ],
+      "stop": "<TIMESTAMP>",
     },
   ],
   "stop": "<TIMESTAMP>",
@@ -707,25 +841,26 @@ exports[`Allure Reporter Integration Tests > Multi-Component Chain Scenario > sh
   "statusDetails": {},
   "steps": [
     {
-      "attachments": [],
+      "attachments": [
+        {
+          "name": "request",
+          "source": "<ATTACHMENT_FILE>",
+          "type": "application/json",
+        },
+      ],
       "name": "Step 1: request - Request getUsers",
       "parameters": [
         {
           "name": "component",
           "value": "api",
         },
-        {
-          "name": "request",
-          "value": "{
-  "method": "GET",
-  "path": "/users"
-}",
-        },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
       "steps": [],
+      "stop": "<TIMESTAMP>",
     },
     {
       "attachments": [],
@@ -737,67 +872,65 @@ exports[`Allure Reporter Integration Tests > Multi-Component Chain Scenario > sh
         },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
       "steps": [],
+      "stop": "<TIMESTAMP>",
     },
     {
-      "attachments": [],
+      "attachments": [
+        {
+          "name": "response",
+          "source": "<ATTACHMENT_FILE>",
+          "type": "application/json",
+        },
+      ],
       "name": "Step 3: onResponse - Handle response for getUsers",
       "parameters": [
         {
           "name": "component",
           "value": "api",
         },
-        {
-          "name": "response",
-          "value": "{
-  "code": 200,
-  "headers": {
-    "connection": "keep-alive",
-    "content-type": "application/json",
-    "date": "<HTTP_DATE>",
-    "keep-alive": "timeout=5",
-    "transfer-encoding": "chunked"
-  },
-  "body": [
-    {
-      "id": 1,
-      "name": "Alice"
-    }
-  ]
-}",
-        },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
-      "steps": [],
+      "steps": [
+        {
+          "attachments": [],
+          "name": "Assertion 1",
+          "parameters": [],
+          "stage": "finished",
+          "status": "passed",
+          "statusDetails": {},
+          "steps": [],
+        },
+      ],
+      "stop": "<TIMESTAMP>",
     },
     {
-      "attachments": [],
+      "attachments": [
+        {
+          "name": "request",
+          "source": "<ATTACHMENT_FILE>",
+          "type": "application/json",
+        },
+      ],
       "name": "Step 4: request - Request createUser",
       "parameters": [
         {
           "name": "component",
           "value": "api",
         },
-        {
-          "name": "request",
-          "value": "{
-  "method": "POST",
-  "path": "/users",
-  "body": {
-    "name": "Charlie",
-    "email": "charlie@example.com"
-  }
-}",
-        },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
       "steps": [],
+      "stop": "<TIMESTAMP>",
     },
     {
       "attachments": [],
@@ -809,62 +942,65 @@ exports[`Allure Reporter Integration Tests > Multi-Component Chain Scenario > sh
         },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
       "steps": [],
+      "stop": "<TIMESTAMP>",
     },
     {
-      "attachments": [],
+      "attachments": [
+        {
+          "name": "response",
+          "source": "<ATTACHMENT_FILE>",
+          "type": "application/json",
+        },
+      ],
       "name": "Step 6: onResponse - Handle response for createUser",
       "parameters": [
         {
           "name": "component",
           "value": "api",
         },
-        {
-          "name": "response",
-          "value": "{
-  "code": 201,
-  "headers": {
-    "connection": "keep-alive",
-    "content-type": "application/json",
-    "date": "<HTTP_DATE>",
-    "keep-alive": "timeout=5",
-    "transfer-encoding": "chunked"
-  },
-  "body": {
-    "id": 2,
-    "name": "Charlie",
-    "email": "charlie@example.com"
-  }
-}",
-        },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
-      "steps": [],
+      "steps": [
+        {
+          "attachments": [],
+          "name": "Assertion 1",
+          "parameters": [],
+          "stage": "finished",
+          "status": "passed",
+          "statusDetails": {},
+          "steps": [],
+        },
+      ],
+      "stop": "<TIMESTAMP>",
     },
     {
-      "attachments": [],
+      "attachments": [
+        {
+          "name": "request",
+          "source": "<ATTACHMENT_FILE>",
+          "type": "application/json",
+        },
+      ],
       "name": "Step 7: request - Request getHealth",
       "parameters": [
         {
           "name": "component",
           "value": "api",
         },
-        {
-          "name": "request",
-          "value": "{
-  "method": "GET",
-  "path": "/health"
-}",
-        },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
       "steps": [],
+      "stop": "<TIMESTAMP>",
     },
     {
       "attachments": [],
@@ -876,39 +1012,43 @@ exports[`Allure Reporter Integration Tests > Multi-Component Chain Scenario > sh
         },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
       "steps": [],
+      "stop": "<TIMESTAMP>",
     },
     {
-      "attachments": [],
+      "attachments": [
+        {
+          "name": "response",
+          "source": "<ATTACHMENT_FILE>",
+          "type": "application/json",
+        },
+      ],
       "name": "Step 9: onResponse - Handle response for getHealth",
       "parameters": [
         {
           "name": "component",
           "value": "api",
         },
-        {
-          "name": "response",
-          "value": "{
-  "code": 200,
-  "headers": {
-    "connection": "keep-alive",
-    "content-type": "application/json",
-    "date": "<HTTP_DATE>",
-    "keep-alive": "timeout=5",
-    "transfer-encoding": "chunked"
-  },
-  "body": {
-    "status": "healthy"
-  }
-}",
-        },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
-      "steps": [],
+      "steps": [
+        {
+          "attachments": [],
+          "name": "Assertion 1",
+          "parameters": [],
+          "stage": "finished",
+          "status": "passed",
+          "statusDetails": {},
+          "steps": [],
+        },
+      ],
+      "stop": "<TIMESTAMP>",
     },
   ],
   "stop": "<TIMESTAMP>",
@@ -987,9 +1127,11 @@ exports[`Allure Reporter Integration Tests > Multiple Test Cases > should genera
           },
         ],
         "stage": "finished",
+        "start": "<TIMESTAMP>",
         "status": "passed",
         "statusDetails": {},
         "steps": [],
+        "stop": "<TIMESTAMP>",
       },
       {
         "attachments": [],
@@ -1001,9 +1143,11 @@ exports[`Allure Reporter Integration Tests > Multiple Test Cases > should genera
           },
         ],
         "stage": "finished",
+        "start": "<TIMESTAMP>",
         "status": "passed",
         "statusDetails": {},
         "steps": [],
+        "stop": "<TIMESTAMP>",
       },
       {
         "attachments": [],
@@ -1015,9 +1159,21 @@ exports[`Allure Reporter Integration Tests > Multiple Test Cases > should genera
           },
         ],
         "stage": "finished",
+        "start": "<TIMESTAMP>",
         "status": "passed",
         "statusDetails": {},
-        "steps": [],
+        "steps": [
+          {
+            "attachments": [],
+            "name": "Assertion 1",
+            "parameters": [],
+            "stage": "finished",
+            "status": "passed",
+            "statusDetails": {},
+            "steps": [],
+          },
+        ],
+        "stop": "<TIMESTAMP>",
       },
     ],
     "stop": "<TIMESTAMP>",
@@ -1083,9 +1239,11 @@ exports[`Allure Reporter Integration Tests > Multiple Test Cases > should genera
           },
         ],
         "stage": "finished",
+        "start": "<TIMESTAMP>",
         "status": "passed",
         "statusDetails": {},
         "steps": [],
+        "stop": "<TIMESTAMP>",
       },
       {
         "attachments": [],
@@ -1097,9 +1255,11 @@ exports[`Allure Reporter Integration Tests > Multiple Test Cases > should genera
           },
         ],
         "stage": "finished",
+        "start": "<TIMESTAMP>",
         "status": "passed",
         "statusDetails": {},
         "steps": [],
+        "stop": "<TIMESTAMP>",
       },
       {
         "attachments": [],
@@ -1111,9 +1271,21 @@ exports[`Allure Reporter Integration Tests > Multiple Test Cases > should genera
           },
         ],
         "stage": "finished",
+        "start": "<TIMESTAMP>",
         "status": "passed",
         "statusDetails": {},
-        "steps": [],
+        "steps": [
+          {
+            "attachments": [],
+            "name": "Assertion 1",
+            "parameters": [],
+            "stage": "finished",
+            "status": "passed",
+            "statusDetails": {},
+            "steps": [],
+          },
+        ],
+        "stop": "<TIMESTAMP>",
       },
     ],
     "stop": "<TIMESTAMP>",
@@ -1174,9 +1346,11 @@ exports[`Allure Reporter Integration Tests > Multiple Test Cases > should genera
           },
         ],
         "stage": "finished",
+        "start": "<TIMESTAMP>",
         "status": "passed",
         "statusDetails": {},
         "steps": [],
+        "stop": "<TIMESTAMP>",
       },
       {
         "attachments": [],
@@ -1188,9 +1362,11 @@ exports[`Allure Reporter Integration Tests > Multiple Test Cases > should genera
           },
         ],
         "stage": "finished",
+        "start": "<TIMESTAMP>",
         "status": "passed",
         "statusDetails": {},
         "steps": [],
+        "stop": "<TIMESTAMP>",
       },
       {
         "attachments": [],
@@ -1202,9 +1378,21 @@ exports[`Allure Reporter Integration Tests > Multiple Test Cases > should genera
           },
         ],
         "stage": "finished",
+        "start": "<TIMESTAMP>",
         "status": "passed",
         "statusDetails": {},
-        "steps": [],
+        "steps": [
+          {
+            "attachments": [],
+            "name": "Assertion 1",
+            "parameters": [],
+            "stage": "finished",
+            "status": "passed",
+            "statusDetails": {},
+            "steps": [],
+          },
+        ],
+        "stop": "<TIMESTAMP>",
       },
     ],
     "stop": "<TIMESTAMP>",
@@ -1251,22 +1439,13 @@ exports[`Allure Reporter Integration Tests > Payload Capture Configuration > sho
           "name": "component",
           "value": "api",
         },
-        {
-          "name": "request",
-          "value": "{
-  "method": "POST",
-  "path": "/users",
-  "body": {
-    "name": "Test User",
-    "email": "test@example.com"
-  }
-}",
-        },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
       "steps": [],
+      "stop": "<TIMESTAMP>",
     },
     {
       "attachments": [],
@@ -1278,9 +1457,11 @@ exports[`Allure Reporter Integration Tests > Payload Capture Configuration > sho
         },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
       "steps": [],
+      "stop": "<TIMESTAMP>",
     },
     {
       "attachments": [
@@ -1296,22 +1477,23 @@ exports[`Allure Reporter Integration Tests > Payload Capture Configuration > sho
           "name": "component",
           "value": "api",
         },
-        {
-          "name": "response",
-          "value": "{
-  "code": 201,
-  "headers": {
-    "connection": "keep-alive",
-    "content-type": "application/json",
-    "date": "<HTTP_DATE>",
-    "keep-alive": "timeout=5",
-    "transfer-enc...",
-        },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
-      "steps": [],
+      "steps": [
+        {
+          "attachments": [],
+          "name": "Assertion 1",
+          "parameters": [],
+          "stage": "finished",
+          "status": "passed",
+          "statusDetails": {},
+          "steps": [],
+        },
+      ],
+      "stop": "<TIMESTAMP>",
     },
   ],
   "stop": "<TIMESTAMP>",
@@ -1365,9 +1547,11 @@ exports[`Allure Reporter Integration Tests > Single Component Scenario > should 
         },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
       "steps": [],
+      "stop": "<TIMESTAMP>",
     },
     {
       "attachments": [],
@@ -1379,9 +1563,11 @@ exports[`Allure Reporter Integration Tests > Single Component Scenario > should 
         },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
       "steps": [],
+      "stop": "<TIMESTAMP>",
     },
     {
       "attachments": [],
@@ -1393,9 +1579,21 @@ exports[`Allure Reporter Integration Tests > Single Component Scenario > should 
         },
       ],
       "stage": "finished",
+      "start": "<TIMESTAMP>",
       "status": "passed",
       "statusDetails": {},
-      "steps": [],
+      "steps": [
+        {
+          "attachments": [],
+          "name": "Assertion 1",
+          "parameters": [],
+          "stage": "finished",
+          "status": "passed",
+          "statusDetails": {},
+          "steps": [],
+        },
+      ],
+      "stop": "<TIMESTAMP>",
     },
   ],
   "stop": "<TIMESTAMP>",

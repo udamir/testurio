@@ -64,10 +64,15 @@ export abstract class BaseComponent<TStepBuilder = unknown> implements Component
 	 * Implementation should switch on handler.type and execute accordingly.
 	 * Common handler types: assert, transform, delay, drop, mockResponse, proxy
 	 *
+	 * The owning `step` is threaded through so handler implementations can
+	 * surface per-step state (e.g. `case "assert":` calls `recordAssertion(step, …)`
+	 * for per-step assertion rendering in the Allure report).
+	 *
 	 * @returns New value to chain, null to terminate, undefined to keep current
 	 */
 	protected abstract executeHandler<TContext = unknown>(
 		handler: Handler,
+		step: Step,
 		payload: unknown,
 		context?: TContext
 	): Promise<unknown>;
@@ -208,7 +213,7 @@ export abstract class BaseComponent<TStepBuilder = unknown> implements Component
 		let current = message;
 
 		for (const handler of step.handlers) {
-			const result = await this.executeHandler(handler, current, context);
+			const result = await this.executeHandler(handler, step, current, context);
 
 			if (result === null) {
 				return null;

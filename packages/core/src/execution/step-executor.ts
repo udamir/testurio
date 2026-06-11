@@ -9,7 +9,7 @@
 
 import type { Component } from "../components/base/base.types";
 import type { Step } from "../components/base/step.types";
-import type { StepExecutionResult, StepInfo, TestStepResult } from "./execution.types";
+import type { AssertionResult, StepExecutionResult, StepInfo, TestStepResult } from "./execution.types";
 
 // =============================================================================
 // Types
@@ -163,9 +163,15 @@ function toStepInfo(step: Step): StepInfo {
 }
 
 /**
- * Convert StepExecutionResult to TestStepResult for reporting
+ * Convert StepExecutionResult to TestStepResult for reporting.
+ *
+ * Lifts `assertions` out of `metadata` (where component-level `case "assert":`
+ * records via the shared `recordAssertion` helper) into the typed
+ * `TestStepResult.assertions` slot. The same data is not stored twice — the
+ * `assertions` key is dropped from the projected `metadata`.
  */
 export function toTestStepResult(result: StepExecutionResult, index: number): TestStepResult {
+	const { metadata, assertions } = splitMetadataAssertions(result.step.metadata);
 	return {
 		stepNumber: index + 1,
 		type: result.step.type,
@@ -174,10 +180,31 @@ export function toTestStepResult(result: StepExecutionResult, index: number): Te
 		messageType: result.step.messageType,
 		passed: result.passed,
 		duration: result.duration,
+		startTime: result.startTime,
+		endTime: result.endTime,
 		error: result.error?.message,
 		stackTrace: result.error?.stack,
-		metadata: result.step.metadata,
+		metadata,
+		assertions,
 	};
+}
+
+/**
+ * Split a step's metadata bag into the typed `assertions[]` slot and the
+ * remaining metadata. Returns `metadata: undefined` when the remaining bag
+ * is empty so downstream code does not see empty objects.
+ */
+export function splitMetadataAssertions(source: Record<string, unknown> | undefined): {
+	metadata: Record<string, unknown> | undefined;
+	assertions: AssertionResult[] | undefined;
+} {
+	if (!source) {
+		return { metadata: undefined, assertions: undefined };
+	}
+	const { assertions: rawAssertions, ...rest } = source;
+	const assertions = Array.isArray(rawAssertions) ? (rawAssertions as AssertionResult[]) : undefined;
+	const metadata = Object.keys(rest).length > 0 ? rest : undefined;
+	return { metadata, assertions };
 }
 
 /**

@@ -165,16 +165,6 @@ export function convertMetadataToLinks(metadata: TestCaseMetadata | undefined, o
 }
 
 /**
- * Truncate string to max length with ellipsis
- */
-function truncate(str: string, maxLength: number): string {
-	if (str.length <= maxLength) {
-		return str;
-	}
-	return `${str.slice(0, maxLength - 3)}...`;
-}
-
-/**
  * Extract payload(s) from step metadata.
  *
  * Returns an object containing **every** recognized payload key present on
@@ -201,7 +191,25 @@ function extractPayload(metadata: Record<string, unknown> | undefined): Record<s
 }
 
 /**
- * Convert TestStepResult to Allure StepResult
+ * Convert TestStepResult to Allure StepResult.
+ *
+ * Three reporter-side behaviors are wired here:
+ *
+ * - **start / stop** — propagated from `step.startTime`/`step.endTime` so the
+ *   Allure UI renders a per-step duration badge and a timeline.
+ * - **JSON payloads as attachments** — every stamped payload key (request,
+ *   response, message, …) is written as an `application/json` attachment. The
+ *   Allure 3.x JSON viewer prettifies, syntax-highlights, and folds it on
+ *   click. There is **no** per-key `Parameter` row for payloads (the Allure
+ *   parameter table collapses whitespace and offers no syntax highlight, so
+ *   the previous `parameters`/`both` modes produced an unreadable single-line
+ *   string). Any non-undefined `includePayloads` value (`attachments`,
+ *   `both`, or the deprecated `parameters` alias) writes the same JSON
+ *   attachment.
+ * - **Nested sub-steps per assertion** — each entry in `step.assertions` is
+ *   emitted as a nested `AllureStepResult` with its own pass/fail status, so
+ *   a chain of `.assert()` calls renders as a check-mark tree under the
+ *   parent step.
  */
 export function convertStep(
 	step: TestStepResult,
@@ -220,44 +228,42 @@ export function convertStep(
 		});
 	}
 
-	// Handle payload inclusion. `extractPayload` may return multiple keys
-	// (e.g. { request, response } on a Server hook step) — emit one parameter
-	// row and one JSON attachment per key.
+	// Always-attach JSON payload rendering (Allure 3.x idiom).
+	// `extractPayload` may return multiple keys (e.g. { request, response } on
+	// a Server hook step) — emit one JSON attachment per key.
 	const payload = extractPayload(step.metadata);
-	if (payload && options.includePayloads) {
-		const maxSize = options.maxPayloadSize ?? 1000;
-		const includeParameters = options.includePayloads === "parameters" || options.includePayloads === "both";
-		const includeAttachments = options.includePayloads === "attachments" || options.includePayloads === "both";
-
+	if (payload && options.includePayloads && writer) {
 		for (const [key, value] of Object.entries(payload)) {
 			const valueStr = typeof value === "string" ? value : JSON.stringify(value, null, 2);
-
-			if (includeParameters) {
-				parameters.push({
-					name: key,
-					value: truncate(valueStr, maxSize),
-				});
-			}
-
-			if (includeAttachments && writer) {
-				const content = Buffer.from(valueStr, "utf-8");
-				const filename = writer.writeAttachment(`step-${stepIndex}-${key}.json`, content, ContentType.JSON);
-				attachments.push({
-					name: key,
-					source: filename,
-					type: ContentType.JSON,
-				});
-			}
+			const content = Buffer.from(valueStr, "utf-8");
+			const filename = writer.writeAttachment(`step-${stepIndex}-${key}.json`, content, ContentType.JSON);
+			attachments.push({
+				name: key,
+				source: filename,
+				type: ContentType.JSON,
+			});
 		}
 	}
 
-	// Calculate timing - step result doesn't have start/end, derive from duration and index
+	// Build one nested sub-step per recorded assertion.
+	const nestedAssertionSteps: AllureStepResult[] = (step.assertions ?? []).map((a, i) => ({
+		name: a.description ?? `Assertion ${i + 1}`,
+		status: a.passed ? Status.PASSED : Status.FAILED,
+		statusDetails: a.passed ? { message: undefined } : { message: a.error, trace: undefined },
+		stage: Stage.FINISHED,
+		steps: [],
+		attachments: [],
+		parameters: [],
+	}));
+
 	const stepResult: AllureStepResult = {
 		name: `Step ${step.stepNumber}: ${step.type} - ${step.description}`,
 		status: convertStatus(step.passed, step.error),
 		statusDetails: convertStatusDetails(step.error, step.stackTrace) ?? { message: undefined },
 		stage: Stage.FINISHED,
-		steps: [],
+		start: step.startTime,
+		stop: step.endTime,
+		steps: nestedAssertionSteps,
 		attachments,
 		parameters,
 	};

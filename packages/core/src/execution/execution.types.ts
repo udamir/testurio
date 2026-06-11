@@ -129,9 +129,12 @@ export interface TestStepResult {
 	messageType?: string;
 	passed: boolean;
 	duration: number;
+	startTime: number;
+	endTime: number;
 	error?: string;
 	stackTrace?: string;
 	metadata?: Record<string, unknown>;
+	assertions?: AssertionResult[];
 }
 
 /**

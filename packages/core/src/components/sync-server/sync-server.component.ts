@@ -21,6 +21,7 @@ import type {
 } from "../../protocols/base";
 import type { SchemaLike, SyncSchemaInput } from "../../validation";
 import { ValidationError } from "../../validation";
+import { recordAssertion } from "../base/assertion-recording";
 import type { ITestCaseContext } from "../base/base.types";
 import { DropMessageError, sleep, stampMetadata } from "../base/base.utils";
 import type { Hook } from "../base/hook.types";
@@ -208,7 +209,7 @@ export class Server<P extends ISyncProtocol = ISyncProtocol> extends ServiceComp
 		let resultType = message.type;
 
 		for (const handler of step.handlers) {
-			const result = await this.executeHandler(handler, payload, message);
+			const result = await this.executeHandler(handler, step, payload, message);
 
 			if (result === null) {
 				return null;
@@ -237,6 +238,7 @@ export class Server<P extends ISyncProtocol = ISyncProtocol> extends ServiceComp
 
 	protected async executeHandler<TContext = unknown>(
 		handler: Handler,
+		step: Step,
 		payload: unknown,
 		_context?: TContext
 	): Promise<unknown> {
@@ -245,12 +247,22 @@ export class Server<P extends ISyncProtocol = ISyncProtocol> extends ServiceComp
 		switch (handler.type) {
 			case "assert": {
 				const predicate = params.predicate as (p: unknown) => boolean | undefined | Promise<boolean | undefined>;
-				const result = await predicate(payload);
-				if (result === false) {
-					const errorMsg = handler.description ? `Assertion failed: ${handler.description}` : "Assertion failed";
-					throw new Error(errorMsg);
+				const description = handler.description;
+				try {
+					const result = await predicate(payload);
+					if (result === false) {
+						const errorMsg = description ? `Assertion failed: ${description}` : "Assertion failed";
+						recordAssertion(step, { passed: false, description, error: errorMsg });
+						throw new Error(errorMsg);
+					}
+					recordAssertion(step, { passed: true, description });
+					return undefined;
+				} catch (err) {
+					if (err instanceof Error && !err.message.startsWith("Assertion failed")) {
+						recordAssertion(step, { passed: false, description, error: err.message });
+					}
+					throw err;
 				}
-				return undefined;
 			}
 
 			case "transform": {

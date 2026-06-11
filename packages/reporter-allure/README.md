@@ -93,9 +93,8 @@ const scenario = new TestScenario({
       defaultEpic: 'E-Commerce Platform',
       defaultFeature: 'API',
 
-      // Payload capture
-      includePayloads: 'both',
-      maxPayloadSize: 500,
+      // Payload capture — JSON attachments rendered by the Allure JSON viewer
+      includePayloads: 'attachments',
     }),
   ],
 });
@@ -112,19 +111,19 @@ const scenario = new TestScenario({
 | `issueUrlPattern` | `string` | - | URL pattern for issue links (use `{id}` placeholder) |
 | `defaultEpic` | `string` | - | Default epic for all tests |
 | `defaultFeature` | `string` | - | Default feature for all tests |
-| `includePayloads` | `"parameters"` \| `"attachments"` \| `"both"` | - | Include per-step request/response payloads (see below) |
-| `maxPayloadSize` | `number` | `1000` | Max characters for `"parameters"` mode (attachments are full size) |
+| `includePayloads` | `"parameters"` \| `"attachments"` \| `"both"` | - | Include per-step request/response payloads as JSON attachments. `"parameters"` is a **deprecated** alias for `"attachments"`. |
+| `maxPayloadSize` | `number` | - | **Deprecated** — no longer applied to payloads. |
 
 ### Payload Capture (`includePayloads`)
 
-Each component stamps its request/response payloads on `step.metadata` during execution. The reporter renders them per-step:
+Each component stamps its request/response payloads on `step.metadata` during execution. The reporter writes one `application/json` attachment per stamped key; the Allure 3.x JSON viewer prettifies, syntax-highlights, and folds it on click.
 
 | Mode | Effect |
 |------|--------|
-| `"parameters"` | Adds `request` / `response` parameter rows (inline, truncated to `maxPayloadSize`) |
-| `"attachments"` | Writes `step-N-request.json` / `step-N-response.json` attachment files (full content) |
-| `"both"` | Emits both |
-| (omitted) | No payload data — only the `component` parameter |
+| `"attachments"` | Writes `step-N-request.json` / `step-N-response.json` attachment files (full content). **Canonical value.** |
+| `"both"` | Alias for `"attachments"`, kept for backward compatibility. |
+| `"parameters"` | **Deprecated** alias for `"attachments"` — previously rendered payloads as flat parameter rows (which the Allure UI collapses to a single-line string with no syntax highlighting). A one-time warning is emitted at reporter construction when this value is used. |
+| (omitted) | No payload data — only the `component` parameter. |
 
 Works regardless of `TestScenario({ recording: true })`. Stamped keys per component:
 
@@ -135,6 +134,14 @@ Works regardless of `TestScenario({ recording: true })`. Stamped keys per compon
 - **`Publisher`** — `message` on `publish` / `publishBatch`
 - **`Subscriber`** — `message` on `onMessage` / `waitMessage`
 - **`DataSource`** — `request` (description or `callback.toString()`) + `response` (callback return value) on `exec`
+
+### Per-Step Duration
+
+Every step in the report carries `start` and `stop` timestamps, so the Allure UI shows a duration badge per step and renders an accurate timeline. No configuration required.
+
+### Per-Step Assertions
+
+Every `.assert(predicate)` call across the framework now records pass and fail results onto the owning step. The report renders each as a nested sub-step under the parent with its own status, the assertion description as the name, and the failure message in `statusDetails.message` on failure — so a chain of multiple `.assert()` calls on the same hook is visible per-assertion, not collapsed into a single pass/fail.
 
 ## Generating Reports
 

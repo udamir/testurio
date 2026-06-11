@@ -1,10 +1,11 @@
 /**
- * Result converter — multi-key `extractPayload` + `convertStep` (FR-9 v2).
+ * Result converter — multi-key `extractPayload` + `convertStep`.
  *
  * Asserts that when `step.metadata` carries multiple recognized keys (e.g.
  * both `request` and `response` on a Server hook step), `convertStep` emits
- * one parameter row + one JSON attachment per key under the appropriate
- * `includePayloads` mode.
+ * one JSON attachment per key under any non-undefined `includePayloads`
+ * value. After task 044 there are no payload `Parameter` rows — the Allure
+ * 3.x JSON viewer renders attachments natively.
  */
 
 import { convertStep, type FileSystemWriter } from "@testurio/reporter-allure";
@@ -24,6 +25,8 @@ const makeStep = (overrides: Partial<TestStepResult> = {}): TestStepResult => ({
 	messageType: "getUsers",
 	passed: true,
 	duration: 50,
+	startTime: 1000,
+	endTime: 1050,
 	...overrides,
 });
 
@@ -58,38 +61,8 @@ const baseOptions = { resultsDir: "/tmp/unused", maxPayloadSize: 1000 };
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("convertStep — multi-key metadata (parameters mode)", () => {
-	it("emits one parameter row per stamped key", () => {
-		const step = makeStep({
-			metadata: { request: { method: "GET" }, response: { code: 200, body: [] } },
-		});
-		const writer = makeRecordingWriter();
-
-		const result = convertStep(step, 0, { ...baseOptions, includePayloads: "parameters" }, writer);
-
-		const params: Record<string, string> = Object.fromEntries(
-			result.parameters.map((p: Parameter) => [p.name, p.value])
-		);
-		expect(params.request).toContain('"method"');
-		expect(params.response).toContain('"code"');
-		expect(result.attachments).toHaveLength(0);
-		expect(writer.captured).toHaveLength(0);
-	});
-
-	it("emits a single request parameter when only request is stamped", () => {
-		const step = makeStep({ metadata: { request: { method: "GET" } } });
-		const writer = makeRecordingWriter();
-
-		const result = convertStep(step, 0, { ...baseOptions, includePayloads: "parameters" }, writer);
-
-		const paramNames = result.parameters.map((p: Parameter) => p.name);
-		expect(paramNames).toContain("request");
-		expect(paramNames).not.toContain("response");
-	});
-});
-
 describe("convertStep — multi-key metadata (attachments mode)", () => {
-	it("emits one attachment per stamped key with key-named files", () => {
+	it("emits one JSON attachment per stamped key with key-named files", () => {
 		const step = makeStep({
 			metadata: { request: { method: "GET" }, response: { code: 200 } },
 		});
@@ -105,15 +78,26 @@ describe("convertStep — multi-key metadata (attachments mode)", () => {
 		expect(filenames.some((n) => n.endsWith("step-3-request.json"))).toBe(true);
 		expect(filenames.some((n) => n.endsWith("step-3-response.json"))).toBe(true);
 
-		// No payload parameters under attachments-only mode (component param may still appear)
+		// Payload keys never become Parameter rows — only the `component` row remains.
 		const paramNames = result.parameters.map((p: Parameter) => p.name);
 		expect(paramNames).not.toContain("request");
 		expect(paramNames).not.toContain("response");
+		expect(paramNames).toEqual(["component"]);
+	});
+
+	it("emits a single attachment when only request is stamped", () => {
+		const step = makeStep({ metadata: { request: { method: "GET" } } });
+		const writer = makeRecordingWriter();
+
+		const result = convertStep(step, 0, { ...baseOptions, includePayloads: "attachments" }, writer);
+
+		expect(result.attachments).toHaveLength(1);
+		expect(result.attachments[0]?.name).toBe("request");
 	});
 });
 
 describe("convertStep — multi-key metadata (both mode)", () => {
-	it("emits parameters AND attachments for each stamped key", () => {
+	it("emits attachments only (no payload Parameter rows)", () => {
 		const step = makeStep({
 			metadata: { request: { method: "GET" }, response: { code: 200 } },
 		});
@@ -122,36 +106,52 @@ describe("convertStep — multi-key metadata (both mode)", () => {
 		const result = convertStep(step, 0, { ...baseOptions, includePayloads: "both" }, writer);
 
 		const paramNames = result.parameters.map((p: Parameter) => p.name);
-		expect(paramNames).toContain("request");
-		expect(paramNames).toContain("response");
+		expect(paramNames).not.toContain("request");
+		expect(paramNames).not.toContain("response");
 		expect(result.attachments).toHaveLength(2);
 		expect(writer.captured).toHaveLength(2);
 	});
 });
 
+describe("convertStep — multi-key metadata (parameters mode, deprecated alias)", () => {
+	it("aliases to attachments — same attachment output as the canonical mode", () => {
+		const step = makeStep({
+			metadata: { request: { method: "GET" }, response: { code: 200 } },
+		});
+		const writer = makeRecordingWriter();
+
+		const result = convertStep(step, 0, { ...baseOptions, includePayloads: "parameters" }, writer);
+
+		expect(result.attachments).toHaveLength(2);
+		expect(writer.captured).toHaveLength(2);
+		const paramNames = result.parameters.map((p: Parameter) => p.name);
+		expect(paramNames).not.toContain("request");
+	});
+});
+
 describe("convertStep — string payload (e.g. DataSource request)", () => {
-	it("emits string metadata verbatim as a parameter (not JSON-quoted)", () => {
+	it("writes the string verbatim into the JSON attachment", () => {
 		const step = makeStep({
 			metadata: { request: 'async (c) => c.query("SELECT * FROM users")', response: [{ id: 1 }] },
 		});
 		const writer = makeRecordingWriter();
 
-		const result = convertStep(step, 0, { ...baseOptions, includePayloads: "both" }, writer);
+		convertStep(step, 0, { ...baseOptions, includePayloads: "attachments" }, writer);
 
-		const requestParam = result.parameters.find((p: Parameter) => p.name === "request");
-		expect(requestParam?.value).toBe('async (c) => c.query("SELECT * FROM users")');
-		// Response is an array → JSON.stringify
-		const responseParam = result.parameters.find((p: Parameter) => p.name === "response");
-		expect(responseParam?.value).toContain('"id"');
+		const captured = Object.fromEntries(writer.captured.map((c) => [c.filename.split("-").slice(1).join("-"), c]));
+		expect(captured["step-0-request.json"]?.content.toString("utf-8")).toBe(
+			'async (c) => c.query("SELECT * FROM users")'
+		);
+		expect(captured["step-0-response.json"]?.content.toString("utf-8")).toContain('"id"');
 	});
 });
 
 describe("convertStep — no recognized keys", () => {
-	it("emits no payload parameters or attachments when metadata has only unknown keys", () => {
+	it("emits no payload attachments when metadata has only unknown keys", () => {
 		const step = makeStep({ metadata: { custom: "anything" } });
 		const writer = makeRecordingWriter();
 
-		const result = convertStep(step, 0, { ...baseOptions, includePayloads: "both" }, writer);
+		const result = convertStep(step, 0, { ...baseOptions, includePayloads: "attachments" }, writer);
 
 		const paramNames = result.parameters.map((p: Parameter) => p.name);
 		expect(paramNames).not.toContain("custom");

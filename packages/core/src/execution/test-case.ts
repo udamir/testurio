@@ -8,7 +8,7 @@
 import type { Step } from "../components/base/step.types";
 import { generateId } from "../utils";
 import type { Severity, TestCaseMetadata, TestCaseResult, TestStepResult } from "./execution.types";
-import { executeSteps, summarizeStepResults } from "./step-executor";
+import { executeSteps, splitMetadataAssertions, summarizeStepResults } from "./step-executor";
 import type { TestCaseBuilder } from "./test-case-builder";
 
 /**
@@ -266,10 +266,13 @@ export class TestCase {
 			};
 			passed: boolean;
 			duration: number;
+			startTime: number;
+			endTime: number;
 			error?: Error;
 		},
 		index: number
 	): TestStepResult {
+		const { metadata, assertions } = splitMetadataAssertions(result.step.metadata);
 		return {
 			stepNumber: index + 1,
 			type: result.step.type,
@@ -278,9 +281,12 @@ export class TestCase {
 			messageType: result.step.messageType,
 			passed: result.passed,
 			duration: result.duration,
+			startTime: result.startTime,
+			endTime: result.endTime,
 			error: result.error?.message,
 			stackTrace: result.error?.stack,
-			metadata: result.step.metadata,
+			metadata,
+			assertions,
 		};
 	}
 }
