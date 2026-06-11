@@ -38,8 +38,8 @@ export class DataSourceHookBuilder<T = unknown> extends BaseHookBuilder {
 	 * .assert("user should exist in cache", (val) => val !== null)
 	 */
 	assert(
-		descriptionOrPredicate: string | ((result: T) => boolean | void | Promise<boolean | void>),
-		predicate?: (result: T) => boolean | void | Promise<boolean | void>
+		descriptionOrPredicate: string | ((result: T) => boolean | undefined | Promise<boolean | undefined>),
+		predicate?: (result: T) => boolean | undefined | Promise<boolean | undefined>
 	): this {
 		const [description, fn] =
 			typeof descriptionOrPredicate === "string"

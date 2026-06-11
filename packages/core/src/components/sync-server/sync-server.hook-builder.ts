@@ -29,8 +29,8 @@ export class SyncServerHookBuilder<TPayload = unknown, TResponse = unknown> exte
 	 * @returns this for chaining
 	 */
 	assert(
-		descriptionOrPredicate: string | ((payload: TPayload) => boolean | void | Promise<boolean | void>),
-		predicate?: (payload: TPayload) => boolean | void | Promise<boolean | void>
+		descriptionOrPredicate: string | ((payload: TPayload) => boolean | undefined | Promise<boolean | undefined>),
+		predicate?: (payload: TPayload) => boolean | undefined | Promise<boolean | undefined>
 	): this {
 		const [description, fn] =
 			typeof descriptionOrPredicate === "string"
