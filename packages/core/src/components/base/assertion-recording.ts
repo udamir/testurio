@@ -21,7 +21,7 @@ import type { Step } from "./step.types";
  * array lazily and preserving any pre-existing metadata keys.
  */
 export function recordAssertion(step: Step, result: AssertionResult): void {
-	step.metadata = step.metadata ?? {}
+	step.metadata = step.metadata ? step.metadata : {};
 	const existing = step.metadata.assertions;
 	if (Array.isArray(existing)) {
 		(existing as AssertionResult[]).push(result);
